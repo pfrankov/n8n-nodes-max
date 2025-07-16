@@ -51,7 +51,8 @@ describe('MaxTrigger', () => {
 			expect((eventsProperty as any).default).toEqual(['message_created']);
 			
 			const actualEvents = (eventsProperty as any).options.map((opt: any) => opt.value);
-			expect(actualEvents).toEqual([...MAX_TRIGGER_EVENTS]);
+			// Compare sorted arrays since UI options are alphabetized by name but constants are in original order
+			expect(actualEvents.sort()).toEqual([...MAX_TRIGGER_EVENTS].sort());
 		});
 
 		it('should have additional fields for filtering', () => {

@@ -9,6 +9,7 @@ describe('MaxTriggerConfig', () => {
 				'bot_started',
 				'chat_title_changed',
 				'message_callback',
+				'message_chat_created',
 				'message_created',
 				'message_edited',
 				'message_removed',
@@ -22,7 +23,7 @@ describe('MaxTriggerConfig', () => {
 		it('should be readonly array', () => {
 			// TypeScript should prevent modification, but we can test the array is frozen
 			expect(Object.isFrozen(MAX_TRIGGER_EVENTS)).toBe(false); // const arrays aren't frozen by default
-			expect(MAX_TRIGGER_EVENTS.length).toBe(10);
+			expect(MAX_TRIGGER_EVENTS.length).toBe(11);
 		});
 	});
 
@@ -41,7 +42,7 @@ describe('MaxTriggerConfig', () => {
 			const eventsProperty = MAX_TRIGGER_PROPERTIES.find(prop => prop.name === 'events');
 			const options = (eventsProperty as any).options;
 
-			expect(options).toHaveLength(10);
+			expect(options).toHaveLength(11);
 
 			// Check each option has required fields
 			options.forEach((option: any) => {
@@ -56,16 +57,16 @@ describe('MaxTriggerConfig', () => {
 			// Check specific options
 			const messageCreatedOption = options.find((opt: any) => opt.value === 'message_created');
 			expect(messageCreatedOption).toEqual({
-				name: 'Message Created',
+				name: 'Message Received (Direct)',
 				value: 'message_created',
-				description: 'Trigger when a new message is received',
+				description: 'Trigger when a new message is received in direct conversation (update_type: message_created)',
 			});
 
 			const botStartedOption = options.find((opt: any) => opt.value === 'bot_started');
 			expect(botStartedOption).toEqual({
 				name: 'Bot Started',
 				value: 'bot_started',
-				description: 'Trigger when a user starts interaction with the bot',
+				description: 'Trigger when a user starts interaction with the bot (update_type: bot_started)',
 			});
 		});
 

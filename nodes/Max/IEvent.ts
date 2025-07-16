@@ -79,10 +79,10 @@ export interface IMaxCallback {
 export interface IMaxEvent {
 	update_type: 'bot_started' | 'message_created' | 'message_edited' | 'message_removed' | 
 	           'bot_added' | 'bot_removed' | 'user_added' | 'user_removed' | 
-	           'chat_title_changed' | 'message_callback';
+	           'chat_title_changed' | 'message_callback' | 'message_chat_created';
 	event_type?: 'bot_started' | 'message_created' | 'message_edited' | 'message_removed' | 
 	           'bot_added' | 'bot_removed' | 'user_added' | 'user_removed' | 
-	           'chat_title_changed' | 'message_callback'; // For backward compatibility
+	           'chat_title_changed' | 'message_callback' | 'message_chat_created'; // For backward compatibility
 	timestamp: number;
 	chat?: IMaxChat;
 	user?: IMaxUser;
@@ -90,4 +90,29 @@ export interface IMaxEvent {
 	callback?: IMaxCallback;
 	event_id?: string;
 	user_locale?: string; // As per Max API documentation
+	
+	// Event-specific data for enhanced event processing
+	old_message?: IMaxMessage; // For message_edited events - original message content
+	new_message?: IMaxMessage; // For message_edited events - updated message content
+	deletion_context?: {
+		deleted_by?: IMaxUser;
+		deletion_reason?: string;
+		deleted_at?: number;
+	}; // For message_removed events
+	
+	chat_changes?: {
+		old_title?: string;
+		new_title?: string;
+		changed_by?: IMaxUser;
+		changed_at?: number;
+	}; // For chat_title_changed events
+	
+	membership_context?: {
+		added_by?: IMaxUser;
+		removed_by?: IMaxUser;
+		user_role?: string;
+		action_timestamp?: number;
+	}; // For user_added/user_removed and bot_added/bot_removed events
+	
+
 }

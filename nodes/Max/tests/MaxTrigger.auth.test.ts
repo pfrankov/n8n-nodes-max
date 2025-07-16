@@ -61,16 +61,17 @@ describe('MaxTrigger Authentication', () => {
 			
 			const supportedEvents = (eventsProperty as any).options.map((opt: any) => opt.value);
 			
-			// Verify all expected Max messenger event types are supported
+			// Verify all expected Max messenger event types are supported (alphabetized by display name)
 			const expectedEvents = [
 				'bot_added',
 				'bot_removed',
 				'bot_started',
-				'chat_title_changed',
 				'message_callback',
-				'message_created',
-				'message_edited',
+				'chat_title_changed',
 				'message_removed',
+				'message_edited',
+				'message_chat_created',
+				'message_created',
 				'user_added',
 				'user_removed',
 			];

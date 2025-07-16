@@ -56,12 +56,8 @@ export class MaxEventProcessor {
 
 			console.log('Max Trigger - Event passed filters, triggering workflow');
 
-			// Normalize and return event data
-			const normalizedData = {
-				...bodyData,
-				event_type: eventType,
-				update_type: eventType,
-			};
+			// Process event-specific data and normalize
+			const normalizedData = processor.processEventSpecificData(bodyData, eventType);
 			
 			return {
 				workflowData: [this.helpers.returnJsonArray([normalizedData as unknown as IDataObject])],
@@ -179,5 +175,183 @@ export class MaxEventProcessor {
 		return isAllowed;
 	}
 
+	/**
+	 * Process event-specific data based on event type
+	 * 
+	 * Extracts and normalizes event-specific data for different Max messenger event types,
+	 * providing enhanced context and metadata for each event type.
+	 * 
+	 * @param bodyData - Raw webhook event data from Max API
+	 * @param eventType - The type of event being processed
+	 * @returns Normalized event data with event-specific enhancements
+	 */
+	public processEventSpecificData(bodyData: MaxWebhookEvent, eventType: string): IDataObject {
+		const baseData = {
+			...bodyData,
+			event_type: eventType,
+			update_type: eventType,
+		};
 
+		switch (eventType) {
+			case 'message_edited':
+				return this.processMessageEditedEvent(baseData);
+			
+			case 'message_removed':
+				return this.processMessageRemovedEvent(baseData);
+			
+			case 'bot_added':
+			case 'bot_removed':
+				return this.processBotMembershipEvent(baseData, eventType);
+			
+			case 'user_added':
+			case 'user_removed':
+				return this.processUserMembershipEvent(baseData, eventType);
+			
+			case 'chat_title_changed':
+				return this.processChatTitleChangedEvent(baseData);
+			
+			case 'message_created':
+			case 'message_chat_created':
+			case 'message_callback':
+			case 'bot_started':
+			default:
+				// For basic events, return normalized data without additional processing
+				return baseData;
+		}
+	}
+
+	/**
+	 * Process message_edited events with old/new content comparison
+	 */
+	private processMessageEditedEvent(baseData: IDataObject): IDataObject {
+		const data = baseData as MaxWebhookEvent;
+		
+		return {
+			...baseData,
+			event_context: {
+				type: 'message_edited',
+				description: 'Message content was modified',
+				old_content: data.old_message?.text || null,
+				new_content: data.new_message?.text || data.message?.text || null,
+				edited_at: data.new_message?.timestamp || data.timestamp,
+				message_id: data.message?.message_id || data.message?.id,
+				has_content_changes: (data.old_message?.text || '') !== (data.new_message?.text || data.message?.text || ''),
+				has_attachment_changes: this.compareAttachments(data.old_message?.attachments, data.new_message?.attachments || data.message?.attachments),
+			},
+			old_message: data.old_message,
+			new_message: data.new_message || data.message,
+		};
+	}
+
+	/**
+	 * Process message_removed events with deletion context
+	 */
+	private processMessageRemovedEvent(baseData: IDataObject): IDataObject {
+		const data = baseData as MaxWebhookEvent;
+		
+		return {
+			...baseData,
+			event_context: {
+				type: 'message_removed',
+				description: 'Message was deleted from chat',
+				deleted_message_id: data.message?.message_id || data.message?.id,
+				deleted_by: data.deletion_context?.deleted_by || null,
+				deletion_reason: data.deletion_context?.deletion_reason || 'unknown',
+				deleted_at: data.deletion_context?.deleted_at || data.timestamp,
+				original_content: data.message?.text || null,
+			},
+			deletion_context: data.deletion_context,
+		};
+	}
+
+	/**
+	 * Process bot_added/bot_removed events with chat and user context
+	 */
+	private processBotMembershipEvent(baseData: IDataObject, eventType: string): IDataObject {
+		const data = baseData as MaxWebhookEvent;
+		const isAdded = eventType === 'bot_added';
+		
+		return {
+			...baseData,
+			event_context: {
+				type: eventType,
+				description: isAdded ? 'Bot was added to chat' : 'Bot was removed from chat',
+				action_by: data.membership_context?.added_by || data.membership_context?.removed_by || data.user,
+				chat_info: {
+					chat_id: data.chat?.chat_id || data.chat?.id,
+					chat_type: data.chat?.type,
+					chat_title: data.chat?.title,
+					members_count: data.chat?.members_count,
+				},
+				action_timestamp: data.membership_context?.action_timestamp || data.timestamp,
+			},
+			membership_context: data.membership_context,
+		};
+	}
+
+	/**
+	 * Process user_added/user_removed events with user details and roles
+	 */
+	private processUserMembershipEvent(baseData: IDataObject, eventType: string): IDataObject {
+		const data = baseData as MaxWebhookEvent;
+		const isAdded = eventType === 'user_added';
+		
+		return {
+			...baseData,
+			event_context: {
+				type: eventType,
+				description: isAdded ? 'User joined the chat' : 'User left the chat',
+				affected_user: data.user,
+				action_by: data.membership_context?.added_by || data.membership_context?.removed_by,
+				user_role: data.membership_context?.user_role || 'member',
+				chat_info: {
+					chat_id: data.chat?.chat_id || data.chat?.id,
+					chat_type: data.chat?.type,
+					chat_title: data.chat?.title,
+					members_count: data.chat?.members_count,
+				},
+				action_timestamp: data.membership_context?.action_timestamp || data.timestamp,
+			},
+			membership_context: data.membership_context,
+		};
+	}
+
+	/**
+	 * Process chat_title_changed events with old/new titles
+	 */
+	private processChatTitleChangedEvent(baseData: IDataObject): IDataObject {
+		const data = baseData as MaxWebhookEvent;
+		
+		return {
+			...baseData,
+			event_context: {
+				type: 'chat_title_changed',
+				description: 'Chat title was modified',
+				old_title: data.chat_changes?.old_title || null,
+				new_title: data.chat_changes?.new_title || data.chat?.title || null,
+				changed_by: data.chat_changes?.changed_by || data.user,
+				changed_at: data.chat_changes?.changed_at || data.timestamp,
+				chat_info: {
+					chat_id: data.chat?.chat_id || data.chat?.id,
+					chat_type: data.chat?.type,
+					members_count: data.chat?.members_count,
+				},
+			},
+			chat_changes: data.chat_changes,
+		};
+	}
+
+
+
+	/**
+	 * Compare attachments between old and new messages
+	 */
+	private compareAttachments(oldAttachments?: Array<{type: string; payload: any}>, newAttachments?: Array<{type: string; payload: any}>): boolean {
+		if (!oldAttachments && !newAttachments) return false;
+		if (!oldAttachments || !newAttachments) return true;
+		if (oldAttachments.length !== newAttachments.length) return true;
+		
+		// Simple comparison - in a real implementation, you might want more sophisticated comparison
+		return JSON.stringify(oldAttachments) !== JSON.stringify(newAttachments);
+	}
 }
