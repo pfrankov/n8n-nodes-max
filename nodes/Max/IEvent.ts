@@ -10,11 +10,17 @@
  * 
  * Represents user data received in Max messenger webhook events,
  * containing user identification and profile information.
+ * Based on official Max API documentation.
  */
 export interface IMaxUser {
 	user_id: number;
-	name?: string;
+	first_name?: string;
+	last_name?: string;
+	name?: string; // Deprecated field, will be removed soon
 	username?: string;
+	is_bot?: boolean;
+	last_activity_time?: number;
+	// Legacy fields for backward compatibility
 	avatar_url?: string;
 	lang?: string;
 }
@@ -24,14 +30,41 @@ export interface IMaxUser {
  * 
  * Represents chat/group data received in Max messenger webhook events,
  * containing chat identification, type, and metadata information.
+ * Based on official Max API documentation.
  */
 export interface IMaxChat {
 	chat_id: number;
-	type: 'dialog' | 'group' | 'channel';
+	type: 'chat' | 'dialog' | 'group'; // 'chat' is official, others for backward compatibility
+	status?: 'active' | 'removed' | 'left' | 'closed';
 	title?: string;
+	icon?: {
+		url?: string;
+	};
+	last_event_time?: number;
+	participants_count?: number;
+	owner_id?: number;
+	participants?: any;
+	is_public?: boolean;
+	link?: string;
 	description?: string;
-	avatar_url?: string;
+	dialog_with_user?: {
+		user_id: number;
+		first_name?: string;
+		last_name?: string;
+		name?: string;
+		username?: string;
+		is_bot?: boolean;
+		last_activity_time?: number;
+		description?: string;
+		avatar_url?: string;
+		full_avatar_url?: string;
+	};
+	messages_count?: number;
+	chat_message_id?: string;
+	pinned_message?: IMaxMessage;
+	// Legacy fields for backward compatibility
 	members_count?: number;
+	avatar_url?: string;
 }
 
 /**
@@ -39,21 +72,74 @@ export interface IMaxChat {
  * 
  * Represents message data received in Max messenger webhook events,
  * containing message content, attachments, and formatting information.
+ * Based on official Max API documentation structure.
  */
 export interface IMaxMessage {
-	message_id: string;
-	text?: string;
-	timestamp: number;
-	attachments?: Array<{
-		type: string;
-		payload: any;
-	}>;
-	link?: {
-		message_id: string;
+	sender?: {
+		user_id: number;
+		first_name?: string;
+		last_name?: string;
+		name?: string;
+		username?: string;
+		is_bot?: boolean;
+		last_activity_time?: number;
+	};
+	recipient?: {
 		chat_id?: number;
+		chat_type?: string;
 		user_id?: number;
 	};
+	timestamp: number;
+	link?: {
+		type?: string;
+		sender?: {
+			user_id: number;
+			first_name?: string;
+			last_name?: string;
+			name?: string;
+			username?: string;
+			is_bot?: boolean;
+			last_activity_time?: number;
+		};
+		chat_id?: number;
+		message?: {
+			mid: string;
+			seq?: number;
+			text?: string;
+			attachments?: Array<{
+				type: string;
+				payload: any;
+			}>;
+			markup?: Array<{
+				type: string;
+				from: number;
+				length: number;
+			}>;
+		};
+	};
+	body?: {
+		mid: string;
+		seq?: number;
+		text?: string;
+		attachments?: Array<{
+			type: string;
+			payload: any;
+		}>;
+		markup?: Array<{
+			type: string;
+			from: number;
+			length: number;
+		}>;
+	};
+	stat?: {
+		views?: number;
+	};
+	url?: string;
+	// Legacy fields for backward compatibility
+	message_id?: string;
+	text?: string;
 	format?: 'html' | 'markdown';
+	attachments?: any[];
 }
 
 /**
@@ -67,6 +153,8 @@ export interface IMaxCallback {
 	payload: string;
 	message?: IMaxMessage;
 	timestamp: number;
+	// Legacy fields for backward compatibility
+	id?: string;
 }
 
 /**

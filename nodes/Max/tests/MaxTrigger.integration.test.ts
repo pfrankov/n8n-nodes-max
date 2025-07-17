@@ -69,12 +69,20 @@ describe('MaxTrigger Integration', () => {
 
 			const result = await maxTrigger.webhook.call(mockWebhookFunctions as IWebhookFunctions);
 
-			expect(result).toEqual({
-				workflowData: [[{
-					...eventData,
-					event_type: eventData.update_type, // Normalized data includes both fields
-				}]],
-			});
+			expect(result.workflowData).toHaveLength(1);
+			expect(result.workflowData?.[0]).toHaveLength(1);
+			
+			const processedEvent = result.workflowData?.[0]?.[0] as any;
+			expect(processedEvent.event_type).toBe('message_created');
+			expect(processedEvent.update_type).toBe('message_created');
+			expect(processedEvent.timestamp).toBe(eventData.timestamp);
+			expect(processedEvent.event_id).toBeDefined();
+			expect(processedEvent.event_context.type).toBe('message_created');
+			expect(processedEvent.event_context.description).toBe('New message received in direct conversation');
+			expect(processedEvent.validation_status.is_valid).toBe(true);
+			expect(processedEvent.metadata).toBeDefined();
+			expect(processedEvent.metadata.user_context?.user_id).toBe(eventData.user?.user_id);
+			expect(processedEvent.metadata.chat_context?.chat_id).toBe(eventData.chat?.chat_id);
 		});
 
 		it('should process bot_started event', async () => {
@@ -94,12 +102,19 @@ describe('MaxTrigger Integration', () => {
 
 			const result = await maxTrigger.webhook.call(mockWebhookFunctions as IWebhookFunctions);
 
-			expect(result).toEqual({
-				workflowData: [[{
-					...eventData,
-					event_type: eventData.update_type, // Normalized data includes both fields
-				}]],
-			});
+			expect(result.workflowData).toHaveLength(1);
+			expect(result.workflowData?.[0]).toHaveLength(1);
+			
+			const processedEvent = result.workflowData?.[0]?.[0] as any;
+			expect(processedEvent.event_type).toBe('bot_started');
+			expect(processedEvent.update_type).toBe('bot_started');
+			expect(processedEvent.timestamp).toBe(eventData.timestamp);
+			expect(processedEvent.event_id).toBeDefined();
+			expect(processedEvent.event_context.type).toBe('bot_started');
+			expect(processedEvent.event_context.description).toBe('User started interaction with the bot');
+			expect(processedEvent.validation_status.is_valid).toBe(true);
+			expect(processedEvent.metadata).toBeDefined();
+			expect(processedEvent.metadata.user_context?.user_id).toBe(eventData.user?.user_id);
 		});
 
 		it('should process message_callback event with button interaction', async () => {
@@ -157,12 +172,20 @@ describe('MaxTrigger Integration', () => {
 
 			const result = await maxTrigger.webhook.call(mockWebhookFunctions as IWebhookFunctions);
 
-			expect(result).toEqual({
-				workflowData: [[{
-					...eventData,
-					event_type: eventData.update_type, // Normalized data includes both fields
-				}]],
-			});
+			expect(result.workflowData).toHaveLength(1);
+			expect(result.workflowData?.[0]).toHaveLength(1);
+			
+			const processedEvent = result.workflowData?.[0]?.[0] as any;
+			expect(processedEvent.event_type).toBe('message_callback');
+			expect(processedEvent.update_type).toBe('message_callback');
+			expect(processedEvent.timestamp).toBe(eventData.timestamp);
+			expect(processedEvent.event_id).toBeDefined();
+			expect(processedEvent.event_context.type).toBe('message_callback');
+			expect(processedEvent.event_context.description).toBe('User clicked an inline keyboard button');
+			expect(processedEvent.validation_status.is_valid).toBe(true);
+			expect(processedEvent.metadata).toBeDefined();
+			expect(processedEvent.metadata.user_context?.user_id).toBe(eventData.user?.user_id);
+			expect(processedEvent.metadata.chat_context?.chat_id).toBe(eventData.chat?.chat_id);
 		});
 
 		it('should filter events by chat ID', async () => {
@@ -204,12 +227,17 @@ describe('MaxTrigger Integration', () => {
 			// Test allowed event
 			(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(allowedEventData);
 			let result = await maxTrigger.webhook.call(mockWebhookFunctions as IWebhookFunctions);
-			expect(result).toEqual({
-				workflowData: [[{
-					...allowedEventData,
-					event_type: allowedEventData.update_type, // Normalized data includes both fields
-				}]],
-			});
+			
+			expect(result.workflowData).toHaveLength(1);
+			expect(result.workflowData?.[0]).toHaveLength(1);
+			
+			const processedEvent = result.workflowData?.[0]?.[0] as any;
+			expect(processedEvent.event_type).toBe('message_created');
+			expect(processedEvent.update_type).toBe('message_created');
+			expect(processedEvent.timestamp).toBe(allowedEventData.timestamp);
+			expect(processedEvent.event_id).toBeDefined();
+			expect(processedEvent.validation_status.is_valid).toBe(true);
+			expect(processedEvent.metadata).toBeDefined();
 
 			// Test blocked event
 			(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(blockedEventData);
@@ -248,12 +276,17 @@ describe('MaxTrigger Integration', () => {
 			// Test allowed event
 			(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(allowedEventData);
 			let result = await maxTrigger.webhook.call(mockWebhookFunctions as IWebhookFunctions);
-			expect(result).toEqual({
-				workflowData: [[{
-					...allowedEventData,
-					event_type: allowedEventData.update_type, // Normalized data includes both fields
-				}]],
-			});
+			
+			expect(result.workflowData).toHaveLength(1);
+			expect(result.workflowData?.[0]).toHaveLength(1);
+			
+			const processedEvent = result.workflowData?.[0]?.[0] as any;
+			expect(processedEvent.event_type).toBe('bot_started');
+			expect(processedEvent.update_type).toBe('bot_started');
+			expect(processedEvent.timestamp).toBe(allowedEventData.timestamp);
+			expect(processedEvent.event_id).toBeDefined();
+			expect(processedEvent.validation_status.is_valid).toBe(true);
+			expect(processedEvent.metadata).toBeDefined();
 
 			// Test blocked event
 			(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(blockedEventData);
@@ -325,12 +358,17 @@ describe('MaxTrigger Integration', () => {
 
 			(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(eventData);
 			const result = await maxTrigger.webhook.call(mockWebhookFunctions as IWebhookFunctions);
-			expect(result).toEqual({
-				workflowData: [[{
-					...eventData,
-					event_type: eventData.update_type, // Normalized data includes both fields
-				}]],
-			});
+			
+			expect(result.workflowData).toHaveLength(1);
+			expect(result.workflowData?.[0]).toHaveLength(1);
+			
+			const processedEvent = result.workflowData?.[0]?.[0] as any;
+			expect(processedEvent.event_type).toBe('message_created');
+			expect(processedEvent.update_type).toBe('message_created');
+			expect(processedEvent.timestamp).toBe(eventData.timestamp);
+			expect(processedEvent.event_id).toBeDefined();
+			expect(processedEvent.validation_status.is_valid).toBe(true);
+			expect(processedEvent.metadata).toBeDefined();
 		});
 	});
 });

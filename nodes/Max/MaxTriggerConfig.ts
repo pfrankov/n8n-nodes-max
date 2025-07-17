@@ -2,6 +2,7 @@ import type { INodeProperties } from 'n8n-workflow';
 
 /**
  * Supported Max messenger event types
+ * Based on official Max API documentation
  */
 export const MAX_TRIGGER_EVENTS = [
 	'bot_added',
@@ -146,35 +147,85 @@ export interface MaxWebhookEvent {
 		members_count?: number;
 	};
 	user?: {
-		id?: number;
 		user_id?: number;
 		first_name?: string;
 		last_name?: string;
+		name?: string; // Deprecated field, will be removed soon
 		username?: string;
-		name?: string;
+		is_bot?: boolean;
+		last_activity_time?: number;
+		// Legacy support for existing implementations
+		id?: number;
 		avatar_url?: string;
 		lang?: string;
 	};
 	message?: {
+		sender?: {
+			user_id?: number;
+			first_name?: string;
+			last_name?: string;
+			name?: string;
+			username?: string;
+			is_bot?: boolean;
+			last_activity_time?: number;
+		};
+		recipient?: {
+			chat_id?: number;
+			chat_type?: string;
+			user_id?: number;
+		};
+		timestamp?: number;
+		link?: {
+			type?: string;
+			sender?: {
+				user_id?: number;
+				first_name?: string;
+				last_name?: string;
+				name?: string;
+				username?: string;
+				is_bot?: boolean;
+				last_activity_time?: number;
+			};
+			chat_id?: number;
+			message?: {
+				mid?: string;
+				seq?: number;
+				text?: string;
+				attachments?: Array<{
+					type: string;
+					payload: any;
+				}>;
+				markup?: Array<{
+					type: string;
+					from: number;
+					length: number;
+				}>;
+			};
+		};
+		body?: {
+			mid?: string;
+			seq?: number;
+			text?: string;
+			attachments?: Array<{
+				type: string;
+				payload: any;
+			}>;
+			markup?: Array<{
+				type: string;
+				from: number;
+				length: number;
+			}>;
+		};
+		stat?: {
+			views?: number;
+		};
+		url?: string;
+		// Legacy support for existing implementations
 		id?: number;
 		message_id?: string;
 		text?: string;
-		timestamp?: number;
 		chat?: any;
 		from?: any;
-		body?: {
-			text?: string;
-			mid?: string;
-		};
-		attachments?: Array<{
-			type: string;
-			payload: any;
-		}>;
-		link?: {
-			message_id: string;
-			chat_id?: number;
-			user_id?: number;
-		};
 		format?: 'html' | 'markdown';
 	};
 	callback?: {

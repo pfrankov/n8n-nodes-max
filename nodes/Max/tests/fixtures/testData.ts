@@ -2,6 +2,8 @@
  * Test data fixtures for Max messenger node tests
  */
 
+import type { IDataObject } from 'n8n-workflow';
+
 export const TEST_CREDENTIALS = {
 	accessToken: 'test-bot-token-12345',
 	baseUrl: 'https://botapi.max.ru'
@@ -185,53 +187,327 @@ export const SAMPLE_API_ERRORS = {
 
 export const SAMPLE_WEBHOOK_EVENTS = {
 	messageCreated: {
-		event_type: 'message_created',
+		update_type: 'message_created',
+		timestamp: Date.now(),
+		message: {
+			sender: {
+				user_id: parseInt(TEST_USER_ID),
+				first_name: 'Test',
+				last_name: 'User',
+				username: 'testuser',
+				is_bot: false,
+				last_activity_time: Date.now()
+			},
+			recipient: {
+				chat_id: parseInt(TEST_CHAT_ID),
+				chat_type: 'chat'
+			},
+			timestamp: Date.now(),
+			body: {
+				mid: TEST_MESSAGE_ID,
+				seq: 1,
+				text: SAMPLE_MESSAGES.simple
+			},
+			stat: {
+				views: 0
+			},
+			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`
+		},
+		user_locale: 'en'
+	},
+	messageChatCreated: {
+		update_type: 'message_chat_created',
+		timestamp: Date.now(),
+		message: {
+			sender: {
+				user_id: parseInt(TEST_USER_ID),
+				first_name: 'Test',
+				last_name: 'User',
+				username: 'testuser',
+				is_bot: false,
+				last_activity_time: Date.now()
+			},
+			recipient: {
+				chat_id: parseInt(TEST_CHAT_ID),
+				chat_type: 'chat'
+			},
+			timestamp: Date.now(),
+			body: {
+				mid: TEST_MESSAGE_ID,
+				seq: 1,
+				text: SAMPLE_MESSAGES.simple
+			},
+			stat: {
+				views: 0
+			},
+			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`
+		},
+		user_locale: 'en'
+	},
+	messageEdited: {
+		update_type: 'message_edited',
+		timestamp: Date.now(),
+		message: {
+			sender: {
+				user_id: parseInt(TEST_USER_ID),
+				first_name: 'Test',
+				last_name: 'User',
+				username: 'testuser',
+				is_bot: false,
+				last_activity_time: Date.now()
+			},
+			recipient: {
+				chat_id: parseInt(TEST_CHAT_ID),
+				chat_type: 'chat'
+			},
+			timestamp: Date.now(),
+			body: {
+				mid: TEST_MESSAGE_ID,
+				seq: 1,
+				text: 'Updated message text'
+			},
+			stat: {
+				views: 0
+			},
+			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`
+		},
+		old_message: {
+			mid: TEST_MESSAGE_ID,
+			seq: 1,
+			text: 'Original message text',
+			attachments: [],
+			markup: []
+		},
+		new_message: {
+			mid: TEST_MESSAGE_ID,
+			seq: 1,
+			text: 'Updated message text',
+			attachments: [],
+			markup: []
+		},
+		user_locale: 'en'
+	},
+	messageRemoved: {
+		update_type: 'message_removed',
+		timestamp: Date.now(),
+		message: {
+			sender: {
+				user_id: parseInt(TEST_USER_ID),
+				first_name: 'Test',
+				last_name: 'User',
+				username: 'testuser',
+				is_bot: false,
+				last_activity_time: Date.now()
+			},
+			recipient: {
+				chat_id: parseInt(TEST_CHAT_ID),
+				chat_type: 'chat'
+			},
+			timestamp: Date.now(),
+			body: {
+				mid: TEST_MESSAGE_ID,
+				seq: 1,
+				text: 'This message was deleted'
+			},
+			stat: {
+				views: 0
+			},
+			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`
+		},
+		deletion_context: {
+			deleted_by: {
+				user_id: 789,
+				name: 'Admin User',
+				username: 'admin'
+			},
+			deletion_reason: 'inappropriate_content',
+			deleted_at: Date.now()
+		},
+		user_locale: 'en'
+	},
+	botStarted: {
+		update_type: 'bot_started',
+		timestamp: Date.now(),
+		user: {
+			user_id: parseInt(TEST_USER_ID),
+			first_name: 'Test',
+			last_name: 'User',
+			username: 'testuser',
+			is_bot: false,
+			last_activity_time: Date.now()
+		}
+	},
+	botAdded: {
+		update_type: 'bot_added',
 		timestamp: Date.now(),
 		chat: {
 			chat_id: parseInt(TEST_CHAT_ID),
-			title: 'Test Chat',
-			type: 'group'
+			type: 'chat',
+			title: 'Test Group Chat',
+			description: 'A test group chat',
+			members_count: 5
 		},
 		user: {
 			user_id: parseInt(TEST_USER_ID),
 			first_name: 'Test',
 			last_name: 'User',
-			username: 'testuser'
+			username: 'testuser',
+			is_bot: false,
+			last_activity_time: Date.now()
 		},
-		message: {
-			message_id: TEST_MESSAGE_ID,
-			text: SAMPLE_MESSAGES.simple,
-			timestamp: Date.now()
+		membership_context: {
+			added_by: {
+				user_id: parseInt(TEST_USER_ID),
+				name: 'Test User',
+				username: 'testuser'
+			},
+			action_timestamp: Date.now()
 		}
 	},
-	botStarted: {
-		event_type: 'bot_started',
+	botRemoved: {
+		update_type: 'bot_removed',
 		timestamp: Date.now(),
+		chat: {
+			chat_id: parseInt(TEST_CHAT_ID),
+			type: 'chat',
+			title: 'Test Group Chat',
+			description: 'A test group chat',
+			members_count: 4
+		},
 		user: {
 			user_id: parseInt(TEST_USER_ID),
 			first_name: 'Test',
 			last_name: 'User',
-			username: 'testuser'
+			username: 'testuser',
+			is_bot: false,
+			last_activity_time: Date.now()
+		},
+		membership_context: {
+			removed_by: {
+				user_id: parseInt(TEST_USER_ID),
+				name: 'Test User',
+				username: 'testuser'
+			},
+			action_timestamp: Date.now()
 		}
 	},
 	messageCallback: {
-		event_type: 'message_callback',
+		update_type: 'message_callback',
+		timestamp: Date.now(),
+		message: {
+			sender: {
+				user_id: parseInt(TEST_USER_ID),
+				first_name: 'Test',
+				last_name: 'User',
+				username: 'testuser',
+				is_bot: false,
+				last_activity_time: Date.now()
+			},
+			recipient: {
+				chat_id: parseInt(TEST_CHAT_ID),
+				chat_type: 'chat'
+			},
+			timestamp: Date.now(),
+			body: {
+				mid: TEST_MESSAGE_ID,
+				seq: 1,
+				text: 'Please click a button',
+				attachments: [SAMPLE_KEYBOARDS.simple]
+			},
+			stat: {
+				views: 0
+			},
+			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`
+		},
+		callback: {
+			callback_id: 'callback-123',
+			payload: 'btn1_clicked'
+		},
+		user_locale: 'en'
+	},
+	chatTitleChanged: {
+		update_type: 'chat_title_changed',
 		timestamp: Date.now(),
 		chat: {
 			chat_id: parseInt(TEST_CHAT_ID),
-			title: 'Test Chat',
-			type: 'group'
+			type: 'chat',
+			title: 'New Chat Title',
+			description: 'A test group chat',
+			members_count: 5
 		},
 		user: {
 			user_id: parseInt(TEST_USER_ID),
 			first_name: 'Test',
 			last_name: 'User',
-			username: 'testuser'
+			username: 'testuser',
+			is_bot: false,
+			last_activity_time: Date.now()
 		},
-		callback: {
-			callback_query_id: 'callback-123',
-			payload: 'btn1_clicked',
-			message_id: TEST_MESSAGE_ID
+		chat_changes: {
+			old_title: 'Old Chat Title',
+			new_title: 'New Chat Title',
+			changed_by: {
+				user_id: parseInt(TEST_USER_ID),
+				name: 'Test User',
+				username: 'testuser'
+			},
+			changed_at: Date.now()
+		}
+	},
+	userAdded: {
+		update_type: 'user_added',
+		timestamp: Date.now(),
+		chat: {
+			chat_id: parseInt(TEST_CHAT_ID),
+			type: 'chat',
+			title: 'Test Group Chat',
+			description: 'A test group chat',
+			members_count: 6
+		},
+		user: {
+			user_id: 999,
+			first_name: 'New',
+			last_name: 'User',
+			username: 'newuser',
+			is_bot: false,
+			last_activity_time: Date.now()
+		},
+		membership_context: {
+			added_by: {
+				user_id: parseInt(TEST_USER_ID),
+				name: 'Test User',
+				username: 'testuser'
+			},
+			user_role: 'member',
+			action_timestamp: Date.now()
+		}
+	},
+	userRemoved: {
+		update_type: 'user_removed',
+		timestamp: Date.now(),
+		chat: {
+			chat_id: parseInt(TEST_CHAT_ID),
+			type: 'chat',
+			title: 'Test Group Chat',
+			description: 'A test group chat',
+			members_count: 4
+		},
+		user: {
+			user_id: 999,
+			first_name: 'Removed',
+			last_name: 'User',
+			username: 'removeduser',
+			is_bot: false,
+			last_activity_time: Date.now()
+		},
+		membership_context: {
+			removed_by: {
+				user_id: parseInt(TEST_USER_ID),
+				name: 'Test User',
+				username: 'testuser'
+			},
+			user_role: 'member',
+			action_timestamp: Date.now()
 		}
 	}
 };
