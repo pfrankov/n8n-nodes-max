@@ -76,7 +76,7 @@ export class MaxEventProcessor {
 	 */
 	async processWebhookEvent(this: IWebhookFunctions): Promise<IWebhookResponseData> {
 		const processor = new MaxEventProcessor();
-		
+
 		try {
 			// Get request data safely
 			const bodyData = this.getBodyData() as unknown as MaxWebhookEvent;
@@ -115,7 +115,7 @@ export class MaxEventProcessor {
 
 			// Process event-specific data and normalize
 			const normalizedData = processor.processEventSpecificData(bodyData, eventType);
-			
+
 			return {
 				workflowData: [this.helpers.returnJsonArray([normalizedData as unknown as IDataObject])],
 			};
@@ -256,68 +256,68 @@ export class MaxEventProcessor {
 	 */
 	public processEventSpecificData(bodyData: MaxWebhookEvent, eventType: string): INormalizedEventData {
 		const startTime = Date.now();
-		
+
 		// Validate event payload structure
 		const validationResult = this.validateEventPayload(bodyData, eventType);
-		
+
 		// Generate unique event ID
 		const eventId = this.generateEventId(bodyData, eventType);
-		
+
 		// Extract and normalize metadata
 		const metadata = this.extractEventMetadata(bodyData);
-		
+
 		// Process event-specific data
 		let eventSpecificData: IDataObject;
 		let eventContext: IEventContext;
-		
+
 		switch (eventType) {
 			case 'message_edited':
 				({ data: eventSpecificData, context: eventContext } = this.processMessageEditedEvent(bodyData));
 				break;
-			
+
 			case 'message_removed':
 				({ data: eventSpecificData, context: eventContext } = this.processMessageRemovedEvent(bodyData));
 				break;
-			
+
 			case 'bot_added':
 			case 'bot_removed':
 				({ data: eventSpecificData, context: eventContext } = this.processBotMembershipEvent(bodyData, eventType));
 				break;
-			
+
 			case 'user_added':
 			case 'user_removed':
 				({ data: eventSpecificData, context: eventContext } = this.processUserMembershipEvent(bodyData, eventType));
 				break;
-			
+
 			case 'chat_title_changed':
 				({ data: eventSpecificData, context: eventContext } = this.processChatTitleChangedEvent(bodyData));
 				break;
-			
+
 			case 'message_created':
 				({ data: eventSpecificData, context: eventContext } = this.processMessageCreatedEvent(bodyData));
 				break;
-				
+
 			case 'message_chat_created':
 				({ data: eventSpecificData, context: eventContext } = this.processMessageChatCreatedEvent(bodyData));
 				break;
-				
+
 			case 'message_callback':
 				({ data: eventSpecificData, context: eventContext } = this.processMessageCallbackEvent(bodyData));
 				break;
-				
+
 			case 'bot_started':
 				({ data: eventSpecificData, context: eventContext } = this.processBotStartedEvent(bodyData));
 				break;
-			
+
 			default:
 				({ data: eventSpecificData, context: eventContext } = this.processGenericEvent(bodyData, eventType));
 				break;
 		}
-		
+
 		// Calculate processing time
 		const processingTime = Date.now() - startTime;
 		metadata.processing_time_ms = processingTime;
-		
+
 		// Build normalized event data
 		const normalizedData: INormalizedEventData = {
 			...eventSpecificData,
@@ -333,7 +333,7 @@ export class MaxEventProcessor {
 			},
 			metadata,
 		};
-		
+
 		return normalizedData;
 	}
 
@@ -374,30 +374,30 @@ export class MaxEventProcessor {
 			case 'message_chat_created':
 				this.validateMessageEvent(bodyData, errors, warnings);
 				break;
-			
+
 			case 'message_edited':
 				this.validateMessageEditedEvent(bodyData, errors, warnings);
 				break;
-			
+
 			case 'message_removed':
 				this.validateMessageRemovedEvent(bodyData, errors, warnings);
 				break;
-			
+
 			case 'message_callback':
 				this.validateCallbackEvent(bodyData, errors, warnings);
 				break;
-			
+
 			case 'bot_added':
 			case 'bot_removed':
 			case 'user_added':
 			case 'user_removed':
 				this.validateMembershipEvent(bodyData, errors, warnings);
 				break;
-			
+
 			case 'chat_title_changed':
 				this.validateChatTitleChangedEvent(bodyData, errors, warnings);
 				break;
-			
+
 			case 'bot_started':
 				this.validateBotStartedEvent(bodyData, errors, warnings);
 				break;
@@ -443,10 +443,10 @@ export class MaxEventProcessor {
 		}
 
 		// Check for sender information with backward compatibility
-		const hasSenderInfo = bodyData.message.sender || 
-		                     bodyData.user || 
-		                     (bodyData.message as any)?.from;
-		
+		const hasSenderInfo = bodyData.message.sender ||
+			bodyData.user ||
+			(bodyData.message as any)?.from;
+
 		if (!hasSenderInfo) {
 			warnings.push({
 				field: 'user',
@@ -594,12 +594,17 @@ export class MaxEventProcessor {
 	 */
 	private generateEventId(bodyData: MaxWebhookEvent, eventType: string): string {
 		const timestamp = bodyData.timestamp || Date.now();
-		const chatId = bodyData.chat?.chat_id || bodyData.chat?.id || 'unknown';
-		const userId = bodyData.user?.user_id || bodyData.user?.id || 'unknown';
-		const messageId = bodyData.message?.message_id || bodyData.message?.id || '';
-		
+		// Use chat_id as primary field, fallback to message recipient chat_id
+		const chatId = bodyData.chat?.chat_id || bodyData.message?.recipient?.chat_id || 'unknown';
+		// Use user_id as primary field, fallback to message sender user_id
+		const userId = bodyData.user?.user_id || bodyData.message?.sender?.user_id || 'unknown';
+		// Use message body mid as primary message identifier
+		const messageId = bodyData.message?.body?.mid || '';
+		// Use callback_id for callback events
+		const callbackId = bodyData.callback?.callback_id || '';
+
 		// Create a hash-like ID from available data
-		const dataString = `${eventType}-${timestamp}-${chatId}-${userId}-${messageId}`;
+		const dataString = `${eventType}-${timestamp}-${chatId}-${userId}-${messageId}-${callbackId}`;
 		return Buffer.from(dataString).toString('base64').substring(0, 16);
 	}
 
@@ -627,7 +632,7 @@ export class MaxEventProcessor {
 		if (!user && (bodyData.message as any)?.from) {
 			user = (bodyData.message as any).from;
 		}
-		
+
 		if (user) {
 			metadata.user_context = {};
 			// Handle both user_id and id fields for backward compatibility
@@ -656,7 +661,7 @@ export class MaxEventProcessor {
 				type: bodyData.message.recipient.chat_type || 'chat'
 			} as MaxWebhookEvent['chat'];
 		}
-		
+
 		if (chat) {
 			metadata.chat_context = {};
 			// Handle both chat_id and id fields for backward compatibility
@@ -690,7 +695,7 @@ export class MaxEventProcessor {
 			bodyData.message?.body?.attachments?.length ||
 			(bodyData.message as any)?.attachments?.length
 		);
-		
+
 		const context: IEventContext = {
 			type: 'message_created',
 			description: 'New message received in direct conversation',
@@ -716,7 +721,7 @@ export class MaxEventProcessor {
 			bodyData.message?.body?.attachments?.length ||
 			(bodyData.message as any)?.attachments?.length
 		);
-		
+
 		const context: IEventContext = {
 			type: 'message_chat_created',
 			description: 'New message received in group chat',
@@ -835,7 +840,7 @@ export class MaxEventProcessor {
 	 */
 	private processBotMembershipEvent(bodyData: MaxWebhookEvent, eventType: string): { data: IDataObject; context: IEventContext } {
 		const isAdded = eventType === 'bot_added';
-		
+
 		const context: IEventContext = {
 			type: eventType,
 			description: isAdded ? 'Bot was added to chat' : 'Bot was removed from chat',
@@ -862,7 +867,7 @@ export class MaxEventProcessor {
 	 */
 	private processUserMembershipEvent(bodyData: MaxWebhookEvent, eventType: string): { data: IDataObject; context: IEventContext } {
 		const isAdded = eventType === 'user_added';
-		
+
 		const context: IEventContext = {
 			type: eventType,
 			description: isAdded ? 'User joined the chat' : 'User left the chat',
@@ -915,11 +920,11 @@ export class MaxEventProcessor {
 	/**
 	 * Compare attachments between old and new messages
 	 */
-	private compareAttachments(oldAttachments?: Array<{type: string; payload: any}>, newAttachments?: Array<{type: string; payload: any}>): boolean {
+	private compareAttachments(oldAttachments?: Array<{ type: string; payload: any }>, newAttachments?: Array<{ type: string; payload: any }>): boolean {
 		if (!oldAttachments && !newAttachments) return false;
 		if (!oldAttachments || !newAttachments) return true;
 		if (oldAttachments.length !== newAttachments.length) return true;
-		
+
 		// Simple comparison - in a real implementation, you might want more sophisticated comparison
 		return JSON.stringify(oldAttachments) !== JSON.stringify(newAttachments);
 	}
