@@ -132,57 +132,74 @@ export interface MaxSubscriptionsResponse {
 
 /**
  * Max webhook event data interface
+ * Based on the official Max API OpenAPI schema
  */
 export interface MaxWebhookEvent {
-	update_type?: string;
-	event_type?: string;
-	timestamp?: number;
-	chat?: {
-		id?: number;
-		chat_id?: number;
-		type?: string;
-		title?: string;
-		description?: string;
-		avatar_url?: string;
-		members_count?: number;
-	};
-	user?: {
-		user_id?: number;
-		first_name?: string;
-		last_name?: string;
-		name?: string; // Deprecated field, will be removed soon
-		username?: string;
-		is_bot?: boolean;
-		last_activity_time?: number;
-		// Legacy support for existing implementations
-		id?: number;
-		avatar_url?: string;
-		lang?: string;
-	};
+	update_type: string;
+	timestamp: number;
+	
+	// Common fields for message events
 	message?: {
+		message_id?: string;
+		text?: string;
+		timestamp?: number;
+		attachments?: Array<{
+			type: string;
+			payload: any;
+		}>;
+		markup?: Array<{
+			type: string;
+			from: number;
+			length: number;
+		}>;
 		sender?: {
-			user_id?: number;
-			first_name?: string;
-			last_name?: string;
+			user_id: number;
 			name?: string;
 			username?: string;
+			first_name?: string;
+			last_name?: string;
 			is_bot?: boolean;
 			last_activity_time?: number;
 		};
 		recipient?: {
-			chat_id?: number;
+			chat_id: number;
 			chat_type?: string;
 			user_id?: number;
 		};
-		timestamp?: number;
+		// Legacy support for tests
+		body?: {
+			mid?: string;
+			seq?: number;
+			text?: string;
+			attachments?: Array<{
+				type: string;
+				payload: any;
+			}>;
+			markup?: Array<{
+				type: string;
+				from: number;
+				length: number;
+			}>;
+		};
+		stat?: {
+			views?: number;
+		};
+		url?: string;
+		from?: {
+			user_id: number;
+			first_name?: string;
+			username?: string;
+			name?: string;
+		};
+		id?: number;
 		link?: {
 			type?: string;
 			sender?: {
-				user_id?: number;
-				first_name?: string;
-				last_name?: string;
+				user_id: number;
 				name?: string;
 				username?: string;
+				first_name?: string;
+				last_name?: string;
 				is_bot?: boolean;
 				last_activity_time?: number;
 			};
@@ -202,39 +219,82 @@ export interface MaxWebhookEvent {
 				}>;
 			};
 		};
-		body?: {
-			mid?: string;
-			seq?: number;
-			text?: string;
-			attachments?: Array<{
-				type: string;
-				payload: any;
-			}>;
-			markup?: Array<{
-				type: string;
-				from: number;
-				length: number;
-			}>;
-		};
-		stat?: {
-			views?: number;
-		};
-		url?: string;
-		// Legacy support for existing implementations
-		id?: number;
-		message_id?: string;
-		text?: string;
-		chat?: any;
-		from?: any;
-		format?: 'html' | 'markdown';
-	};
-	callback?: {
-		id?: string;
-		callback_id?: string;
-		payload?: string;
 	};
 
-	// Event-specific data for enhanced event processing
+	// User information
+	user?: {
+		user_id: number;
+		name?: string;
+		username?: string;
+		first_name?: string;
+		last_name?: string;
+		is_bot?: boolean;
+		last_activity_time?: number;
+		avatar_url?: string;
+		lang?: string;
+		// Legacy support
+		id?: number;
+	};
+
+	// Chat information (for message_chat_created events)
+	chat?: {
+		chat_id: number;
+		type: string;
+		title?: string;
+		description?: string;
+		avatar_url?: string;
+		members_count?: number;
+		is_public?: boolean;
+		link?: string;
+		// Legacy support
+		id?: number;
+	};
+
+	// Callback information (for message_callback events)
+	callback?: {
+		timestamp?: number;
+		callback_id?: string;
+		payload?: string;
+		user?: {
+			user_id: number;
+			name?: string;
+			username?: string;
+			first_name?: string;
+			last_name?: string;
+			is_bot?: boolean;
+			last_activity_time?: number;
+		};
+		// Legacy support
+		id?: string;
+	};
+
+	// Event-specific fields based on OpenAPI schema
+	
+	// For bot_added/bot_removed events
+	chat_id?: number;
+	is_channel?: boolean;
+
+	// For user_added events
+	inviter_id?: number;
+
+	// For user_removed events  
+	admin_id?: number;
+
+	// For message_removed events
+	message_id?: string;
+	user_id?: number;
+
+	// For bot_started events
+	payload?: string;
+	user_locale?: string;
+
+	// For chat_title_changed events
+	title?: string;
+
+	// For message_chat_created events
+	start_payload?: string;
+
+	// Legacy fields for backward compatibility with tests
 	old_message?: {
 		id?: number;
 		message_id?: string;
@@ -288,7 +348,6 @@ export interface MaxWebhookEvent {
 		user_role?: string;
 		action_timestamp?: number;
 	};
-
 
 	[key: string]: any;
 }

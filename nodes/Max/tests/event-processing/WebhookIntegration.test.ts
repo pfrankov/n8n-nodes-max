@@ -13,7 +13,7 @@ describe('Webhook Integration Tests', () => {
 
 	beforeEach(() => {
 		maxTrigger = new MaxTrigger();
-		
+
 		mockWebhookFunctions = {
 			getBodyData: jest.fn(),
 			getHeaderData: jest.fn(() => ({})),
@@ -76,7 +76,6 @@ describe('Webhook Integration Tests', () => {
 			const processedEvent = result.workflowData?.[0]?.[0] as any;
 
 			// Verify event structure
-			expect(processedEvent.event_type).toBe('message_created');
 			expect(processedEvent.update_type).toBe('message_created');
 			expect(processedEvent.timestamp).toBe(1640995200000);
 			expect(processedEvent.event_id).toBeDefined();
@@ -171,7 +170,6 @@ describe('Webhook Integration Tests', () => {
 			const processedEvent = result.workflowData?.[0]?.[0] as any;
 
 			// Verify callback-specific processing
-			expect(processedEvent.event_type).toBe('message_callback');
 			expect(processedEvent.event_context.type).toBe('message_callback');
 			expect(processedEvent.event_context.description).toBe('User clicked an inline keyboard button');
 			expect(processedEvent.event_context.callback_id).toBe('cb_789');
@@ -206,7 +204,6 @@ describe('Webhook Integration Tests', () => {
 			expect(result.workflowData).toHaveLength(1);
 			const processedEvent = result.workflowData?.[0]?.[0] as any;
 
-			expect(processedEvent.event_type).toBe('bot_started');
 			expect(processedEvent.event_context.type).toBe('bot_started');
 			expect(processedEvent.event_context.description).toBe('User started interaction with the bot');
 			expect(processedEvent.event_context.is_first_interaction).toBe(true);
@@ -332,7 +329,7 @@ describe('Webhook Integration Tests', () => {
 			(mockWebhookFunctions.getNodeParameter as jest.Mock)
 				.mockImplementation((paramName: string) => {
 					if (paramName === 'events') return ['message_created'];
-					if (paramName === 'additionalFields') return { 
+					if (paramName === 'additionalFields') return {
 						chatIds: '111111',
 						userIds: '555555'
 					};
@@ -438,7 +435,7 @@ describe('Webhook Integration Tests', () => {
 			for (const eventData of malformedEvents) {
 				(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(eventData);
 				const result = await maxTrigger.webhook.call(mockWebhookFunctions as IWebhookFunctions);
-				
+
 				// Should not crash and return appropriate response
 				expect(result).toBeDefined();
 				expect(result.workflowData).toBeDefined();

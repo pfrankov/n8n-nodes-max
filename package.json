@@ -29,6 +29,7 @@
     "test:coverage": "jest --coverage",
     "debug:setup": "npm run build && npm link && npm install --prefix ~/.n8n/custom file:$(pwd)",
     "debug:start": "n8n start",
+    "debug:auto": "node debug-auto.js",
     "debug:verify": "node debug-verification.js",
     "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes credentials package.json"
   },

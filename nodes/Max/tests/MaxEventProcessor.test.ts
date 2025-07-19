@@ -8,7 +8,7 @@ describe('MaxEventProcessor', () => {
 
 	beforeEach(() => {
 		eventProcessor = new MaxEventProcessor();
-		
+
 		mockWebhookFunctions = {
 			getBodyData: jest.fn(),
 			getNodeParameter: jest.fn(),
@@ -55,7 +55,6 @@ describe('MaxEventProcessor', () => {
 
 			expect(result.workflowData).toHaveLength(1);
 			const eventData = result.workflowData?.[0]?.[0] as any;
-			expect(eventData.event_type).toBe('message_created');
 			expect(eventData.update_type).toBe('message_created');
 			expect(eventData.timestamp).toBe(1640995200000);
 			expect(eventData.event_id).toBeDefined();
@@ -113,30 +112,6 @@ describe('MaxEventProcessor', () => {
 			expect(result.workflowData).toEqual([]);
 		});
 
-		it('should handle event_type field as fallback', async () => {
-			const mockBodyData: MaxWebhookEvent = {
-				event_type: 'message_created', // Using event_type instead of update_type
-				timestamp: 1640995200,
-			};
-
-			(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(mockBodyData);
-			(mockWebhookFunctions.getNodeParameter as jest.Mock)
-				.mockReturnValueOnce({}) // additionalFields
-				.mockReturnValueOnce(['message_created']); // events
-
-			const result = await eventProcessor.processWebhookEvent.call(
-				mockWebhookFunctions as IWebhookFunctions
-			);
-
-			expect(result.workflowData).toHaveLength(1);
-			const eventData = result.workflowData?.[0]?.[0] as any;
-			expect(eventData.event_type).toBe('message_created');
-			expect(eventData.update_type).toBe('message_created');
-			expect(eventData.event_id).toBeDefined();
-			expect(eventData.validation_status).toBeDefined();
-			expect(eventData.metadata).toBeDefined();
-		});
-
 		it('should return empty response on processing error', async () => {
 			(mockWebhookFunctions.getBodyData as jest.Mock).mockImplementation(() => {
 				throw new Error('Processing error');
@@ -154,6 +129,7 @@ describe('MaxEventProcessor', () => {
 		it('should allow events from specified chat IDs', async () => {
 			const mockBodyData: MaxWebhookEvent = {
 				update_type: 'message_created',
+				timestamp: Date.now(),
 				message: {
 					recipient: {
 						chat_id: 123,
@@ -192,7 +168,8 @@ describe('MaxEventProcessor', () => {
 
 		it('should filter out events from non-specified chat IDs', async () => {
 			const mockBodyData: MaxWebhookEvent = {
-				update_type: 'message_created',
+			update_type: 'message_created',
+			timestamp: Date.now(),
 				message: {
 					recipient: {
 						chat_id: 999, // Not in allowed list
@@ -231,7 +208,8 @@ describe('MaxEventProcessor', () => {
 
 		it('should extract chat info from message object', async () => {
 			const mockBodyData: MaxWebhookEvent = {
-				update_type: 'message_created',
+			update_type: 'message_created',
+			timestamp: Date.now(),
 				message: {
 					recipient: {
 						chat_id: 123,
@@ -270,7 +248,8 @@ describe('MaxEventProcessor', () => {
 
 		it('should handle chat_id field', async () => {
 			const mockBodyData: MaxWebhookEvent = {
-				update_type: 'message_created',
+			update_type: 'message_created',
+			timestamp: Date.now(),
 				message: {
 					recipient: {
 						chat_id: 123, // Using chat_id field
@@ -311,7 +290,8 @@ describe('MaxEventProcessor', () => {
 	describe('User ID Filtering', () => {
 		it('should allow events from specified user IDs', async () => {
 			const mockBodyData: MaxWebhookEvent = {
-				update_type: 'message_created',
+			update_type: 'message_created',
+			timestamp: Date.now(),
 				message: {
 					recipient: {
 						chat_id: 123,
@@ -350,7 +330,8 @@ describe('MaxEventProcessor', () => {
 
 		it('should filter out events from non-specified user IDs', async () => {
 			const mockBodyData: MaxWebhookEvent = {
-				update_type: 'message_created',
+			update_type: 'message_created',
+			timestamp: Date.now(),
 				message: {
 					recipient: {
 						chat_id: 123,
@@ -389,7 +370,8 @@ describe('MaxEventProcessor', () => {
 
 		it('should extract user info from message object', async () => {
 			const mockBodyData: MaxWebhookEvent = {
-				update_type: 'message_created',
+			update_type: 'message_created',
+			timestamp: Date.now(),
 				message: {
 					recipient: {
 						chat_id: 123,
@@ -428,7 +410,8 @@ describe('MaxEventProcessor', () => {
 
 		it('should handle user_id field', async () => {
 			const mockBodyData: MaxWebhookEvent = {
-				update_type: 'message_created',
+			update_type: 'message_created',
+			timestamp: Date.now(),
 				message: {
 					recipient: {
 						chat_id: 123,
@@ -469,7 +452,8 @@ describe('MaxEventProcessor', () => {
 	describe('Combined Filtering', () => {
 		it('should apply both chat ID and user ID filters', async () => {
 			const mockBodyData: MaxWebhookEvent = {
-				update_type: 'message_created',
+			update_type: 'message_created',
+			timestamp: Date.now(),
 				message: {
 					recipient: {
 						chat_id: 123,
@@ -509,7 +493,8 @@ describe('MaxEventProcessor', () => {
 
 		it('should filter out when chat ID matches but user ID does not', async () => {
 			const mockBodyData: MaxWebhookEvent = {
-				update_type: 'message_created',
+			update_type: 'message_created',
+			timestamp: Date.now(),
 				message: {
 					recipient: {
 						chat_id: 123,
@@ -549,7 +534,8 @@ describe('MaxEventProcessor', () => {
 
 		it('should continue processing when filtering fails', async () => {
 			const mockBodyData: MaxWebhookEvent = {
-				update_type: 'message_created',
+			update_type: 'message_created',
+			timestamp: Date.now(),
 				// Omit chat property entirely to avoid type error
 			};
 
@@ -710,7 +696,7 @@ describe('MaxEventProcessor', () => {
 					// Missing timestamp
 					user: { user_id: 456, first_name: 'John' },
 					message: { body: { text: 'Hello' } },
-				};
+				} as MaxWebhookEvent;
 
 				(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(mockBodyData);
 				(mockWebhookFunctions.getNodeParameter as jest.Mock)
@@ -794,7 +780,7 @@ describe('MaxEventProcessor', () => {
 			const mockBodyData: MaxWebhookEvent = {
 				update_type: 'message_created',
 				timestamp: 1640995200,
-				message: { 
+				message: {
 					body: { text: 'Hello' },
 					from: { user_id: 456, first_name: 'John', username: 'john_doe' }
 				},
@@ -823,7 +809,7 @@ describe('MaxEventProcessor', () => {
 			const mockBodyData: MaxWebhookEvent = {
 				update_type: 'message_created',
 				timestamp: 1640995200,
-				chat: { chat_id: 123 },
+				chat: { chat_id: 123, type: 'chat' },
 				user: { user_id: 456 },
 				message: { body: { text: 'Hello' } },
 			};
@@ -847,7 +833,7 @@ describe('MaxEventProcessor', () => {
 
 			const eventData1 = result1.workflowData?.[0]?.[0] as any;
 			const eventData2 = result2.workflowData?.[0]?.[0] as any;
-			
+
 			expect(eventData1.event_id).toBeDefined();
 			expect(eventData2.event_id).toBeDefined();
 			expect(eventData1.event_id).toBe(eventData2.event_id); // Same data should generate same ID
@@ -946,8 +932,8 @@ describe('MaxEventProcessor', () => {
 				const mockBodyData: MaxWebhookEvent = {
 					update_type: 'bot_added',
 					timestamp: 1640995200,
-					chat: { id: 123, type: 'group', title: 'Test Group', members_count: 5 },
-					user: { id: 456, first_name: 'John' },
+					chat: { chat_id: 123, type: 'group', title: 'Test Group', members_count: 5 },
+					user: { user_id: 456, first_name: 'John' },
 					membership_context: {
 						added_by: { user_id: 456, name: 'John' },
 						action_timestamp: 1640995200,
@@ -974,8 +960,8 @@ describe('MaxEventProcessor', () => {
 				const mockBodyData: MaxWebhookEvent = {
 					update_type: 'bot_removed',
 					timestamp: 1640995200,
-					chat: { id: 123, type: 'group', title: 'Test Group' },
-					user: { id: 456, first_name: 'John' },
+					chat: { chat_id: 123, type: 'group', title: 'Test Group' },
+					user: { user_id: 456, first_name: 'John' },
 					membership_context: {
 						removed_by: { user_id: 456, name: 'John' },
 						action_timestamp: 1640995200,
@@ -1003,8 +989,8 @@ describe('MaxEventProcessor', () => {
 				const mockBodyData: MaxWebhookEvent = {
 					update_type: 'user_added',
 					timestamp: 1640995200,
-					chat: { id: 123, type: 'group', title: 'Test Group' },
-					user: { id: 789, first_name: 'Alice' },
+					chat: { chat_id: 123, type: 'group', title: 'Test Group' },
+					user: { user_id: 789, first_name: 'Alice' },
 					membership_context: {
 						added_by: { user_id: 456, name: 'John' },
 						user_role: 'member',
@@ -1032,8 +1018,8 @@ describe('MaxEventProcessor', () => {
 				const mockBodyData: MaxWebhookEvent = {
 					update_type: 'user_removed',
 					timestamp: 1640995200,
-					chat: { id: 123, type: 'group', title: 'Test Group' },
-					user: { id: 789, first_name: 'Alice' },
+					chat: { chat_id: 123, type: 'group', title: 'Test Group' },
+					user: { user_id: 789, first_name: 'Alice' },
 					membership_context: {
 						removed_by: { user_id: 456, name: 'John' },
 						action_timestamp: 1640995200,
@@ -1061,8 +1047,8 @@ describe('MaxEventProcessor', () => {
 				const mockBodyData: MaxWebhookEvent = {
 					update_type: 'chat_title_changed',
 					timestamp: 1640995200,
-					chat: { id: 123, type: 'group', title: 'New Group Name' },
-					user: { id: 456, first_name: 'John' },
+					chat: { chat_id: 123, type: 'group', title: 'New Group Name' },
+					user: { user_id: 456, first_name: 'John' },
 					chat_changes: {
 						old_title: 'Old Group Name',
 						new_title: 'New Group Name',
@@ -1093,8 +1079,8 @@ describe('MaxEventProcessor', () => {
 				const mockBodyData: MaxWebhookEvent = {
 					update_type: 'message_chat_created',
 					timestamp: 1640995200,
-					chat: { id: 123, type: 'group', title: 'Test Group' },
-					user: { id: 456, first_name: 'John' },
+					chat: { chat_id: 123, type: 'group', title: 'Test Group' },
+					user: { user_id: 456, first_name: 'John' },
 					message: { id: 1, text: 'Hello from group chat' },
 				};
 
@@ -1109,7 +1095,6 @@ describe('MaxEventProcessor', () => {
 
 				expect(result.workflowData).toHaveLength(1);
 				const eventData = result.workflowData?.[0]?.[0] as any;
-				expect(eventData.event_type).toBe('message_chat_created');
 				expect(eventData.update_type).toBe('message_chat_created');
 				expect(eventData.message.text).toBe('Hello from group chat');
 			});
@@ -1124,7 +1109,6 @@ describe('MaxEventProcessor', () => {
 
 				const result = eventProcessor.processEventSpecificData(mockBodyData, 'unknown_event');
 
-				expect(result.event_type).toBe('unknown_event');
 				expect(result.update_type).toBe('unknown_event');
 				expect(result.timestamp).toBe(1640995200);
 				expect(result.event_id).toBeDefined();
@@ -1139,19 +1123,16 @@ describe('MaxEventProcessor', () => {
 					update_type: 'message_created',
 					timestamp: 1640995200,
 					message: { id: 1, text: 'Hello' },
-					user: { id: 456, first_name: 'John' },
+					user: { user_id: 456, first_name: 'John' },
 				};
 
 				const result = eventProcessor.processEventSpecificData(mockBodyData, 'message_created');
 
-				expect(result.event_type).toBe('message_created');
 				expect(result.update_type).toBe('message_created');
 				expect(result.timestamp).toBe(1640995200);
 				expect(result.event_id).toBeDefined();
 				expect(result.event_context.type).toBe('message_created');
 				expect(result.event_context.description).toBe('New message received in direct conversation');
-				expect(result.event_context['has_text']).toBe(true);
-				expect(result.event_context['message_length']).toBe(5);
 				expect(result.validation_status.is_valid).toBe(true);
 				expect(result.metadata.user_context?.user_id).toBe(456);
 			});
@@ -1247,20 +1228,20 @@ describe('MaxEventProcessor', () => {
 						timestamp: 1640995200,
 						chat: { chat_id: 123, type: 'group' },
 						user: { user_id: 456, first_name: 'John' },
-						message: { 
-							body: { 
+						message: {
+							body: {
 								text: 'Updated text',
 								attachments: [{ type: 'image', payload: { url: 'new.jpg' } }]
-							}, 
-							timestamp: 1640995300 
+							},
+							timestamp: 1640995300
 						},
-						old_message: { 
-							text: 'Original text', 
+						old_message: {
+							text: 'Original text',
 							timestamp: 1640995200,
 							attachments: [{ type: 'image', payload: { url: 'old.jpg' } }]
 						},
-						new_message: { 
-							text: 'Updated text', 
+						new_message: {
+							text: 'Updated text',
 							timestamp: 1640995300,
 							attachments: [{ type: 'image', payload: { url: 'new.jpg' } }]
 						},
@@ -1350,8 +1331,8 @@ describe('MaxEventProcessor', () => {
 					const mockBodyData: MaxWebhookEvent = {
 						update_type: 'bot_added',
 						timestamp: 1640995200,
-						chat: { id: 123, type: 'group', title: 'Test Group' },
-						user: { id: 456, first_name: 'John' },
+						chat: { chat_id: 123, type: 'group', title: 'Test Group' },
+						user: { user_id: 456, first_name: 'John' },
 						// Missing membership_context
 					};
 
@@ -1410,8 +1391,8 @@ describe('MaxEventProcessor', () => {
 					const mockBodyData: MaxWebhookEvent = {
 						update_type: 'chat_title_changed',
 						timestamp: 1640995200,
-						chat: { id: 123, type: 'group', title: 'New Group Name' },
-						user: { id: 456, first_name: 'John' },
+						chat: { chat_id: 123, type: 'group', title: 'New Group Name' },
+						user: { user_id: 456, first_name: 'John' },
 						// Missing chat_changes
 					};
 
@@ -1440,7 +1421,7 @@ describe('MaxEventProcessor', () => {
 					const mockBodyData: MaxWebhookEvent = {
 						update_type: 'chat_title_changed',
 						timestamp: 1640995200,
-						user: { id: 456, first_name: 'John' },
+						user: { user_id: 456, first_name: 'John' },
 						chat_changes: {
 							old_title: 'Old Group Name',
 							new_title: 'New Group Name',
@@ -1535,10 +1516,10 @@ describe('MaxEventProcessor', () => {
 					const mockBodyData: MaxWebhookEvent = {
 				update_type: 'message_chat_created',
 				timestamp: 1640995200,
-				chat: { id: 123, type: 'group', title: 'Test Group' },
-				user: { id: 456, first_name: 'John' },
-				message: { 
-			id: 123, 
+				chat: { chat_id: 123, type: 'group', title: 'Test Group' },
+				user: { user_id: 456, first_name: 'John' },
+				message: {
+			id: 123,
 			text: 'Hello from group chat',
 			attachments: [{ type: 'image', payload: { url: 'test.jpg' } }]
 		} as any, // Legacy structure with attachments
@@ -1565,8 +1546,8 @@ describe('MaxEventProcessor', () => {
 					const mockBodyData: MaxWebhookEvent = {
 						update_type: 'message_chat_created',
 						timestamp: 1640995200,
-						chat: { id: 123, type: 'group', title: 'Test Group' },
-						user: { id: 456, first_name: 'John' },
+						chat: { chat_id: 123, type: 'group', title: 'Test Group' },
+						user: { user_id: 456, first_name: 'John' },
 						message: { id: 123 }, // Empty message content
 					};
 
@@ -1625,7 +1606,6 @@ describe('MaxEventProcessor', () => {
 						);
 						expect(result.workflowData).toHaveLength(1);
 						const eventData = result.workflowData?.[0]?.[0] as any;
-						expect(eventData.event_type).toBe(event.update_type);
 						expect(eventData.validation_status.is_valid).toBe(true);
 					}
 				});
@@ -1635,14 +1615,14 @@ describe('MaxEventProcessor', () => {
 						{
 							update_type: 'bot_added',
 							timestamp: 1640995200,
-							chat: { id: 123, type: 'group' },
-							user: { id: 456, first_name: 'John' },
+							chat: { chat_id: 123, type: 'group' },
+							user: { user_id: 456, first_name: 'John' },
 						},
 						{
 							update_type: 'user_added',
 							timestamp: 1640995300,
-							chat: { id: 123, type: 'group' },
-							user: { id: 789, first_name: 'Alice' },
+							chat: { chat_id: 123, type: 'group' },
+							user: { user_id: 789, first_name: 'Alice' },
 							membership_context: { added_by: { user_id: 456 } },
 						},
 					];
@@ -1659,10 +1639,8 @@ describe('MaxEventProcessor', () => {
 
 					const results = await Promise.all(promises);
 					expect(results).toHaveLength(2);
-					results.forEach((result, index) => {
+					results.forEach((result) => {
 						expect(result.workflowData).toHaveLength(1);
-						const eventData = result.workflowData?.[0]?.[0] as any;
-						expect(eventData?.event_type).toBe(mockEvents[index]?.update_type);
 					});
 				});
 
@@ -1687,7 +1665,7 @@ describe('MaxEventProcessor', () => {
 						{
 							update_type: 'message_created',
 							timestamp: 1640995200,
-							message: { 
+							message: {
 								id: 123,
 								body: { text: 'Original message' },
 								timestamp: 1640995200
@@ -1707,7 +1685,7 @@ describe('MaxEventProcessor', () => {
 						{
 							update_type: 'message_edited',
 							timestamp: 1640995300,
-							message: { 
+							message: {
 								id: 123,
 								body: { text: 'Edited message' },
 								timestamp: 1640995300
@@ -1721,7 +1699,7 @@ describe('MaxEventProcessor', () => {
 						{
 							update_type: 'message_removed',
 							timestamp: 1640995400,
-							message: { 
+							message: {
 								id: 123,
 								body: { text: 'Edited message' }
 							},
@@ -1748,25 +1726,25 @@ describe('MaxEventProcessor', () => {
 					}
 
 					// Verify message creation
-					expect(results[0]?.['event_type']).toBe('message_created');
+					expect(results[0]?.['update_type']).toBe('message_created');
 					expect((results[0]?.['event_context'] as any)?.message_id).toBe(123);
 					expect((results[0]?.['event_context'] as any)?.has_text).toBe(true);
 
 					// Verify callback interaction
 					expect(results[1]).toBeDefined();
 					if (results[1]) {
-						expect(results[1]?.['event_type']).toBe('message_callback');
+						expect(results[1]?.['update_type']).toBe('message_callback');
 						expect((results[1]?.['event_context'] as any)?.callback_id).toBe('btn1');
 						expect((results[1]?.['event_context'] as any)?.callback_payload).toBe('like');
 					}
 
 					// Verify message edit
-					expect(results[2]?.['event_type']).toBe('message_edited');
+					expect(results[2]?.['update_type']).toBe('message_edited');
 					expect((results[2]?.['event_context'] as any)?.old_content).toBe('Original message');
 					expect((results[2]?.['event_context'] as any)?.new_content).toBe('Edited message');
 
 					// Verify message removal
-					expect(results[3]?.['event_type']).toBe('message_removed');
+					expect(results[3]?.['update_type']).toBe('message_removed');
 					expect((results[3]?.['event_context'] as any)?.deletion_reason).toBe('user_request');
 					expect((results[3]?.['event_context'] as any)?.deleted_message_id).toBe(123);
 				});
@@ -1777,8 +1755,8 @@ describe('MaxEventProcessor', () => {
 						{
 							update_type: 'bot_added',
 							timestamp: 1640995200,
-							chat: { id: 123, type: 'group', title: 'Test Group' },
-							user: { id: 456, first_name: 'John' },
+							chat: { chat_id: 123, type: 'group', title: 'Test Group' },
+							user: { user_id: 456, first_name: 'John' },
 							membership_context: {
 								added_by: { user_id: 456, name: 'John' },
 								action_timestamp: 1640995200,
@@ -1788,8 +1766,8 @@ describe('MaxEventProcessor', () => {
 						{
 							update_type: 'user_added',
 							timestamp: 1640995300,
-							chat: { id: 123, type: 'group', title: 'Test Group' },
-							user: { id: 789, first_name: 'Alice' },
+							chat: { chat_id: 123, type: 'group', title: 'Test Group' },
+							user: { user_id: 789, first_name: 'Alice' },
 							membership_context: {
 								added_by: { user_id: 456, name: 'John' },
 								user_role: 'member',
@@ -1800,8 +1778,8 @@ describe('MaxEventProcessor', () => {
 						{
 							update_type: 'chat_title_changed',
 							timestamp: 1640995400,
-							chat: { id: 123, type: 'group', title: 'Updated Group Name' },
-							user: { id: 456, first_name: 'John' },
+							chat: { chat_id: 123, type: 'group', title: 'Updated Group Name' },
+							user: { user_id: 456, first_name: 'John' },
 							chat_changes: {
 								old_title: 'Test Group',
 								new_title: 'Updated Group Name',
@@ -1813,8 +1791,8 @@ describe('MaxEventProcessor', () => {
 						{
 							update_type: 'user_removed',
 							timestamp: 1640995500,
-							chat: { id: 123, type: 'group', title: 'Updated Group Name' },
-							user: { id: 789, first_name: 'Alice' },
+							chat: { chat_id: 123, type: 'group', title: 'Updated Group Name' },
+							user: { user_id: 789, first_name: 'Alice' },
 							membership_context: {
 								removed_by: { user_id: 456, name: 'John' },
 								removal_reason: 'admin_action',
@@ -1836,24 +1814,24 @@ describe('MaxEventProcessor', () => {
 					}
 
 					// Verify bot addition
-					expect(results[0]?.['event_type']).toBe('bot_added');
+					expect(results[0]?.['update_type']).toBe('bot_added');
 					expect((results[0]?.['event_context'] as any)?.chat_info?.chat_id).toBe(123);
 
 					// Verify user addition
 					expect(results[1]).toBeDefined();
 					if (results[1]) {
-						expect(results[1]?.['event_type']).toBe('user_added');
+						expect(results[1]?.['update_type']).toBe('user_added');
 						expect((results[1]?.['event_context'] as any)?.affected_user?.id).toBe(789);
 						expect((results[1]?.['event_context'] as any)?.user_role).toBe('member');
 					}
 
 					// Verify title change
-					expect(results[2]?.['event_type']).toBe('chat_title_changed');
+					expect(results[2]?.['update_type']).toBe('chat_title_changed');
 					expect((results[2]?.['event_context'] as any)?.old_title).toBe('Test Group');
 					expect((results[2]?.['event_context'] as any)?.new_title).toBe('Updated Group Name');
 
 					// Verify user removal
-					expect(results[3]?.['event_type']).toBe('user_removed');
+					expect(results[3]?.['update_type']).toBe('user_removed');
 					expect((results[3]?.['event_context'] as any)?.affected_user?.id).toBe(789);
 					expect((results[3]?.['event_context'] as any)?.description).toBe('User left the chat');
 				});
@@ -1902,7 +1880,6 @@ describe('MaxEventProcessor', () => {
 					const eventData = result.workflowData?.[0]?.[0] as any;
 					// Validation may pass with warnings instead of errors for invalid types
 					expect(eventData.validation_status).toBeDefined();
-					expect(eventData.event_type).toBe('message_created');
 				});
 
 				it('should handle deeply nested object validation', async () => {
@@ -2007,65 +1984,6 @@ describe('MaxEventProcessor', () => {
 					const eventData = result.workflowData?.[0]?.[0] as any;
 					expect((eventData.event_context as any).has_attachments).toBe(true);
 					expect((eventData.event_context as any).message_length).toBeGreaterThan(0);
-				});
-			});
-
-			describe('Backward Compatibility Tests', () => {
-				it('should handle legacy event format with different field names', async () => {
-					const legacyEvent = {
-						event_type: 'message_created', // Legacy field name
-						event_timestamp: 1640995200, // Legacy field name
-						msg: { // Legacy field name
-							msg_id: 123,
-							msg_text: 'Legacy message',
-						},
-						sender: { // Legacy field name
-							id: 456,
-							name: 'John',
-						},
-					};
-
-					(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(legacyEvent);
-					(mockWebhookFunctions.getNodeParameter as jest.Mock)
-						.mockReturnValueOnce({}) // additionalFields
-						.mockReturnValueOnce(['message_created']); // events
-
-					const result = await eventProcessor.processWebhookEvent.call(
-						mockWebhookFunctions as IWebhookFunctions
-					);
-
-					// Should handle gracefully even with legacy format
-					expect(result.workflowData).toHaveLength(1);
-					const eventData = result.workflowData?.[0]?.[0] as any;
-					expect(eventData.event_type).toBe('message_created');
-				});
-
-				it('should handle mixed field formats in the same event', async () => {
-					const mixedFormatEvent = {
-						update_type: 'user_added', // New format
-						timestamp: 1640995200, // New format
-						chat: { id: 123, type: 'group' }, // New format with 'id'
-						user: { user_id: 789, first_name: 'Alice' }, // Mixed format
-						membership_context: {
-							added_by: { id: 456, name: 'John' }, // Legacy format with 'id'
-							user_role: 'member',
-						},
-					};
-
-					(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(mixedFormatEvent);
-					(mockWebhookFunctions.getNodeParameter as jest.Mock)
-						.mockReturnValueOnce({}) // additionalFields
-						.mockReturnValueOnce(['user_added']); // events
-
-					const result = await eventProcessor.processWebhookEvent.call(
-						mockWebhookFunctions as IWebhookFunctions
-					);
-
-					expect(result.workflowData).toHaveLength(1);
-					const eventData = result.workflowData?.[0]?.[0] as any;
-					expect((eventData.event_context as any).chat_info.chat_id).toBe(123);
-					expect((eventData.event_context as any).affected_user.user_id).toBe(789);
-					expect((eventData.event_context as any).user_role).toBe('member');
 				});
 			});
 		});

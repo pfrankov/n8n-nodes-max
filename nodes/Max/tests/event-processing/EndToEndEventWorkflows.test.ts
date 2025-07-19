@@ -5,9 +5,9 @@
 
 import type { IWebhookFunctions } from 'n8n-workflow';
 import { MaxTrigger } from '../../MaxTrigger.node';
-import { 
-	EVENT_FIXTURES, 
-	MALFORMED_EVENT_FIXTURES, 
+import {
+	EVENT_FIXTURES,
+	MALFORMED_EVENT_FIXTURES,
 	EDGE_CASE_EVENT_FIXTURES,
 	createEventWithIds,
 	createEventBatch
@@ -19,7 +19,7 @@ describe('End-to-End Event Workflows', () => {
 
 	beforeEach(() => {
 		maxTrigger = new MaxTrigger();
-		
+
 		mockWebhookFunctions = {
 			getBodyData: jest.fn(),
 			getHeaderData: jest.fn(() => ({})),
@@ -34,7 +34,7 @@ describe('End-to-End Event Workflows', () => {
 			.mockImplementation((paramName: string) => {
 				if (paramName === 'events') {
 					return [
-						'message_created', 'message_chat_created', 'message_edited', 
+						'message_created', 'message_chat_created', 'message_edited',
 						'message_removed', 'bot_started', 'bot_added', 'bot_removed',
 						'user_added', 'user_removed', 'chat_title_changed', 'message_callback'
 					];
@@ -65,7 +65,6 @@ describe('End-to-End Event Workflows', () => {
 				const processedEvent = result.workflowData?.[0]?.[0] as any;
 
 				// Verify basic event structure
-				expect(processedEvent.event_type).toBe(eventType);
 				expect(processedEvent.update_type).toBe(eventType);
 				expect(processedEvent.timestamp).toBeDefined();
 				expect(processedEvent.event_id).toBeDefined();
@@ -251,7 +250,7 @@ describe('End-to-End Event Workflows', () => {
 			(mockWebhookFunctions.getNodeParameter as jest.Mock)
 				.mockImplementation((paramName: string) => {
 					if (paramName === 'events') return ['message_created', 'message_callback'];
-					if (paramName === 'additionalFields') return { 
+					if (paramName === 'additionalFields') return {
 						chatIds: '111111, 222222',
 						userIds: '333333, 444444'
 					};
@@ -290,9 +289,9 @@ describe('End-to-End Event Workflows', () => {
 
 			for (const malformedEvent of malformedEvents) {
 				(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(malformedEvent);
-				
+
 				const result = await maxTrigger.webhook.call(mockWebhookFunctions as IWebhookFunctions);
-				
+
 				// Should not crash
 				expect(result).toBeDefined();
 				expect(result.workflowData).toBeDefined();
@@ -304,7 +303,7 @@ describe('End-to-End Event Workflows', () => {
 					expect(processedEvent.validation_status).toBeDefined();
 					// Should have validation errors or warnings
 					expect(
-						processedEvent.validation_status.errors.length > 0 || 
+						processedEvent.validation_status.errors.length > 0 ||
 						processedEvent.validation_status.warnings.length > 0
 					).toBe(true);
 				}
@@ -316,17 +315,16 @@ describe('End-to-End Event Workflows', () => {
 
 			for (const [eventName, eventData] of edgeCaseEvents) {
 				(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(eventData);
-				
+
 				const result = await maxTrigger.webhook.call(mockWebhookFunctions as IWebhookFunctions);
-				
+
 				// Should process successfully
 				expect(result.workflowData).toHaveLength(1);
 				const processedEvent = result.workflowData?.[0]?.[0] as any;
-				
+
 				// Should be valid (edge cases should still be valid)
 				expect(processedEvent.validation_status.is_valid).toBe(true);
-				expect(processedEvent.event_type).toBe(eventData.update_type);
-				
+
 				// Verify specific edge case handling
 				switch (eventName) {
 					case 'max_length_message':
@@ -374,17 +372,16 @@ describe('End-to-End Event Workflows', () => {
 
 			for (const event of eventBatch) {
 				const startTime = Date.now();
-				
+
 				(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(event);
 				const result = await maxTrigger.webhook.call(mockWebhookFunctions as IWebhookFunctions);
-				
+
 				const endTime = Date.now();
 				processingTimes.push(endTime - startTime);
 
 				// Verify each event was processed
 				expect(result.workflowData).toHaveLength(1);
 				const processedEvent = result.workflowData?.[0]?.[0] as any;
-				expect(processedEvent.event_type).toBe('message_created');
 				expect(processedEvent.validation_status.is_valid).toBe(true);
 			}
 
@@ -428,10 +425,9 @@ describe('End-to-End Event Workflows', () => {
 
 			// Verify all events were processed successfully
 			expect(results).toHaveLength(5);
-			results.forEach((result, index) => {
+			results.forEach((result) => {
 				expect(result.workflowData).toHaveLength(1);
 				const processedEvent = result.workflowData?.[0]?.[0] as any;
-				expect(processedEvent.event_type).toBe(events[index]?.update_type);
 				expect(processedEvent.validation_status.is_valid).toBe(true);
 			});
 		});

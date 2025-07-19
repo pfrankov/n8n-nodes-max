@@ -13,7 +13,7 @@ describe('Max API Structure Validation', () => {
 
 	beforeEach(() => {
 		eventProcessor = new MaxEventProcessor();
-		
+
 		mockWebhookFunctions = {
 			getBodyData: jest.fn(),
 			getNodeParameter: jest.fn(),
@@ -81,25 +81,24 @@ describe('Max API Structure Validation', () => {
 
 			expect(result.workflowData).toHaveLength(1);
 			const eventData = result.workflowData?.[0]?.[0] as any;
-			
+
 			// Verify the event is processed correctly
-			expect(eventData.event_type).toBe('message_created');
 			expect(eventData.update_type).toBe('message_created');
 			expect(eventData.timestamp).toBe(1640995200000);
 			expect(eventData.validation_status.is_valid).toBe(true);
-			
+
 			// Verify message content is extracted from official structure
 			expect(eventData.event_context.has_text).toBe(true);
 			expect(eventData.event_context.has_attachments).toBe(true);
 			expect(eventData.event_context.message_length).toBe(34); // Length of "Hello from official API structure!"
 			expect(eventData.event_context.message_id).toBe('msg_123');
-			
+
 			// Verify metadata extraction from official structure
 			expect(eventData.metadata.user_context.user_id).toBe(456);
 			expect(eventData.metadata.user_context.username).toBe('johndoe');
 			expect(eventData.metadata.user_context.display_name).toBe('John');
 			expect(eventData.metadata.user_context.locale).toBe('en');
-			
+
 			expect(eventData.metadata.chat_context.chat_id).toBe(123);
 			expect(eventData.metadata.chat_context.chat_type).toBe('chat');
 		});
@@ -145,8 +144,7 @@ describe('Max API Structure Validation', () => {
 
 			expect(result.workflowData).toHaveLength(1);
 			const eventData = result.workflowData?.[0]?.[0] as any;
-			
-			expect(eventData.event_type).toBe('message_chat_created');
+
 			expect(eventData.event_context.type).toBe('message_chat_created');
 			expect(eventData.event_context.chat_type).toBe('chat');
 			expect(eventData.event_context.message_id).toBe('msg_456');
@@ -201,7 +199,7 @@ describe('Max API Structure Validation', () => {
 			);
 
 			const eventData = result.workflowData?.[0]?.[0] as any;
-			
+
 			// Should use official API structure values, not legacy ones
 			expect(eventData.event_context.message_id).toBe('official_msg_id'); // Not 'legacy_msg_id'
 			expect(eventData.event_context.has_text).toBe(true);
@@ -263,11 +261,11 @@ describe('Max API Structure Validation', () => {
 			);
 
 			const eventData = result.workflowData?.[0]?.[0] as any;
-			
+
 			expect(eventData.validation_status.is_valid).toBe(true);
 			expect(eventData.event_context.message_id).toBe('msg_789');
 			expect(eventData.event_context.has_text).toBe(true);
-			
+
 			// Verify the original message structure is preserved
 			expect(eventData.message.link).toBeDefined();
 			expect(eventData.message.link.type).toBe('forward');
@@ -311,7 +309,7 @@ describe('Max API Structure Validation', () => {
 			);
 
 			const eventData = result.workflowData?.[0]?.[0] as any;
-			
+
 			expect(eventData.metadata.chat_context.chat_id).toBe(789);
 			expect(eventData.metadata.chat_context.chat_type).toBe('chat');
 		});
@@ -353,7 +351,7 @@ describe('Max API Structure Validation', () => {
 			);
 
 			const eventData = result.workflowData?.[0]?.[0] as any;
-			
+
 			expect(eventData.metadata.user_context.user_id).toBe(123);
 			expect(eventData.metadata.user_context.username).toBe('alicesmith');
 			expect(eventData.metadata.user_context.display_name).toBe('Alice');
@@ -413,10 +411,10 @@ describe('Max API Structure Validation', () => {
 			);
 
 			const eventData = result.workflowData?.[0]?.[0] as any;
-			
+
 			expect(eventData.event_context.has_attachments).toBe(true);
 			expect(eventData.validation_status.is_valid).toBe(true);
-			
+
 			// Verify original attachment structure is preserved
 			expect(eventData.message.body.attachments).toHaveLength(2);
 			expect(eventData.message.body.attachments[0].type).toBe('image');
@@ -472,9 +470,9 @@ describe('Max API Structure Validation', () => {
 			);
 
 			const eventData = result.workflowData?.[0]?.[0] as any;
-			
+
 			expect(eventData.validation_status.is_valid).toBe(true);
-			
+
 			// Verify markup structure is preserved
 			expect(eventData.message.body.markup).toHaveLength(2);
 			expect(eventData.message.body.markup[0].type).toBe('strong');
