@@ -16,7 +16,6 @@ export interface IMaxUser {
 	user_id: number;
 	first_name?: string;
 	last_name?: string;
-	name?: string; // Deprecated field, will be removed soon
 	username?: string;
 	is_bot?: boolean;
 	last_activity_time?: number;
@@ -31,7 +30,7 @@ export interface IMaxUser {
  */
 export interface IMaxChat {
 	chat_id: number;
-	type: 'chat' | 'dialog' | 'group'; // 'chat' is official, others for backward compatibility
+	type: 'dialog' | 'group' | 'channel';
 	status?: 'active' | 'removed' | 'left' | 'closed';
 	title?: string;
 	icon?: {
@@ -48,7 +47,6 @@ export interface IMaxChat {
 		user_id: number;
 		first_name?: string;
 		last_name?: string;
-		name?: string;
 		username?: string;
 		is_bot?: boolean;
 		last_activity_time?: number;
@@ -73,7 +71,6 @@ export interface IMaxMessage {
 		user_id: number;
 		first_name?: string;
 		last_name?: string;
-		name?: string;
 		username?: string;
 		is_bot?: boolean;
 		last_activity_time?: number;
@@ -90,7 +87,6 @@ export interface IMaxMessage {
 			user_id: number;
 			first_name?: string;
 			last_name?: string;
-			name?: string;
 			username?: string;
 			is_bot?: boolean;
 			last_activity_time?: number;

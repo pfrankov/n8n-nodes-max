@@ -91,24 +91,10 @@ export class MaxEventProcessor {
 			}
 
 		// Extract and validate event type
-		const eventType = bodyData.update_type || null;
-		if (!eventType || eventType === '') {
-			console.log('Max Trigger - No event type found');
-			// Check if it has any non-empty, non-timestamp content
-			const hasAnyContent = Object.keys(bodyData).length > 0;
-			const hasOnlyTimestamp = Object.keys(bodyData).length === 1 && bodyData.timestamp;
-			const hasOnlyTimestampAndEmptyEventType = Object.keys(bodyData).length === 2 &&
-				bodyData.timestamp && (bodyData.update_type === '');
-
-			if (hasAnyContent && !hasOnlyTimestamp && !hasOnlyTimestampAndEmptyEventType) {
-				console.log('Max Trigger - Passing through data for debugging');
-				return {
-					workflowData: [this.helpers.returnJsonArray([bodyData as unknown as IDataObject])],
-				};
-			} else {
-				// Return empty for data with only timestamp or empty event type
-				return { workflowData: [] };
-			}
+		const eventType = bodyData.update_type;
+		if (!eventType) {
+			console.log('Max Trigger - No event type found in webhook body');
+			return { workflowData: [] };
 		}			// Filter by event type
 			if (!events.includes(eventType as MaxTriggerEvent)) {
 				console.log(`Max Trigger - Event type '${eventType}' filtered out`);
@@ -171,43 +157,8 @@ export class MaxEventProcessor {
 	 * Extract chat and user information from event data
 	 */
 	private extractChatAndUserInfo(bodyData: MaxWebhookEvent) {
-		let chatInfo = bodyData.chat;
-		let userInfo = bodyData.user;
-
-		// For events with direct chat_id field (bot_added, bot_removed, user_added, user_removed, etc.)
-		if (bodyData.chat_id && !chatInfo) {
-			chatInfo = {
-				chat_id: bodyData.chat_id,
-				type: bodyData.is_channel ? 'channel' : 'chat'
-			} as MaxWebhookEvent['chat'];
-		}
-
-		// For message events, extract chat/user info from the message object
-		if (bodyData.message) {
-			// Extract chat info from message.recipient
-			if (bodyData.message.recipient && !chatInfo) {
-				chatInfo = {
-					chat_id: bodyData.message.recipient.chat_id,
-					type: bodyData.message.recipient.chat_type || 'chat'
-				} as MaxWebhookEvent['chat'];
-			}
-			// Extract user info from message.sender
-			if (bodyData.message.sender && !userInfo) {
-				userInfo = {
-					user_id: bodyData.message.sender.user_id,
-					first_name: bodyData.message.sender.first_name,
-					last_name: bodyData.message.sender.last_name,
-					username: bodyData.message.sender.username,
-					is_bot: bodyData.message.sender.is_bot,
-					last_activity_time: bodyData.message.sender.last_activity_time
-				} as MaxWebhookEvent['user'];
-			}
-		}
-
-		// For callback events, extract user from callback object
-		if (bodyData.callback && bodyData.callback.user && !userInfo) {
-			userInfo = bodyData.callback.user;
-		}
+		const chatInfo = bodyData.chat || (bodyData.message ? { chat_id: bodyData.message.recipient?.chat_id, type: bodyData.message.recipient?.chat_type } : { chat_id: bodyData.chat_id });
+		const userInfo = bodyData.user || bodyData.message?.sender || bodyData.callback?.user;
 
 		return { chatInfo, userInfo };
 	}

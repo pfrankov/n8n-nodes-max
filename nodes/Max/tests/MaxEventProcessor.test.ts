@@ -90,8 +90,7 @@ describe('MaxEventProcessor', () => {
 				mockWebhookFunctions as IWebhookFunctions
 			);
 
-			expect(result.workflowData).toHaveLength(1);
-			expect(result.workflowData?.[0]).toEqual([mockBodyData]);
+			expect(result.workflowData).toHaveLength(0);
 		});
 
 		it('should filter out non-allowed event types', async () => {
@@ -1856,7 +1855,7 @@ describe('MaxEventProcessor', () => {
 					);
 
 					// Processor passes through data when no event type is found
-					expect(result.workflowData).toHaveLength(1);
+					expect(result.workflowData).toHaveLength(0);
 				});
 
 				it('should handle events with invalid data types', async () => {

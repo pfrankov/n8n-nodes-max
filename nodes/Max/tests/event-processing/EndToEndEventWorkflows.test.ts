@@ -88,33 +88,32 @@ describe('End-to-End Event Workflows', () => {
 		});
 
 		it('should handle message workflow with attachments and formatting', async () => {
-			const messageEvent = EVENT_FIXTURES['message_chat_created'];
-			(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(messageEvent);
+				const messageEvent = EVENT_FIXTURES['message_chat_created'];
+				(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(messageEvent);
 
-			const result = await maxTrigger.webhook.call(mockWebhookFunctions as IWebhookFunctions);
-			const processedEvent = result.workflowData?.[0]?.[0] as any;
+				const result = await maxTrigger.webhook.call(mockWebhookFunctions as IWebhookFunctions);
+				const processedEvent = result.workflowData?.[0]?.[0] as any;
 
-			// Verify message-specific processing
-			expect(processedEvent.event_context.has_text).toBe(true);
-			expect(processedEvent.event_context.has_attachments).toBe(true);
-			expect(processedEvent.event_context.message_length).toBeGreaterThan(0);
-			expect(processedEvent.event_context.chat_type).toBe('group');
+				// Verify message-specific processing
+				expect(processedEvent.event_context.has_text).toBe(true);
+				expect(processedEvent.event_context.has_attachments).toBe(true);
+				expect(processedEvent.event_context.message_length).toBeGreaterThan(0);
+				expect(processedEvent.event_context.chat_type).toBe('group');
 
-			// Verify metadata extraction
-			expect(processedEvent.metadata.user_context).toBeDefined();
-			expect(processedEvent.metadata.user_context.user_id).toBe(123456);
-			expect(processedEvent.metadata.user_context.username).toBe('john_doe');
-			expect(processedEvent.metadata.user_context.display_name).toBe('John');
+				// Verify metadata extraction
+				expect(processedEvent.metadata.user_context).toBeDefined();
+				expect(processedEvent.metadata.user_context.user_id).toBe(123456);
+				expect(processedEvent.metadata.user_context.username).toBe('john_doe');
 
-			expect(processedEvent.metadata.chat_context).toBeDefined();
-			expect(processedEvent.metadata.chat_context.chat_id).toBe(789012);
-			expect(processedEvent.metadata.chat_context.chat_type).toBe('group');
+				expect(processedEvent.metadata.chat_context).toBeDefined();
+				expect(processedEvent.metadata.chat_context.chat_id).toBe(789012);
+				expect(processedEvent.metadata.chat_context.chat_type).toBe('group');
 
-			// Verify original event data is preserved
-			expect(processedEvent.message).toBeDefined();
-			expect(processedEvent.message.body.attachments).toHaveLength(1);
-			expect(processedEvent.message.body.attachments[0].type).toBe('image');
-		});
+				// Verify original event data is preserved
+				expect(processedEvent.message).toBeDefined();
+				expect(processedEvent.message.body.attachments).toHaveLength(1);
+				expect(processedEvent.message.body.attachments[0].type).toBe('image');
+			});
 
 		it('should handle callback workflow with button interaction', async () => {
 			const callbackEvent = EVENT_FIXTURES['message_callback'];

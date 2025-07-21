@@ -321,7 +321,7 @@ describe('MaxTrigger Integration', () => {
 				(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(eventData);
 				const result = await maxTrigger.webhook.call(mockWebhookFunctions as IWebhookFunctions);
 				expect(result).toEqual({
-					workflowData: [[eventData]],
+					workflowData: [],
 				});
 			}
 		});
