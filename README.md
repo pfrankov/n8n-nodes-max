@@ -1,6 +1,8 @@
 # n8n-nodes-max
 
 Нода для интеграции мессенджера Max с платформой автоматизации n8n.
+<img width="518" height="429" alt="image" src="https://github.com/user-attachments/assets/577165bb-510f-4523-b898-76ea94dc0f2b" />
+
 
 ## Установка
 
