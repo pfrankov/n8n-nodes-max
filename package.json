@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-max",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "n8n community node for Max messenger integration. Send messages, handle webhooks, manage attachments, and create interactive bot experiences using the official Max Bot API.",
   "keywords": [
     "n8n-community-node-package"
