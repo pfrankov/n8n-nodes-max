@@ -14,6 +14,7 @@ jest.mock('../GenericFunctions', () => ({
 	addAdditionalFields: jest.fn((params, fields) => ({ ...params, ...fields.additionalFields })),
 	handleAttachments: jest.fn().mockResolvedValue([]),
 	processKeyboardFromParameters: jest.fn().mockReturnValue(undefined),
+	processKeyboardFromAdditionalFields: jest.fn().mockReturnValue(undefined),
 }));
 
 // Import the mocked functions to spy on them
@@ -88,6 +89,7 @@ describe('Max Node', () => {
 						userId: '123',
 						text: 'Hello user',
 						format: 'plain',
+						additionalFields: {},
 					};
 					const executeFunctions = getExecuteFunctionsMock(params);
 					await maxNode.execute.call(executeFunctions);
@@ -102,6 +104,7 @@ describe('Max Node', () => {
 						chatId: '456',
 						text: 'Hello chat',
 						format: 'markdown',
+						additionalFields: {},
 					};
 					const executeFunctions = getExecuteFunctionsMock(params);
 					await maxNode.execute.call(executeFunctions);
@@ -138,6 +141,7 @@ describe('Max Node', () => {
 						userId: '-98765',
 						text: 'Hello from a negative user',
 						format: 'plain',
+						additionalFields: {},
 					};
 					const executeFunctions = getExecuteFunctionsMock(params);
 					await maxNode.execute.call(executeFunctions);
@@ -152,6 +156,7 @@ describe('Max Node', () => {
 						userId: '98765',
 						text: 'Hello from a positive user',
 						format: 'plain',
+						additionalFields: {},
 					};
 					const executeFunctions = getExecuteFunctionsMock(params);
 					await maxNode.execute.call(executeFunctions);
@@ -165,6 +170,8 @@ describe('Max Node', () => {
 						sendTo: 'user',
 						userId: 'xyz',
 						text: 'This should fail',
+						format: 'plain',
+						additionalFields: {},
 					};
 					const executeFunctions = getExecuteFunctionsMock(params);
 					await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow('Invalid User ID: "xyz". Must be a number.');
@@ -180,6 +187,7 @@ describe('Max Node', () => {
 						chatId: '-12345',
 						text: 'Hello from a negative chat',
 						format: 'plain',
+						additionalFields: {},
 					};
 					const executeFunctions = getExecuteFunctionsMock(params);
 					await maxNode.execute.call(executeFunctions);
@@ -200,6 +208,7 @@ describe('Max Node', () => {
 						chatId: '12345',
 						text: 'Hello from a positive chat',
 						format: 'plain',
+						additionalFields: {},
 					};
 					const executeFunctions = getExecuteFunctionsMock(params);
 					await maxNode.execute.call(executeFunctions);
@@ -219,6 +228,8 @@ describe('Max Node', () => {
 						sendTo: 'chat',
 						chatId: 'abc',
 						text: 'This should fail',
+						format: 'plain',
+						additionalFields: {},
 					};
 					const executeFunctions = getExecuteFunctionsMock(params);
 					await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow('Invalid Chat ID: "abc". Must be a number.');
@@ -284,40 +295,117 @@ describe('Max Node', () => {
 					if (name === 'sendTo') return 'chat';
 					if (name === 'chatId') return '12345';
 					if (name === 'text') return 'Test message with attachment and keyboard';
-					if (name === 'attachments') {
+					if (name === 'format') return 'plain';
+					if (name === 'additionalFields') {
 						return {
-							attachment: [
-								{
-									inputType: 'url',
-									fileUrl: 'https://example.com/image.jpg',
-									type: 'image',
-								},
-							],
-						};
-					}
-					if (name === 'inlineKeyboard') {
-						return {
-							buttons: [
-								{
-									row: [
-										{
-											button: {
-												text: 'Click me',
-												payload: 'callback_data',
-											},
+							attachments: {
+								attachment: [
+									{
+										inputType: 'url',
+										fileUrl: 'https://example.com/image.jpg',
+										type: 'image',
+									},
+								],
+							},
+							inlineKeyboard: {
+								buttons: [
+									{
+										row: {
+											button: [
+												{
+													text: 'Click me',
+													type: 'callback',
+													payload: 'callback_data',
+													intent: 'default',
+												},
+											],
 										},
-									],
-								},
-							],
+									},
+								],
+							},
 						};
 					}
-					if (name === 'additionalFields') return {};
 					return null;
 				});
 
 				await maxNode.execute.call(executeFunctions);
 
 				expect(sendMessage).toHaveBeenCalledWith(expect.anything(), 'chat', 12345, 'Test message with attachment and keyboard', expect.any(Object));
+			});
+		});
+
+		describe('sendMessage with reply functionality', () => {
+			it('should call sendMessage with reply to message ID', async () => {
+				const params = {
+					resource: 'message',
+					operation: 'sendMessage',
+					sendTo: 'chat',
+					chatId: '12345',
+					text: 'This is a reply message',
+					format: 'plain',
+					additionalFields: {
+						replyToMessageId: 'msg-456',
+					},
+				};
+				const executeFunctions = getExecuteFunctionsMock(params);
+				
+				await maxNode.execute.call(executeFunctions);
+				
+				expect(sendMessage).toHaveBeenCalledWith(
+					expect.anything(),
+					'chat',
+					12345,
+					'This is a reply message',
+					expect.objectContaining({
+						link: {
+							type: 'reply',
+							mid: 'msg-456',
+						},
+					}),
+				);
+			});
+
+			it('should call sendMessage without reply link when replyToMessageId is empty', async () => {
+				const params = {
+					resource: 'message',
+					operation: 'sendMessage',
+					sendTo: 'user',
+					userId: '789',
+					text: 'Regular message without reply',
+					format: 'plain',
+					additionalFields: {
+						replyToMessageId: '',
+					},
+				};
+				const executeFunctions = getExecuteFunctionsMock(params);
+				
+				await maxNode.execute.call(executeFunctions);
+				
+				expect(sendMessage).toHaveBeenCalledWith(
+					expect.anything(),
+					'user',
+					789,
+					'Regular message without reply',
+					expect.not.objectContaining({
+						link: expect.anything(),
+					}),
+				);
+			});
+
+			it('should throw error for whitespace-only replyToMessageId', async () => {
+				const params = {
+					resource: 'message',
+					operation: 'sendMessage',
+					sendTo: 'chat',
+					chatId: '12345',
+					text: 'This should fail',
+					additionalFields: {
+						replyToMessageId: '   ',
+					},
+				};
+				const executeFunctions = getExecuteFunctionsMock(params);
+				
+				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow('Reply to Message ID cannot be empty');
 			});
 		});
 

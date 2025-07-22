@@ -7,7 +7,7 @@ import type {
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
 
-import { createMaxBotInstance, sendMessage, editMessage, deleteMessage, answerCallbackQuery, getChatInfo, leaveChat, validateAndFormatText, addAdditionalFields, handleAttachments, processKeyboardFromParameters } from './GenericFunctions';
+import { createMaxBotInstance, sendMessage, editMessage, deleteMessage, answerCallbackQuery, getChatInfo, leaveChat, validateAndFormatText, addAdditionalFields, handleAttachments, processKeyboardFromParameters, processKeyboardFromAdditionalFields } from './GenericFunctions';
 
 /**
  * Max messenger node for n8n
@@ -205,214 +205,7 @@ export class Max implements INodeType {
 				default: 'plain',
 				description: 'The format of the message text',
 			},
-			{
-				displayName: 'Attachments',
-				name: 'attachments',
-				type: 'fixedCollection',
-				placeholder: 'Add Attachment',
-				displayOptions: {
-					show: {
-						resource: ['message'],
-						operation: ['sendMessage'],
-					},
-				},
-				default: {},
-				typeOptions: {
-					multipleValues: true,
-				},
-				options: [
-					{
-						name: 'attachment',
-						displayName: 'Attachment',
-						values: [
-							{
-						displayName: 'Binary Property',
-						name: 'binaryProperty',
-						type: 'string',
-						default: 'data',
-						description: 'Name of the binary property containing the file data',
-							},
-							{
-						displayName: 'File Name',
-						name: 'fileName',
-						type: 'string',
-						default: '',
-						description: 'Name of the file (optional, will be auto-detected if not provided)',
-							},
-							{
-						displayName: 'File URL',
-						name: 'fileUrl',
-						type: 'string',
-						default: '',
-						description: 'URL of the file to upload',
-							},
-							{
-						displayName: 'Input Type',
-						name: 'inputType',
-						type: 'options',
-						options: [
-									{
-										name: 'Binary Data',
-										value: 'binary',
-										description: 'Use binary data from previous node',
-									},
-									{
-										name: 'URL',
-										value: 'url',
-										description: 'Upload from URL',
-									},
-								],
-						default: 'binary',
-						description: 'How to provide the file',
-							},
-							{
-						displayName: 'Type',
-						name: 'type',
-						type: 'options',
-						options: [
-									{
-										name: 'Image',
-										value: 'image',
-									},
-									{
-										name: 'Video',
-										value: 'video',
-									},
-									{
-										name: 'Audio',
-										value: 'audio',
-									},
-									{
-										name: 'File',
-										value: 'file',
-									},
-					],
-						default: 'image',
-						description: 'Type of attachment to send',
-							},
-					],
-					},
-				],
-			},
-			{
-				displayName: 'Inline Keyboard',
-				name: 'inlineKeyboard',
-				type: 'fixedCollection',
-				placeholder: 'Add Button Row',
-				displayOptions: {
-					show: {
-						resource: ['message'],
-						operation: ['sendMessage'],
-					},
-				},
-				default: {},
-				typeOptions: {
-					multipleValues: true,
-				},
-				options: [
-					{
-						name: 'buttons',
-						displayName: 'Button Row',
-						values: [
-							{
-								displayName: 'Row',
-								name: 'row',
-								type: 'fixedCollection',
-								placeholder: 'Add Button',
-								typeOptions: {
-									multipleValues: true,
-								},
-								default: {},
-								options: [
-									{
-										name: 'button',
-										displayName: 'Button',
-										values: [
-									{
-										displayName: 'Button Intent',
-										name: 'intent',
-										type: 'options',
-										options: [
-													{
-												name: 'Default',
-												value: 'default',
-												description: 'Standard button appearance',
-													},
-													{
-												name: 'Positive',
-												value: 'positive',
-												description: 'Green/positive button appearance',
-													},
-													{
-												name: 'Negative',
-												value: 'negative',
-												description: 'Red/negative button appearance',
-													},
-												],
-										default: 'default',
-										description: 'Visual style of the button',
-									},
-									{
-										displayName: 'Button Text',
-										name: 'text',
-										type: 'string',
-											required:	true,
-										default: '',
-										description: 'Text displayed on the button (max 64 characters)',
-									},
-									{
-										displayName: 'Button Type',
-										name: 'type',
-										type: 'options',
-										options: [
-													{
-												name: 'Callback',
-												value: 'callback',
-												description: 'Button that sends callback data when pressed',
-													},
-													{
-												name: 'Link',
-												value: 'link',
-												description: 'Button that opens a URL when pressed',
-													},
-													{
-												name: 'Request Contact',
-												value: 'request_contact',
-												description: 'Button that requests user contact information',
-													},
-													{
-												name: 'Request Location',
-												value: 'request_geo_location',
-												description: 'Button that requests user location',
-													},
-											],
-										default: 'callback',
-										description: 'Type of button action',
-									},
-									{
-										displayName: 'Callback Data',
-										name: 'payload',
-										type: 'string',
-											required:	true,
-										default: '',
-										description: 'Data sent back when button is pressed (max 64 characters)',
-									},
-									{
-										displayName: 'URL',
-										name: 'url',
-										type: 'string',
-											required:	true,
-										default: '',
-										description: 'URL to open when button is pressed',
-									},
-					],
-									},
-								],
-							},
-						],
-					},
-				],
-			},
+
 			{
 				displayName: 'Additional Fields',
 				name: 'additionalFields',
@@ -427,6 +220,89 @@ export class Max implements INodeType {
 				default: {},
 				options: [
 					{
+						displayName: 'Attachments',
+						name: 'attachments',
+						type: 'fixedCollection',
+						placeholder: 'Add Attachment',
+						default: {},
+						typeOptions: {
+							multipleValues: true,
+						},
+						options: [
+							{
+								name: 'attachment',
+								displayName: 'Attachment',
+								values: [
+									{
+										displayName: 'Binary Property',
+										name: 'binaryProperty',
+										type: 'string',
+										default: 'data',
+										description: 'Name of the binary property containing the file data',
+									},
+									{
+										displayName: 'File Name',
+										name: 'fileName',
+										type: 'string',
+										default: '',
+										description: 'Name of the file (optional, will be auto-detected if not provided)',
+									},
+									{
+										displayName: 'File URL',
+										name: 'fileUrl',
+										type: 'string',
+										default: '',
+										description: 'URL of the file to upload',
+									},
+									{
+										displayName: 'Input Type',
+										name: 'inputType',
+										type: 'options',
+										options: [
+											{
+												name: 'Binary Data',
+												value: 'binary',
+												description: 'Use binary data from previous node',
+											},
+											{
+												name: 'URL',
+												value: 'url',
+												description: 'Upload from URL',
+											},
+										],
+										default: 'binary',
+										description: 'How to provide the file',
+									},
+									{
+										displayName: 'Type',
+										name: 'type',
+										type: 'options',
+										options: [
+											{
+												name: 'Image',
+												value: 'image',
+											},
+											{
+												name: 'Video',
+												value: 'video',
+											},
+											{
+												name: 'Audio',
+												value: 'audio',
+											},
+											{
+												name: 'File',
+												value: 'file',
+											},
+										],
+										default: 'image',
+										description: 'Type of attachment to send',
+									},
+								],
+							},
+						],
+					},
+					{
 						displayName: 'Disable Link Preview',
 						name: 'disable_link_preview',
 						type: 'boolean',
@@ -434,11 +310,131 @@ export class Max implements INodeType {
 						description: 'Whether to disable link previews for URLs in the message',
 					},
 					{
+						displayName: 'Inline Keyboard',
+						name: 'inlineKeyboard',
+						type: 'fixedCollection',
+						placeholder: 'Add Button Row',
+						default: {},
+						typeOptions: {
+							multipleValues: true,
+						},
+						options: [
+							{
+								name: 'buttons',
+								displayName: 'Button Row',
+								values: [
+									{
+										displayName: 'Row',
+										name: 'row',
+										type: 'fixedCollection',
+										placeholder: 'Add Button',
+										typeOptions: {
+											multipleValues: true,
+										},
+										default: {},
+										options: [
+											{
+												name: 'button',
+												displayName: 'Button',
+												values: [
+													{
+														displayName: 'Button Intent',
+														name: 'intent',
+														type: 'options',
+														options: [
+															{
+																name: 'Default',
+																value: 'default',
+																description: 'Standard button appearance',
+															},
+															{
+																name: 'Positive',
+																value: 'positive',
+																description: 'Green/positive button appearance',
+															},
+															{
+																name: 'Negative',
+																value: 'negative',
+																description: 'Red/negative button appearance',
+															},
+														],
+														default: 'default',
+														description: 'Visual style of the button',
+													},
+													{
+														displayName: 'Button Text',
+														name: 'text',
+														type: 'string',
+														required: true,
+														default: '',
+														description: 'Text displayed on the button (max 64 characters)',
+													},
+													{
+														displayName: 'Button Type',
+														name: 'type',
+														type: 'options',
+														options: [
+															{
+																name: 'Callback',
+																value: 'callback',
+																description: 'Button that sends callback data when pressed',
+															},
+															{
+																name: 'Link',
+																value: 'link',
+																description: 'Button that opens a URL when pressed',
+															},
+															{
+																name: 'Request Contact',
+																value: 'request_contact',
+																description: 'Button that requests user contact information',
+															},
+															{
+																name: 'Request Location',
+																value: 'request_geo_location',
+																description: 'Button that requests user location',
+															},
+														],
+														default: 'callback',
+														description: 'Type of button action',
+													},
+													{
+														displayName: 'Callback Data',
+														name: 'payload',
+														type: 'string',
+														required: true,
+														default: '',
+														description: 'Data sent back when button is pressed (max 64 characters)',
+													},
+													{
+														displayName: 'URL',
+														name: 'url',
+														type: 'string',
+														required: true,
+														default: '',
+														description: 'URL to open when button is pressed',
+													},
+												],
+											},
+										],
+									},
+								],
+							},
+						],
+					},
+					{
 						displayName: 'Notify',
 						name: 'notify',
 						type: 'boolean',
 						default: true,
 						description: 'Whether to notify chat participants about the message',
+					},
+					{
+						displayName: 'Reply to Message ID',
+						name: 'replyToMessageId',
+						type: 'string',
+						default: '',
+						description: 'ID of the message to reply to (optional)',
 					},
 				],
 			},
@@ -538,84 +534,84 @@ export class Max implements INodeType {
 										name: 'button',
 										displayName: 'Button',
 										values: [
-									{
-										displayName: 'Button Intent',
-										name: 'intent',
-										type: 'options',
-										options: [
+											{
+												displayName: 'Button Intent',
+												name: 'intent',
+												type: 'options',
+												options: [
 													{
-												name: 'Default',
-												value: 'default',
-												description: 'Standard button appearance',
+														name: 'Default',
+														value: 'default',
+														description: 'Standard button appearance',
 													},
 													{
-												name: 'Positive',
-												value: 'positive',
-												description: 'Green/positive button appearance',
+														name: 'Positive',
+														value: 'positive',
+														description: 'Green/positive button appearance',
 													},
 													{
-												name: 'Negative',
-												value: 'negative',
-												description: 'Red/negative button appearance',
+														name: 'Negative',
+														value: 'negative',
+														description: 'Red/negative button appearance',
 													},
 												],
-										default: 'default',
-										description: 'Visual style of the button',
-									},
-									{
-										displayName: 'Button Text',
-										name: 'text',
-										type: 'string',
-											required:	true,
-										default: '',
-										description: 'Text displayed on the button (max 64 characters)',
-									},
-									{
-										displayName: 'Button Type',
-										name: 'type',
-										type: 'options',
-										options: [
+												default: 'default',
+												description: 'Visual style of the button',
+											},
+											{
+												displayName: 'Button Text',
+												name: 'text',
+												type: 'string',
+												required: true,
+												default: '',
+												description: 'Text displayed on the button (max 64 characters)',
+											},
+											{
+												displayName: 'Button Type',
+												name: 'type',
+												type: 'options',
+												options: [
 													{
-												name: 'Callback',
-												value: 'callback',
-												description: 'Button that sends callback data when pressed',
+														name: 'Callback',
+														value: 'callback',
+														description: 'Button that sends callback data when pressed',
 													},
 													{
-												name: 'Link',
-												value: 'link',
-												description: 'Button that opens a URL when pressed',
+														name: 'Link',
+														value: 'link',
+														description: 'Button that opens a URL when pressed',
 													},
 													{
-												name: 'Request Contact',
-												value: 'request_contact',
-												description: 'Button that requests user contact information',
+														name: 'Request Contact',
+														value: 'request_contact',
+														description: 'Button that requests user contact information',
 													},
 													{
-												name: 'Request Location',
-												value: 'request_geo_location',
-												description: 'Button that requests user location',
+														name: 'Request Location',
+														value: 'request_geo_location',
+														description: 'Button that requests user location',
 													},
-											],
-										default: 'callback',
-										description: 'Type of button action',
-									},
-									{
-										displayName: 'Callback Data',
-										name: 'payload',
-										type: 'string',
-											required:	true,
-										default: '',
-										description: 'Data sent back when button is pressed (max 64 characters)',
-									},
-									{
-										displayName: 'URL',
-										name: 'url',
-										type: 'string',
-											required:	true,
-										default: '',
-										description: 'URL to open when button is pressed',
-									},
-					],
+												],
+												default: 'callback',
+												description: 'Type of button action',
+											},
+											{
+												displayName: 'Callback Data',
+												name: 'payload',
+												type: 'string',
+												required: true,
+												default: '',
+												description: 'Data sent back when button is pressed (max 64 characters)',
+											},
+											{
+												displayName: 'URL',
+												name: 'url',
+												type: 'string',
+												required: true,
+												default: '',
+												description: 'URL to open when button is pressed',
+											},
+										],
 									},
 								],
 							},
@@ -786,6 +782,10 @@ export class Max implements INodeType {
 						const text = this.getNodeParameter('text', i) as string;
 						const format = this.getNodeParameter('format', i) as string;
 
+						// Get additional fields
+						const additionalFields = this.getNodeParameter('additionalFields', i, {}) as IDataObject;
+						const replyToMessageId = additionalFields['replyToMessageId'] as string || '';
+
 						// Validate and format text
 						const formattedText = validateAndFormatText(text, format);
 
@@ -817,10 +817,24 @@ export class Max implements INodeType {
 
 						// Build options object
 						const options: IDataObject = {};
-						
+
 						// Add format if not plain text
 						if (format !== 'plain') {
 							options['format'] = format;
+						}
+
+						// Add reply link if replyToMessageId is provided
+						if (replyToMessageId) {
+							const trimmedReplyId = replyToMessageId.trim();
+							// Basic validation for message ID format
+							if (trimmedReplyId.length === 0) {
+								throw new NodeOperationError(this.getNode(), 'Reply to Message ID cannot be empty', { itemIndex: i });
+							}
+
+							options['link'] = {
+								type: 'reply',
+								mid: trimmedReplyId,
+							};
 						}
 
 						// Add additional fields
@@ -830,7 +844,7 @@ export class Max implements INodeType {
 						const bot = await createMaxBotInstance.call(this);
 
 						// Handle attachments if provided
-						const attachments = this.getNodeParameter('attachments', i, {}) as IDataObject;
+						const attachments = additionalFields['attachments'] as IDataObject || {};
 						if (attachments && attachments['attachment'] && Array.isArray(attachments['attachment']) && attachments['attachment'].length > 0) {
 							// Process attachments and add to options
 							const currentItem = items[i];
@@ -840,13 +854,17 @@ export class Max implements INodeType {
 						}
 
 						// Handle inline keyboard if provided
-						const keyboardAttachment = processKeyboardFromParameters.call(this, i);
-						if (keyboardAttachment) {
-							// Add keyboard to attachments array
-							if (!options['attachments']) {
-								options['attachments'] = [];
+						const inlineKeyboard = additionalFields['inlineKeyboard'] as IDataObject || {};
+						if (inlineKeyboard && inlineKeyboard['buttons'] && Array.isArray(inlineKeyboard['buttons']) && inlineKeyboard['buttons'].length > 0) {
+							// Process keyboard and add to attachments
+							const keyboardAttachment = processKeyboardFromAdditionalFields(inlineKeyboard);
+							if (keyboardAttachment) {
+								// Add keyboard to attachments array
+								if (!options['attachments']) {
+									options['attachments'] = [];
+								}
+								(options['attachments'] as any[]).push(keyboardAttachment);
 							}
-							(options['attachments'] as any[]).push(keyboardAttachment);
 						}
 
 						// Send message using Max Bot API
@@ -881,7 +899,7 @@ export class Max implements INodeType {
 
 						// Build options object
 						const options: IDataObject = {};
-						
+
 						// Add format if not plain text
 						if (format !== 'plain') {
 							options['format'] = format;

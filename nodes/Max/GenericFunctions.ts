@@ -57,7 +57,7 @@ export async function createMaxBotInstance(
 	this: IExecuteFunctions,
 ): Promise<Bot> {
 	const credentials = await this.getCredentials('maxApi');
-	
+
 	if (!credentials['accessToken']) {
 		throw new NodeApiError(this.getNode(), {
 			message: 'Max API access token is required',
@@ -103,13 +103,13 @@ export async function sendMessage(
 
 	try {
 		let result;
-		
+
 		if (recipientType === 'user') {
 			result = await bot.api.sendMessageToUser(recipientId, text, options);
 		} else {
 			result = await bot.api.sendMessageToChat(recipientId, text, options);
 		}
-		
+
 		return result;
 	} catch (error) {
 		// Use enhanced error handling
@@ -172,7 +172,7 @@ export async function editMessage(
 		const boldCount = (text.match(/\*/g) || []).length;
 		const italicCount = (text.match(/_/g) || []).length;
 		const codeCount = (text.match(/`/g) || []).length;
-		
+
 		if (boldCount % 2 !== 0) {
 			throw new Error('Markdown format error: unmatched bold markers (*). Make sure all bold text is properly closed.');
 		}
@@ -188,7 +188,7 @@ export async function editMessage(
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
 		const baseUrl = credentials['baseUrl'] || 'https://botapi.max.ru';
-		
+
 		// Build request body
 		const requestBody: IDataObject = {
 			text,
@@ -334,8 +334,8 @@ export async function answerCallbackQuery(
 			json: true,
 		});
 
-		return result || { 
-			success: true, 
+		return result || {
+			success: true,
 			callback_query_id: callbackQueryId,
 			text: text || '',
 			show_alert: showAlert || false,
@@ -370,7 +370,7 @@ export function validateAndFormatText(text: string, format?: string): string {
 		const allowedTags = ['b', 'i', 'u', 's', 'code', 'pre', 'a'];
 		const htmlTagRegex = /<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g;
 		let match;
-		
+
 		while ((match = htmlTagRegex.exec(text)) !== null) {
 			const tagName = match[1]?.toLowerCase();
 			if (tagName && !allowedTags.includes(tagName)) {
@@ -408,12 +408,12 @@ export function addAdditionalFields(
 	index: number,
 ): void {
 	const additionalFields = this.getNodeParameter('additionalFields', index, {}) as IDataObject;
-	
+
 	// Add supported additional fields
 	if (additionalFields['disable_link_preview'] !== undefined) {
 		body['disable_link_preview'] = additionalFields['disable_link_preview'];
 	}
-	
+
 	if (additionalFields['notify'] !== undefined) {
 		body['notify'] = additionalFields['notify'];
 	}
@@ -430,7 +430,7 @@ export function addAdditionalFields(
  */
 export function categorizeMaxError(error: IMaxError): MaxErrorCategory {
 	// Authentication errors
-	if (error.error_code === 401 || error.status === 401 || 
+	if (error.error_code === 401 || error.status === 401 ||
 		error.description?.toLowerCase().includes('unauthorized') ||
 		error.message?.toLowerCase().includes('unauthorized') ||
 		error.description?.toLowerCase().includes('invalid token') ||
@@ -493,19 +493,19 @@ export function categorizeMaxError(error: IMaxError): MaxErrorCategory {
  */
 export function createUserFriendlyErrorMessage(error: IMaxError, category: MaxErrorCategory): string {
 	const baseMessage = error.description || error.message || 'An unknown error occurred';
-	
+
 	switch (category) {
 		case MaxErrorCategory.AUTHENTICATION:
 			return `Authorization failed - please check your credentials: ${baseMessage}. Please check your Max API access token in the credentials. Make sure the token is valid and has not expired. You can get a new token from @MasterBot in Max messenger.`;
-		
+
 		case MaxErrorCategory.RATE_LIMIT:
 			const retryAfter = error.parameters?.retry_after;
 			const retryMessage = retryAfter ? ` Please wait ${retryAfter} seconds before retrying.` : ' Please wait before retrying.';
 			return `The service is receiving too many requests from you: ${baseMessage}.${retryMessage} Consider reducing the frequency of your requests or implementing delays between operations.`;
-		
+
 		case MaxErrorCategory.VALIDATION:
 			return `Invalid request parameters: ${baseMessage}. Please check your input data. Common issues include: invalid user/chat IDs, message text too long (max 4000 characters), unsupported formatting, or missing required fields.`;
-		
+
 		case MaxErrorCategory.BUSINESS_LOGIC:
 			if (baseMessage.toLowerCase().includes('chat not found')) {
 				return `Chat not found: ${baseMessage}. The specified chat ID may be incorrect, or the bot may not have access to this chat. Make sure the bot has been added to the chat and has appropriate permissions.`;
@@ -514,10 +514,10 @@ export function createUserFriendlyErrorMessage(error: IMaxError, category: MaxEr
 				return `Access denied: ${baseMessage}. The user may have blocked the bot, or the bot lacks necessary permissions. Check that the bot has been properly configured and authorized.`;
 			}
 			return `Operation failed: ${baseMessage}. This may be due to insufficient permissions, missing resources, or business rule violations. Please verify your bot's access rights and the validity of the target resources.`;
-		
+
 		case MaxErrorCategory.NETWORK:
 			return `Network error: ${baseMessage}. Please check your internet connection and the Max API service status. If the problem persists, try again later or verify the base URL in your credentials.`;
-		
+
 		default:
 			return `The service was not able to process your request: ${baseMessage}. If this error persists, please check the Max API documentation or contact support with the error details.`;
 	}
@@ -559,7 +559,7 @@ export async function handleMaxApiError(
 	// Handle rate limiting with retry logic
 	if (category === MaxErrorCategory.RATE_LIMIT && retryCount < maxRetries) {
 		const retryAfter = maxError.parameters?.retry_after || Math.pow(2, retryCount);
-		
+
 		// For rate limiting, we don't actually retry here but provide guidance
 		throw new NodeApiError(this.getNode(), {
 			message: userMessage,
@@ -650,7 +650,7 @@ export function validateInputParameters(
 		const boldCount = (text.match(/\*/g) || []).length;
 		const italicCount = (text.match(/_/g) || []).length;
 		const codeCount = (text.match(/`/g) || []).length;
-		
+
 		if (boldCount % 2 !== 0) {
 			throw new Error('Markdown format error: unmatched bold markers (*). Make sure all bold text is properly closed.');
 		}
@@ -787,7 +787,7 @@ export function validateAttachment(
 		if (!config.fileUrl || config.fileUrl.trim() === '') {
 			throw new Error('File URL is required for URL input type');
 		}
-		
+
 		// Basic URL validation
 		try {
 			new URL(config.fileUrl);
@@ -810,7 +810,7 @@ export function validateAttachment(
 	if (fileName) {
 		const extension = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
 		const supportedExts = SUPPORTED_EXTENSIONS[config.type];
-		
+
 		if (extension && !supportedExts.includes(extension)) {
 			throw new Error(
 				`Unsupported file extension "${extension}" for ${config.type}. Supported extensions: ${supportedExts.join(', ')}`
@@ -860,7 +860,7 @@ export async function downloadFileFromUrl(
 
 		// Write file to temporary location
 		const fileBuffer = Buffer.from(response.body as string, 'binary');
-		
+
 		// Write file to disk for upload
 		const fs = await import('fs');
 		await fs.promises.writeFile(filePath, fileBuffer);
@@ -905,7 +905,7 @@ export async function uploadFileToMax(
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
 		const baseUrl = credentials['baseUrl'] || 'https://botapi.max.ru';
-		
+
 		// Step 1: Get upload URL from Max API
 		const uploadUrlResponse = await this.helpers.httpRequest({
 			method: 'POST',
@@ -947,8 +947,8 @@ export async function uploadFileToMax(
 		// Step 4: Get file token from upload response
 		let uploadResult;
 		try {
-			uploadResult = typeof uploadResponse.body === 'string' 
-				? JSON.parse(uploadResponse.body) 
+			uploadResult = typeof uploadResponse.body === 'string'
+				? JSON.parse(uploadResponse.body)
 				: uploadResponse.body;
 		} catch {
 			throw new Error('Invalid response format from file upload');
@@ -1183,7 +1183,7 @@ export function validateKeyboardButton(button: IButtonConfig): void {
 		if (button.url.length > KEYBOARD_LIMITS.MAX_URL_LENGTH) {
 			throw new Error(`Button URL cannot exceed ${KEYBOARD_LIMITS.MAX_URL_LENGTH} characters`);
 		}
-		
+
 		// Basic URL validation
 		try {
 			new URL(button.url);
@@ -1313,7 +1313,7 @@ export function validateKeyboardLayout(buttons: IButtonConfig[][]): void {
 	// Validate each row
 	for (let rowIndex = 0; rowIndex < buttons.length; rowIndex++) {
 		const row = buttons[rowIndex];
-		
+
 		// Check if row is empty
 		if (!row || row.length === 0) {
 			throw new Error(`Row ${rowIndex + 1} cannot be empty`);
@@ -1405,7 +1405,7 @@ export function formatInlineKeyboard(buttons: IButtonConfig[][]): IMaxKeyboard {
  */
 export function createInlineKeyboardAttachment(buttons: IButtonConfig[][]): IMaxAttachment {
 	const keyboard = formatInlineKeyboard(buttons);
-	
+
 	return {
 		type: 'inline_keyboard',
 		payload: keyboard.payload,
@@ -1427,7 +1427,7 @@ export function processKeyboardFromParameters(
 	index: number,
 ): IMaxAttachment | null {
 	const keyboardData = this.getNodeParameter('inlineKeyboard', index, {}) as IDataObject;
-	
+
 	if (!keyboardData || !keyboardData['buttons'] || !Array.isArray(keyboardData['buttons']) || keyboardData['buttons'].length === 0) {
 		return null;
 	}
@@ -1435,7 +1435,7 @@ export function processKeyboardFromParameters(
 	try {
 		// Convert n8n parameter format to button config format
 		const buttonRows: IButtonConfig[][] = [];
-		
+
 		for (const rowData of keyboardData['buttons'] as any[]) {
 			if (rowData.row && rowData.row.button && Array.isArray(rowData.row.button) && rowData.row.button.length > 0) {
 				const row: IButtonConfig[] = rowData.row.button.map((buttonData: any) => ({
@@ -1445,7 +1445,7 @@ export function processKeyboardFromParameters(
 					url: buttonData.url || undefined,
 					intent: buttonData.intent || 'default',
 				}));
-				
+
 				buttonRows.push(row);
 			}
 		}
@@ -1460,5 +1460,50 @@ export function processKeyboardFromParameters(
 			this.getNode(),
 			`Failed to process inline keyboard: ${error.message}`,
 		);
+	}
+}
+
+/**
+ * Process inline keyboard from additional fields data
+ * 
+ * Converts inline keyboard configuration from additional fields format to Max attachment format.
+ * This function is used when keyboard data comes from additionalFields instead of direct parameters.
+ * 
+ * @param keyboardData - Keyboard configuration data from additionalFields
+ * @returns Max attachment object containing the inline keyboard or null if no keyboard configured
+ * @throws {Error} When keyboard configuration is invalid or processing fails
+ */
+export function processKeyboardFromAdditionalFields(
+	keyboardData: IDataObject,
+): IMaxAttachment | null {
+	if (!keyboardData || !keyboardData['buttons'] || !Array.isArray(keyboardData['buttons']) || keyboardData['buttons'].length === 0) {
+		return null;
+	}
+
+	try {
+		// Convert n8n parameter format to button config format
+		const buttonRows: IButtonConfig[][] = [];
+
+		for (const rowData of keyboardData['buttons'] as any[]) {
+			if (rowData.row && rowData.row.button && Array.isArray(rowData.row.button) && rowData.row.button.length > 0) {
+				const row: IButtonConfig[] = rowData.row.button.map((buttonData: any) => ({
+					text: buttonData.text || '',
+					type: buttonData.type || 'callback',
+					payload: buttonData.payload || undefined,
+					url: buttonData.url || undefined,
+					intent: buttonData.intent || 'default',
+				}));
+
+				buttonRows.push(row);
+			}
+		}
+
+		if (buttonRows.length === 0) {
+			return null;
+		}
+
+		return createInlineKeyboardAttachment(buttonRows);
+	} catch (error) {
+		throw new Error(`Failed to process inline keyboard: ${error.message}`);
 	}
 }
