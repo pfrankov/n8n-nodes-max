@@ -619,8 +619,8 @@ export function validateInputParameters(
 	format?: string,
 ): void {
 	// Validate recipient ID
-	if (!recipientId || isNaN(recipientId) || recipientId <= 0) {
-		throw new Error(`Invalid ${recipientType} ID: must be a positive number`);
+	if (recipientId === undefined || recipientId === null || isNaN(recipientId)) {
+		throw new Error(`Invalid ${recipientType} ID: must be a number`);
 	}
 
 	// Validate text content
@@ -1216,8 +1216,8 @@ export async function getChatInfo(
 	chatId: number,
 ): Promise<any> {
 	// Validate chat ID
-	if (!chatId || isNaN(chatId) || chatId <= 0) {
-		throw new Error('Chat ID is required and must be a positive number');
+	if (!chatId || isNaN(chatId)) {
+		throw new Error('Chat ID is required and must be a number');
 	}
 
 	try {
@@ -1261,8 +1261,8 @@ export async function leaveChat(
 	chatId: number,
 ): Promise<any> {
 	// Validate chat ID
-	if (!chatId || isNaN(chatId) || chatId <= 0) {
-		throw new Error('Chat ID is required and must be a positive number');
+	if (!chatId || isNaN(chatId)) {
+		throw new Error('Chat ID is required and must be a number');
 	}
 
 	try {

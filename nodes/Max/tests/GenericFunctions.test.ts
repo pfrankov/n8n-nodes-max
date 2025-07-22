@@ -402,11 +402,10 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 	// ============================================================================
 
 	describe('validateInputParameters', () => {
-		it('should validate recipient ID', () => {
-			expect(() => validateInputParameters('user', 0, 'test')).toThrow('Invalid user ID: must be a positive number');
-			expect(() => validateInputParameters('user', -1, 'test')).toThrow('Invalid user ID: must be a positive number');
-			expect(() => validateInputParameters('user', NaN, 'test')).toThrow('Invalid user ID: must be a positive number');
-			expect(() => validateInputParameters('chat', 0, 'test')).toThrow('Invalid chat ID: must be a positive number');
+		it('should throw an error for non-numeric recipient ID', () => {
+			expect(() => validateInputParameters('user', 'abc' as any, 'test')).toThrow('Invalid user ID: must be a number');
+			expect(() => validateInputParameters('chat', 'xyz' as any, 'test')).toThrow('Invalid chat ID: must be a number');
+			expect(() => validateInputParameters('user', NaN, 'test')).toThrow('Invalid user ID: must be a number');
 		});
 
 		it('should validate message text', () => {
@@ -433,11 +432,16 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(() => validateInputParameters('user', 789, '*Hello* _world_ `code`', 'markdown')).not.toThrow();
 		});
 
-		it('should validate edge case IDs', () => {
-			expect(() => validateInputParameters('user', TEST_CONSTANTS.IDS.VALID_USER, 'test')).not.toThrow();
-			expect(() => validateInputParameters('chat', TEST_CONSTANTS.IDS.VALID_CHAT, 'test')).not.toThrow();
-			expect(() => validateInputParameters('user', TEST_CONSTANTS.IDS.INVALID_ZERO, 'test')).toThrow();
-			expect(() => validateInputParameters('user', TEST_CONSTANTS.IDS.INVALID_NEGATIVE, 'test')).toThrow();
+		it('should allow positive, negative, and zero recipient IDs', () => {
+			// Positive
+			expect(() => validateInputParameters('user', 12345, 'test')).not.toThrow();
+			expect(() => validateInputParameters('chat', 67890, 'test')).not.toThrow();
+			// Negative
+			expect(() => validateInputParameters('user', -12345, 'test')).not.toThrow();
+			expect(() => validateInputParameters('chat', -67890, 'test')).not.toThrow();
+			// Zero
+			expect(() => validateInputParameters('user', 0, 'test')).not.toThrow();
+			expect(() => validateInputParameters('chat', 0, 'test')).not.toThrow();
 		});
 	});
 
@@ -495,15 +499,34 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(mockBot.api.sendMessageToChat).toHaveBeenCalledWith(456, 'Hello chat', { notify: false });
 		});
 
-		it('should validate parameters before API call', async () => {
-			await expect(sendMessage.call(
+		it('should send message to user with negative ID successfully', async () => {
+			const expectedResponse = { message_id: 123, text: 'Hello' };
+			mockBot.api.sendMessageToUser.mockResolvedValue(expectedResponse);
+
+			const result = await sendMessage.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				mockBot,
 				'user',
-				0, // Invalid user ID
+				-12345,
 				'Hello',
-				{}
-			)).rejects.toThrow('Invalid user ID: must be a positive number');
+				{},
+			);
+
+			expect(result).toEqual(expectedResponse);
+			expect(mockBot.api.sendMessageToUser).toHaveBeenCalledWith(-12345, 'Hello', {});
+		});
+
+		it('should throw error for non-numeric ID in sendMessage', async () => {
+			await expect(
+				sendMessage.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'user',
+					'not-a-number' as any,
+					'Hello',
+					{},
+				),
+			).rejects.toThrow('Invalid user ID: must be a number');
 		});
 
 		it('should handle API errors gracefully', async () => {
@@ -1453,11 +1476,26 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			);
 		});
 
-		it('should validate chat ID', async () => {
+		it('should get chat info for a negative chat ID', async () => {
+			await getChatInfo.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				{} as any,
+				-12345,
+			);
+			AssertionHelpers.expectHttpRequest(
+				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock),
+				{
+					method: 'GET',
+					url: `https://botapi.max.ru/chats/-12345`,
+				},
+			);
+		});
+
+		it('should throw an error for non-numeric chat ID', async () => {
 			await AssertionHelpers.expectAsyncError(
-				() => getChatInfo.call(mockExecuteFunctions as IExecuteFunctions, {} as any, TEST_CONSTANTS.IDS.INVALID_ZERO),
+				() => getChatInfo.call(mockExecuteFunctions as IExecuteFunctions, {} as any, 'not-a-number' as any),
 				Error,
-				/Chat ID is required and must be a positive number/
+				/Chat ID is required and must be a number/,
 			);
 		});
 
@@ -1521,11 +1559,26 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(result.message).toBe('Successfully left the chat');
 		});
 
-		it('should validate chat ID', async () => {
+		it('should leave chat for a negative chat ID', async () => {
+			await leaveChat.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				{} as any,
+				-12345,
+			);
+			AssertionHelpers.expectHttpRequest(
+				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock),
+				{
+					method: 'POST',
+					url: `https://botapi.max.ru/chats/-12345/leave`,
+				},
+			);
+		});
+
+		it('should throw an error for non-numeric chat ID', async () => {
 			await AssertionHelpers.expectAsyncError(
-				() => leaveChat.call(mockExecuteFunctions as IExecuteFunctions, {} as any, TEST_CONSTANTS.IDS.INVALID_ZERO),
+				() => leaveChat.call(mockExecuteFunctions as IExecuteFunctions, {} as any, 'not-a-number' as any),
 				Error,
-				/Chat ID is required and must be a positive number/
+				/Chat ID is required and must be a number/,
 			);
 		});
 

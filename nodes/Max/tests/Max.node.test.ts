@@ -129,7 +129,49 @@ describe('Max Node', () => {
 					expect(answerCallbackQuery).toHaveBeenCalledWith(expect.anything(), 'cbq-123', 'Alert!', false, 0);
 				});
 		});
-describe('sendMessage with chatId validation', () => {
+			describe('sendMessage with userId validation', () => {
+				it('should call sendMessage with a negative user_id', async () => {
+					const params = {
+						resource: 'message',
+						operation: 'sendMessage',
+						sendTo: 'user',
+						userId: '-98765',
+						text: 'Hello from a negative user',
+						format: 'plain',
+					};
+					const executeFunctions = getExecuteFunctionsMock(params);
+					await maxNode.execute.call(executeFunctions);
+					expect(sendMessage).toHaveBeenCalledWith(expect.anything(), 'user', -98765, 'Hello from a negative user', {});
+				});
+
+				it('should call sendMessage with a positive user_id', async () => {
+					const params = {
+						resource: 'message',
+						operation: 'sendMessage',
+						sendTo: 'user',
+						userId: '98765',
+						text: 'Hello from a positive user',
+						format: 'plain',
+					};
+					const executeFunctions = getExecuteFunctionsMock(params);
+					await maxNode.execute.call(executeFunctions);
+					expect(sendMessage).toHaveBeenCalledWith(expect.anything(), 'user', 98765, 'Hello from a positive user', {});
+				});
+
+				it('should throw NodeOperationError for a non-numeric user_id', async () => {
+					const params = {
+						resource: 'message',
+						operation: 'sendMessage',
+						sendTo: 'user',
+						userId: 'xyz',
+						text: 'This should fail',
+					};
+					const executeFunctions = getExecuteFunctionsMock(params);
+					await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow('Invalid User ID: "xyz". Must be a number.');
+				});
+			});
+
+			describe('sendMessage with chatId validation', () => {
 				it('should call sendMessage with a negative chat_id', async () => {
 					const params = {
 						resource: 'message',
@@ -146,7 +188,7 @@ describe('sendMessage with chatId validation', () => {
 						'chat',
 						-12345,
 						'Hello from a negative chat',
-						{ format: 'plain' },
+						{},
 					);
 				});
 
@@ -166,7 +208,7 @@ describe('sendMessage with chatId validation', () => {
 						'chat',
 						12345,
 						'Hello from a positive chat',
-						{ format: 'plain' },
+						{},
 					);
 				});
 
@@ -179,38 +221,58 @@ describe('sendMessage with chatId validation', () => {
 						text: 'This should fail',
 					};
 					const executeFunctions = getExecuteFunctionsMock(params);
-					await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow(
-						'Invalid Chat ID: "abc". Must be a number.',
-					);
+					await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow('Invalid Chat ID: "abc". Must be a number.');
 				});
 			});
 
 		describe('Chat Resource', () => {
-			it('should call getChatInfo', async () => {
-					const params = { resource: 'chat', operation: 'getChatInfo', chatId: '123' };
-					const executeFunctions = getExecuteFunctionsMock(params);
-					await maxNode.execute.call(executeFunctions);
-					expect(getChatInfo).toHaveBeenCalledWith(expect.anything(), 123);
-				});
+			it('should call getChatInfo with a positive ID', async () => {
+				const params = { resource: 'chat', operation: 'getChatInfo', chatId: '123' };
+				const executeFunctions = getExecuteFunctionsMock(params);
+				await maxNode.execute.call(executeFunctions);
+				expect(getChatInfo).toHaveBeenCalledWith(expect.anything(), 123);
+			});
 
-			it('should call leaveChat and return success', async () => {
-					const params = { resource: 'chat', operation: 'leaveChat', chatId: '123' };
-					const executeFunctions = getExecuteFunctionsMock(params);
-					const returnData = await maxNode.execute.call(executeFunctions);
+			it('should call getChatInfo with a negative ID', async () => {
+				const params = { resource: 'chat', operation: 'getChatInfo', chatId: '-123' };
+				const executeFunctions = getExecuteFunctionsMock(params);
+				await maxNode.execute.call(executeFunctions);
+				expect(getChatInfo).toHaveBeenCalledWith(expect.anything(), -123);
+			});
+
+			it('should throw for invalid chat ID in getChatInfo', async () => {
+				const params = { resource: 'chat', operation: 'getChatInfo', chatId: 'invalid-id' };
+				const executeFunctions = getExecuteFunctionsMock(params);
+				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow('Invalid Chat ID: "invalid-id". Must be a number.');
+			});
+
+			it('should call leaveChat with a positive ID and return success', async () => {
+				const params = { resource: 'chat', operation: 'leaveChat', chatId: '123' };
+				const executeFunctions = getExecuteFunctionsMock(params);
+				const returnData = await maxNode.execute.call(executeFunctions);
 				expect(leaveChat).toHaveBeenCalledWith(expect.anything(), 123);
-				expect(returnData).toEqual([[
-					{
-						json: { success: true },
-						pairedItem: { item: 0 },
-					}
-				]]);
-				});
+				expect(returnData).toEqual([[{
+					json: { success: true },
+					pairedItem: { item: 0 },
+				}]]);
+			});
 
-				it('should throw for invalid chat ID', async () => {
-					const params = { resource: 'chat', operation: 'getChatInfo', chatId: 'invalid-id' };
-					const executeFunctions = getExecuteFunctionsMock(params);
-					await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow('Invalid Chat ID: "invalid-id". Must be a number.');
-				});
+			it('should call leaveChat with a negative ID and return success', async () => {
+				const params = { resource: 'chat', operation: 'leaveChat', chatId: '-123' };
+				const executeFunctions = getExecuteFunctionsMock(params);
+				const returnData = await maxNode.execute.call(executeFunctions);
+				expect(leaveChat).toHaveBeenCalledWith(expect.anything(), -123);
+				expect(returnData).toEqual([[{
+					json: { success: true },
+					pairedItem: { item: 0 },
+				}]]);
+			});
+
+			it('should throw for invalid chat ID in leaveChat', async () => {
+				const params = { resource: 'chat', operation: 'leaveChat', chatId: 'invalid-id' };
+				const executeFunctions = getExecuteFunctionsMock(params);
+				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow('Invalid Chat ID: "invalid-id". Must be a number.');
+			});
 		});
 
 		describe('sendMessage with attachments and keyboard', () => {

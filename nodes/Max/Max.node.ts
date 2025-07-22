@@ -799,8 +799,8 @@ export class Max implements INodeType {
 								throw new NodeOperationError(this.getNode(), 'User ID is required and cannot be empty', { itemIndex: i });
 							}
 							recipientId = parseInt(userIdStr.trim(), 10);
-							if (isNaN(recipientId) || recipientId <= 0) {
-								throw new NodeOperationError(this.getNode(), `Invalid User ID: "${userIdStr}". Must be a positive number.`, { itemIndex: i });
+							if (isNaN(recipientId)) {
+								throw new NodeOperationError(this.getNode(), `Invalid User ID: "${userIdStr}". Must be a number.`, { itemIndex: i });
 							}
 						} else {
 							const chatId = this.getNodeParameter('chatId', i);
