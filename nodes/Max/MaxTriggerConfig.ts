@@ -166,7 +166,6 @@ export interface MaxWebhookEvent {
 			chat_type?: string;
 			user_id?: number;
 		};
-		// Legacy support for tests
 		body?: {
 			mid?: string;
 			seq?: number;
@@ -232,8 +231,6 @@ export interface MaxWebhookEvent {
 		last_activity_time?: number;
 		avatar_url?: string;
 		lang?: string;
-		// Legacy support
-		id?: number;
 	};
 
 	// Chat information (for message_chat_created events)
@@ -246,14 +243,13 @@ export interface MaxWebhookEvent {
 		members_count?: number;
 		is_public?: boolean;
 		link?: string;
-		// Legacy support
-		id?: number;
 	};
 
 	// Callback information (for message_callback events)
 	callback?: {
 		timestamp?: number;
 		callback_id?: string;
+		id?: string; // Legacy support for backward compatibility
 		payload?: string;
 		user?: {
 			user_id: number;
@@ -264,8 +260,6 @@ export interface MaxWebhookEvent {
 			is_bot?: boolean;
 			last_activity_time?: number;
 		};
-		// Legacy support
-		id?: string;
 	};
 
 	// Event-specific fields based on OpenAPI schema
@@ -294,10 +288,8 @@ export interface MaxWebhookEvent {
 	// For message_chat_created events
 	start_payload?: string;
 
-	// Legacy fields for backward compatibility with tests
+	// Additional properties for event-specific data
 	old_message?: {
-		id?: number;
-		message_id?: string;
 		text?: string;
 		timestamp?: number;
 		attachments?: Array<{
@@ -305,9 +297,8 @@ export interface MaxWebhookEvent {
 			payload: any;
 		}>;
 	};
+
 	new_message?: {
-		id?: number;
-		message_id?: string;
 		text?: string;
 		timestamp?: number;
 		attachments?: Array<{
@@ -315,33 +306,25 @@ export interface MaxWebhookEvent {
 			payload: any;
 		}>;
 	};
+
 	deletion_context?: {
 		deleted_by?: {
-			user_id?: number;
+			user_id: number;
 			name?: string;
 			username?: string;
 		};
-		deletion_reason?: string;
 		deleted_at?: number;
+		deletion_reason?: string;
 	};
-	chat_changes?: {
-		old_title?: string;
-		new_title?: string;
-		changed_by?: {
-			user_id?: number;
-			name?: string;
-			username?: string;
-		};
-		changed_at?: number;
-	};
+
 	membership_context?: {
 		added_by?: {
-			user_id?: number;
+			user_id: number;
 			name?: string;
 			username?: string;
 		};
 		removed_by?: {
-			user_id?: number;
+			user_id: number;
 			name?: string;
 			username?: string;
 		};
@@ -349,5 +332,14 @@ export interface MaxWebhookEvent {
 		action_timestamp?: number;
 	};
 
-	[key: string]: any;
+	chat_changes?: {
+		old_title?: string;
+		new_title?: string;
+		changed_by?: {
+			user_id: number;
+			name?: string;
+			username?: string;
+		};
+		changed_at?: number;
+	};
 }

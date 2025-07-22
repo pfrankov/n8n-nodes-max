@@ -984,6 +984,8 @@ export class Max implements INodeType {
 								item: i,
 							},
 						});
+					} else {
+						throw new NodeOperationError(this.getNode(), `The operation '${operation}' is not supported for resource '${resource}'`, { itemIndex: i });
 					}
 				} else if (resource === 'chat') {
 					if (operation === 'getChatInfo') {
@@ -1046,7 +1048,11 @@ export class Max implements INodeType {
 								item: i,
 							},
 						});
+					} else {
+						throw new NodeOperationError(this.getNode(), `The operation '${operation}' is not supported for resource '${resource}'`, { itemIndex: i });
 					}
+				} else {
+					throw new NodeOperationError(this.getNode(), `The resource '${resource}' is not supported.`, { itemIndex: i });
 				}
 			} catch (error) {
 				if (this.continueOnFail()) {

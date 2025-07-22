@@ -28,6 +28,15 @@ module.exports = {
     '!**/tests/**',
     '!**/*.d.ts',
   ],
+  coverageThreshold: {
+    global: {
+      branches: 88.54,
+      functions: 98.78,
+      lines: 92.89,
+      statements: 92.71
+    }
+  },
+  coverageReporters: ['text', 'lcov', 'html'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   setupFilesAfterEnv: [],
   testTimeout: 10000,

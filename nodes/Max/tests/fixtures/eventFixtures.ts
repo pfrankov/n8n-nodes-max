@@ -118,20 +118,6 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 			},
 			timestamp: BASE_TIMESTAMP + 60000
 		},
-		old_message: {
-			id: 1,
-			message_id: TEST_MESSAGE_ID,
-			text: 'Original message text',
-			timestamp: BASE_TIMESTAMP,
-			attachments: []
-		},
-		new_message: {
-			id: 1,
-			message_id: TEST_MESSAGE_ID,
-			text: 'Updated message text',
-			timestamp: BASE_TIMESTAMP + 60000,
-			attachments: []
-		},
 		user_locale: 'en'
 	},
 
@@ -149,15 +135,6 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 				...BASE_MESSAGE.body,
 				text: 'This message will be deleted'
 			}
-		},
-		deletion_context: {
-			deleted_by: {
-				user_id: 999888,
-				name: 'Admin User',
-				username: 'admin'
-			},
-			deletion_reason: 'inappropriate_content',
-			deleted_at: BASE_TIMESTAMP + 120000
 		},
 		user_locale: 'en'
 	},
@@ -183,15 +160,7 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 		update_type: 'bot_added',
 		timestamp: BASE_TIMESTAMP,
 		chat: BASE_CHAT,
-		user: BASE_USER,
-		membership_context: {
-			added_by: {
-				user_id: BASE_USER.user_id,
-				name: `${BASE_USER.first_name} ${BASE_USER.last_name}`,
-				username: BASE_USER.username
-			},
-			action_timestamp: BASE_TIMESTAMP
-		}
+		user: BASE_USER
 	},
 
 	/**
@@ -204,15 +173,7 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 			...BASE_CHAT,
 			members_count: 4 // One less member
 		},
-		user: BASE_USER,
-		membership_context: {
-			removed_by: {
-				user_id: 999888,
-				name: 'Admin User',
-				username: 'admin'
-			},
-			action_timestamp: BASE_TIMESTAMP + 180000
-		}
+		user: BASE_USER
 	},
 
 	/**
@@ -235,9 +196,9 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 		},
 		membership_context: {
 			added_by: {
-				user_id: BASE_USER.user_id,
-				name: `${BASE_USER.first_name} ${BASE_USER.last_name}`,
-				username: BASE_USER.username
+				user_id: TEST_USER_ID,
+				name: 'John Doe',
+				username: 'john_doe'
 			},
 			user_role: 'member',
 			action_timestamp: BASE_TIMESTAMP + 240000
@@ -261,15 +222,6 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 			username: 'charlie_brown',
 			is_bot: false,
 			last_activity_time: BASE_TIMESTAMP + 300000
-		},
-		membership_context: {
-			removed_by: {
-				user_id: 999888,
-				name: 'Admin User',
-				username: 'admin'
-			},
-			user_role: 'member',
-			action_timestamp: BASE_TIMESTAMP + 300000
 		}
 	},
 
@@ -283,17 +235,7 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 			...BASE_CHAT,
 			title: 'Updated Group Chat Title'
 		},
-		user: BASE_USER,
-		chat_changes: {
-			old_title: 'Test Group Chat',
-			new_title: 'Updated Group Chat Title',
-			changed_by: {
-				user_id: BASE_USER.user_id,
-				name: `${BASE_USER.first_name} ${BASE_USER.last_name}`,
-				username: BASE_USER.username
-			},
-			changed_at: BASE_TIMESTAMP + 360000
-		}
+		user: BASE_USER
 	},
 
 	/**

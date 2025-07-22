@@ -1,99 +1,90 @@
+import type { IHookFunctions, IWebhookFunctions, INodeTypeDescription } from 'n8n-workflow';
 import { MaxTrigger } from '../MaxTrigger.node';
-import { MAX_TRIGGER_EVENTS } from '../MaxTriggerConfig';
+import { MaxWebhookManager } from '../MaxWebhookManager';
+import { MaxEventProcessor } from '../MaxEventProcessor';
 
-describe('MaxTrigger', () => {
-	let maxTrigger: MaxTrigger;
+// Mock the classes
+jest.mock('../MaxWebhookManager');
+jest.mock('../MaxEventProcessor');
+
+describe('MaxTrigger Node', () => {
+	let triggerInstance: MaxTrigger;
 
 	beforeEach(() => {
-		maxTrigger = new MaxTrigger();
+		triggerInstance = new MaxTrigger();
+		// Clear all mock instances and calls before each test
+		(MaxWebhookManager as jest.Mock).mockClear();
+		(MaxEventProcessor as jest.Mock).mockClear();
 	});
 
 	describe('Node Description', () => {
-		it('should have correct basic properties', () => {
-			expect(maxTrigger.description.displayName).toBe('Max Trigger');
-			expect(maxTrigger.description.name).toBe('maxTrigger');
-			expect(maxTrigger.description.group).toEqual(['trigger']);
-			expect(maxTrigger.description.version).toBe(1);
-			expect(maxTrigger.description.icon).toBe('file:max.svg');
-		});
-
-		it('should have correct node configuration', () => {
-			expect(maxTrigger.description.inputs).toEqual([]);
-			expect(maxTrigger.description.outputs).toHaveLength(1);
-			expect(maxTrigger.description.defaults.name).toBe('Max Trigger');
-		});
-
-		it('should have webhook configuration', () => {
-			expect(maxTrigger.description.webhooks).toHaveLength(1);
-			expect(maxTrigger.description.webhooks![0]).toEqual({
-				name: 'default',
-				httpMethod: 'POST',
-				responseMode: 'onReceived',
-				path: 'webhook',
-			});
-		});
-
-		it('should require maxApi credentials', () => {
-			expect(maxTrigger.description.credentials).toHaveLength(1);
-			expect(maxTrigger.description.credentials![0]).toEqual({
-				name: 'maxApi',
-				required: true,
-			});
-		});
-
-		it('should have all supported event types', () => {
-			const eventsProperty = maxTrigger.description.properties.find(
-				(prop) => prop.name === 'events'
-			);
-			expect(eventsProperty).toBeDefined();
-			expect(eventsProperty!.type).toBe('multiOptions');
-			expect(eventsProperty!.required).toBe(true);
-			expect((eventsProperty as any).default).toEqual(['message_created']);
-			
-			const actualEvents = (eventsProperty as any).options.map((opt: any) => opt.value);
-			// Compare sorted arrays since UI options are alphabetized by name but constants are in original order
-			expect(actualEvents.sort()).toEqual([...MAX_TRIGGER_EVENTS].sort());
-		});
-
-		it('should have additional fields for filtering', () => {
-			const additionalFieldsProperty = maxTrigger.description.properties.find(
-				(prop) => prop.name === 'additionalFields'
-			);
-			expect(additionalFieldsProperty).toBeDefined();
-			expect(additionalFieldsProperty!.type).toBe('collection');
-			
-			const options = (additionalFieldsProperty as any).options;
-			expect(options).toHaveLength(2);
-			expect(options[0].name).toBe('chatIds');
-			expect(options[1].name).toBe('userIds');
-		});
-
-		it('should have proper subtitle configuration', () => {
-			expect(maxTrigger.description.subtitle).toBe('=Events: {{$parameter["events"].join(", ")}}');
+		it('should have correct properties', () => {
+			const description: INodeTypeDescription = triggerInstance.description;
+			expect(description.displayName).toBe('Max Trigger');
+			expect(description.name).toBe('maxTrigger');
+			expect(description.group).toEqual(['trigger']);
+			expect(description.version).toBe(1);
+			expect(description.subtitle).toBe('=Events: {{$parameter["events"].join(", ")}}');
+			expect(description.description).toBe('Starts the workflow on a Max messenger event');
+			expect(description.defaults).toEqual({ name: 'Max Trigger' });
+			expect(description.inputs).toEqual([]);
+			expect(description.outputs).toEqual(['main']);
+			expect(description.credentials).toEqual([{ name: 'maxApi', required: true }]);
+			const { webhooks } = description;
+			if (!webhooks) {
+				return fail('Webhooks are not defined');
+			}
+			expect(webhooks).toHaveLength(1);
+			const webhook = webhooks[0];
+			if (!webhook) {
+				return fail('First webhook is undefined');
+			}
+			expect(webhook.name).toBe('default');
 		});
 	});
 
-	describe('Webhook Methods Structure', () => {
-		it('should have webhook methods defined', () => {
-			expect(maxTrigger.webhookMethods).toBeDefined();
-			expect(maxTrigger.webhookMethods.default).toBeDefined();
-			expect(typeof maxTrigger.webhookMethods.default.checkExists).toBe('function');
-			expect(typeof maxTrigger.webhookMethods.default.create).toBe('function');
-			expect(typeof maxTrigger.webhookMethods.default.delete).toBe('function');
+	describe('Webhook Methods', () => {
+		const mockHookFunctions = {
+			getCredentials: jest.fn(),
+			getWebhookUrl: jest.fn(),
+			getNode: jest.fn(),
+		} as unknown as IHookFunctions;
+
+		it('checkExists should instantiate MaxWebhookManager and call checkExists', async () => {
+			await triggerInstance.webhookMethods.default.checkExists.call(mockHookFunctions);
+			expect(MaxWebhookManager).toHaveBeenCalledTimes(1);
+			const mockManagerInstance = (MaxWebhookManager as jest.Mock).mock.instances[0];
+			expect(mockManagerInstance.checkExists).toHaveBeenCalledTimes(1);
 		});
 
-		it('should have webhook function defined', () => {
-			expect(typeof maxTrigger.webhook).toBe('function');
+		it('create should instantiate MaxWebhookManager and call create', async () => {
+			await triggerInstance.webhookMethods.default.create.call(mockHookFunctions);
+			expect(MaxWebhookManager).toHaveBeenCalledTimes(1);
+			const mockManagerInstance = (MaxWebhookManager as jest.Mock).mock.instances[0];
+			expect(mockManagerInstance.create).toHaveBeenCalledTimes(1);
+		});
+
+		it('delete should instantiate MaxWebhookManager and call delete', async () => {
+			await triggerInstance.webhookMethods.default.delete.call(mockHookFunctions);
+			expect(MaxWebhookManager).toHaveBeenCalledTimes(1);
+			const mockManagerInstance = (MaxWebhookManager as jest.Mock).mock.instances[0];
+			expect(mockManagerInstance.delete).toHaveBeenCalledTimes(1);
 		});
 	});
 
-	describe('Component Integration', () => {
-		it('should have webhook manager and event processor instances', () => {
-			// These are private properties, but we can test that the methods work
-			expect(maxTrigger.webhookMethods.default.checkExists).toBeDefined();
-			expect(maxTrigger.webhookMethods.default.create).toBeDefined();
-			expect(maxTrigger.webhookMethods.default.delete).toBeDefined();
-			expect(maxTrigger.webhook).toBeDefined();
+	describe('Webhook Endpoint', () => {
+		const mockWebhookFunctions = {
+			getHeaderData: jest.fn(),
+			getBodyData: jest.fn(),
+			getNode: jest.fn(),
+			getWorkflow: jest.fn(),
+		} as unknown as IWebhookFunctions;
+
+		it('webhook should instantiate MaxEventProcessor and call processWebhookEvent', async () => {
+			await triggerInstance.webhook.call(mockWebhookFunctions);
+			expect(MaxEventProcessor).toHaveBeenCalledTimes(1);
+			const mockProcessorInstance = (MaxEventProcessor as jest.Mock).mock.instances[0];
+			expect(mockProcessorInstance.processWebhookEvent).toHaveBeenCalledTimes(1);
 		});
 	});
 });

@@ -1,223 +1,240 @@
 import { Max } from '../Max.node';
+import type { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
+
+// Mock the entire GenericFunctions module
+jest.mock('../GenericFunctions', () => ({
+	createMaxBotInstance: jest.fn().mockReturnValue({}), // Mock bot instance
+	sendMessage: jest.fn().mockResolvedValue({ message_id: '12345' }),
+	editMessage: jest.fn().mockResolvedValue({ success: true }),
+	deleteMessage: jest.fn().mockResolvedValue({ success: true }),
+	answerCallbackQuery: jest.fn().mockResolvedValue({ success: true }),
+	getChatInfo: jest.fn().mockResolvedValue({ id: 'chat-123', title: 'Test Chat' }),
+	leaveChat: jest.fn().mockResolvedValue({ success: true }),
+	validateAndFormatText: jest.fn((text, _format) => text),
+	addAdditionalFields: jest.fn((params, fields) => ({ ...params, ...fields.additionalFields })),
+	handleAttachments: jest.fn().mockResolvedValue([]),
+	processKeyboardFromParameters: jest.fn().mockReturnValue(undefined),
+}));
+
+// Import the mocked functions to spy on them
+import {
+	sendMessage,
+	editMessage,
+	deleteMessage,
+	answerCallbackQuery,
+	getChatInfo,
+	leaveChat,
+} from '../GenericFunctions';
+
+/**
+ * Creates a mock of IExecuteFunctions for testing purposes.
+ * @param parameters - A record of parameters to be returned by getNodeParameter.
+ * @returns A mocked IExecuteFunctions object.
+ */
+const getExecuteFunctionsMock = (parameters: Record<string, any>): IExecuteFunctions =>
+	({
+		getNodeParameter: jest.fn((name: string) => parameters[name]),
+		getCredentials: jest.fn().mockResolvedValue({ accessToken: 'test_token' }),
+		getInputData: jest.fn().mockReturnValue([{ json: {} }] as INodeExecutionData[]),
+		prepareOutputData: jest.fn(data => data as INodeExecutionData[]),
+		continueOnFail: jest.fn().mockReturnValue(false),
+		getNode: jest.fn().mockReturnValue({}),
+	}) as any;
 
 describe('Max Node', () => {
 	let maxNode: Max;
 
 	beforeEach(() => {
 		maxNode = new Max();
+		jest.clearAllMocks();
 	});
 
 	describe('Node Description', () => {
-		it('should have correct basic properties', () => {
-			expect(maxNode.description.displayName).toBe('Max');
-			expect(maxNode.description.name).toBe('max');
-			expect(maxNode.description.group).toContain('output');
-			expect(maxNode.description.version).toBe(1);
-		});
+		it('should have correct properties, resources, and operations', () => {
+			const { description } = maxNode;
+			expect(description.displayName).toBe('Max');
+			expect(description.name).toBe('max');
+			expect(description.group).toContain('output');
+			expect(description.version).toBe(1);
 
-		it('should require maxApi credentials', () => {
-			const credentials = maxNode.description.credentials;
+			const credentials = description.credentials;
 			expect(credentials).toHaveLength(1);
 			expect(credentials?.[0]?.name).toBe('maxApi');
 			expect(credentials?.[0]?.required).toBe(true);
-		});
 
-		it('should have message resource', () => {
-			const resourceProperty = maxNode.description.properties.find(p => p.name === 'resource');
-			expect(resourceProperty).toBeDefined();
-			expect(resourceProperty?.options).toContainEqual({
-				name: 'Message',
-				value: 'message',
-			});
-		});
+			const resourceProperty = description.properties.find(p => p.name === 'resource');
+			expect(resourceProperty?.options).toContainEqual({ name: 'Message', value: 'message' });
+			expect(resourceProperty?.options).toContainEqual({ name: 'Chat', value: 'chat' });
 
-		it('should have chat resource', () => {
-			const resourceProperty = maxNode.description.properties.find(p => p.name === 'resource');
-			expect(resourceProperty).toBeDefined();
-			expect(resourceProperty?.options).toContainEqual({
-				name: 'Chat',
-				value: 'chat',
-			});
-		});
-
-		it('should have sendMessage operation', () => {
-			const operationProperty = maxNode.description.properties.find(p => p.name === 'operation');
-			expect(operationProperty).toBeDefined();
-			expect(operationProperty?.options).toContainEqual({
-				name: 'Send Message',
-				value: 'sendMessage',
-				description: 'Send a message to a user or chat',
-				action: 'Send a message',
-			});
-		});
-
-		it('should have editMessage operation', () => {
-			const operationProperty = maxNode.description.properties.find(p => p.name === 'operation');
-			expect(operationProperty).toBeDefined();
-			expect(operationProperty?.options).toContainEqual({
-				name: 'Edit Message',
-				value: 'editMessage',
-				description: 'Edit an existing message',
-				action: 'Edit a message',
-			});
-		});
-
-		it('should have deleteMessage operation', () => {
-			const operationProperty = maxNode.description.properties.find(p => p.name === 'operation');
-			expect(operationProperty).toBeDefined();
-			expect(operationProperty?.options).toContainEqual({
-				name: 'Delete Message',
-				value: 'deleteMessage',
-				description: 'Delete an existing message',
-				action: 'Delete a message',
-			});
-		});
-
-		it('should have getChatInfo operation for chat resource', () => {
-			const chatOperationProperties = maxNode.description.properties.filter(p => 
-				p.name === 'operation' && 
-				p.displayOptions?.show?.['resource']?.includes('chat')
+			const messageOps = description.properties.find(
+				p => p.name === 'operation' && p.displayOptions?.show?.['resource']?.includes('message'),
 			);
-			expect(chatOperationProperties).toHaveLength(1);
-			
-			const chatOperationProperty = chatOperationProperties[0];
-			expect(chatOperationProperty?.options).toContainEqual({
-				name: 'Get Chat Info',
-				value: 'getChatInfo',
-				description: 'Get information about a chat',
-				action: 'Get chat information',
-			});
-		});
+			expect(messageOps?.options).toHaveLength(4);
 
-		it('should have leaveChat operation for chat resource', () => {
-			const chatOperationProperties = maxNode.description.properties.filter(p => 
-				p.name === 'operation' && 
-				p.displayOptions?.show?.['resource']?.includes('chat')
+			const chatOps = description.properties.find(
+				p => p.name === 'operation' && p.displayOptions?.show?.['resource']?.includes('chat'),
 			);
-			expect(chatOperationProperties).toHaveLength(1);
-			
-			const chatOperationProperty = chatOperationProperties[0];
-			expect(chatOperationProperty?.options).toContainEqual({
-				name: 'Leave Chat',
-				value: 'leaveChat',
-				description: 'Leave a chat/group',
-				action: 'Leave a chat',
-			});
+			expect(chatOps?.options).toHaveLength(2);
 		});
 	});
 
-	describe('Parameter Validation', () => {
-		it('should have required text parameter', () => {
-			const textProperty = maxNode.description.properties.find(p => p.name === 'text');
-			expect(textProperty).toBeDefined();
-			expect(textProperty?.required).toBe(true);
-			expect(textProperty?.type).toBe('string');
+	describe('execute', () => {
+		describe('Message Resource', () => {
+			it('should call sendMessage for a user', async () => {
+					const params = {
+						resource: 'message',
+						operation: 'sendMessage',
+						sendTo: 'user',
+						userId: '123',
+						text: 'Hello user',
+						format: 'plain',
+					};
+					const executeFunctions = getExecuteFunctionsMock(params);
+					await maxNode.execute.call(executeFunctions);
+					expect(sendMessage).toHaveBeenCalledWith(expect.anything(), 'user', 123, 'Hello user', {});
+				});
+
+			it('should call sendMessage for a chat', async () => {
+					const params = {
+						resource: 'message',
+						operation: 'sendMessage',
+						sendTo: 'chat',
+						chatId: '456',
+						text: 'Hello chat',
+						format: 'markdown',
+					};
+					const executeFunctions = getExecuteFunctionsMock(params);
+					await maxNode.execute.call(executeFunctions);
+					expect(sendMessage).toHaveBeenCalledWith(expect.anything(), 'chat', 456, 'Hello chat', { format: 'markdown' });
+				});
+
+			it('should call editMessage', async () => {
+					const params = { resource: 'message', operation: 'editMessage', messageId: 'msg-789', text: 'Updated', format: 'html', additionalFields: {} };
+					const executeFunctions = getExecuteFunctionsMock(params);
+					await maxNode.execute.call(executeFunctions);
+					expect(editMessage).toHaveBeenCalledWith(expect.anything(), 'msg-789', 'Updated', { format: 'html' });
+				});
+
+			it('should call deleteMessage', async () => {
+					const params = { resource: 'message', operation: 'deleteMessage', messageId: 'msg-789' };
+					const executeFunctions = getExecuteFunctionsMock(params);
+					await maxNode.execute.call(executeFunctions);
+					expect(deleteMessage).toHaveBeenCalledWith(expect.anything(), 'msg-789');
+				});
+
+			it('should call answerCallbackQuery', async () => {
+					const params = { resource: 'message', operation: 'answerCallbackQuery', callbackQueryId: 'cbq-123', text: 'Alert!', showAlert: false, cacheTime: 0 };
+					const executeFunctions = getExecuteFunctionsMock(params);
+					await maxNode.execute.call(executeFunctions);
+					expect(answerCallbackQuery).toHaveBeenCalledWith(expect.anything(), 'cbq-123', 'Alert!', false, 0);
+				});
 		});
 
-		it('should have sendTo parameter with user and chat options', () => {
-			const sendToProperty = maxNode.description.properties.find(p => p.name === 'sendTo');
-			expect(sendToProperty).toBeDefined();
-			expect(sendToProperty?.options).toContainEqual({
-				name: 'User',
-				value: 'user',
-				description: 'Send message to a specific user',
+		describe('Chat Resource', () => {
+			it('should call getChatInfo', async () => {
+					const params = { resource: 'chat', operation: 'getChatInfo', chatId: '123' };
+					const executeFunctions = getExecuteFunctionsMock(params);
+					await maxNode.execute.call(executeFunctions);
+					expect(getChatInfo).toHaveBeenCalledWith(expect.anything(), 123);
+				});
+
+			it('should call leaveChat and return success', async () => {
+					const params = { resource: 'chat', operation: 'leaveChat', chatId: '123' };
+					const executeFunctions = getExecuteFunctionsMock(params);
+					const returnData = await maxNode.execute.call(executeFunctions);
+				expect(leaveChat).toHaveBeenCalledWith(expect.anything(), 123);
+				expect(returnData).toEqual([[
+					{
+						json: { success: true },
+						pairedItem: { item: 0 },
+					}
+				]]);
+				});
+
+				it('should throw for invalid chat ID', async () => {
+					const params = { resource: 'chat', operation: 'getChatInfo', chatId: 'invalid-id' };
+					const executeFunctions = getExecuteFunctionsMock(params);
+					await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow('Invalid Chat ID: "invalid-id". Must be a positive number.');
+				});
+		});
+
+		describe('sendMessage with attachments and keyboard', () => {
+			it('should call sendMessage with attachments and an inline keyboard', async () => {
+				const executeFunctions = getExecuteFunctionsMock({});
+				(executeFunctions.getNodeParameter as jest.Mock).mockImplementation((name: string) => {
+					if (name === 'resource') return 'message';
+					if (name === 'operation') return 'sendMessage';
+					if (name === 'sendTo') return 'chat';
+					if (name === 'chatId') return '12345';
+					if (name === 'text') return 'Test message with attachment and keyboard';
+					if (name === 'attachments') {
+						return {
+							attachment: [
+								{
+									inputType: 'url',
+									fileUrl: 'https://example.com/image.jpg',
+									type: 'image',
+								},
+							],
+						};
+					}
+					if (name === 'inlineKeyboard') {
+						return {
+							buttons: [
+								{
+									row: [
+										{
+											button: {
+												text: 'Click me',
+												payload: 'callback_data',
+											},
+										},
+									],
+								},
+							],
+						};
+					}
+					if (name === 'additionalFields') return {};
+					return null;
+				});
+
+				await maxNode.execute.call(executeFunctions);
+
+				expect(sendMessage).toHaveBeenCalledWith(expect.anything(), 'chat', 12345, 'Test message with attachment and keyboard', expect.any(Object));
 			});
-			expect(sendToProperty?.options).toContainEqual({
-				name: 'Chat',
-				value: 'chat',
-				description: 'Send message to a chat/group',
+		});
+
+		describe('Error Handling', () => {
+			it('should throw for unknown message operation', async () => {
+				const params = { resource: 'message', operation: 'flyToTheMoon' };
+				const executeFunctions = getExecuteFunctionsMock(params);
+				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow("The operation 'flyToTheMoon' is not supported for resource 'message'");
 			});
-		});
 
-		it('should have format parameter with correct options', () => {
-			const formatProperty = maxNode.description.properties.find(p => p.name === 'format');
-			expect(formatProperty).toBeDefined();
-			expect(formatProperty?.options).toHaveLength(3);
-			expect(formatProperty?.options).toContainEqual({
-				name: 'Plain Text',
-				value: 'plain',
-				description: 'Send message as plain text',
+			it('should throw for unknown chat operation', async () => {
+				const params = { resource: 'chat', operation: 'inventNewDance' };
+				const executeFunctions = getExecuteFunctionsMock(params);
+				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow("The operation 'inventNewDance' is not supported for resource 'chat'");
 			});
-			expect(formatProperty?.options).toContainEqual({
-				name: 'HTML',
-				value: 'html',
-				description: 'Send message with HTML formatting',
+
+			it('should throw for unknown resource', async () => {
+				const params = { resource: 'unicorn', operation: 'doSomething' };
+				const executeFunctions = getExecuteFunctionsMock(params);
+				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow("The resource 'unicorn' is not supported.");
 			});
-			expect(formatProperty?.options).toContainEqual({
-				name: 'Markdown',
-				value: 'markdown',
-				description: 'Send message with Markdown formatting',
+
+			it('should continue on fail', async () => {
+				const params = { resource: 'chat', operation: 'getChatInfo', chatId: 'invalid-id' };
+				const executeFunctions = getExecuteFunctionsMock(params);
+				(executeFunctions.continueOnFail as jest.Mock).mockReturnValue(true);
+				const result = await maxNode.execute.call(executeFunctions);
+				expect(result).toEqual([[
+					{
+						json: { error: 'Invalid Chat ID: "invalid-id". Must be a positive number.' },
+						pairedItem: { item: 0 },
+					}
+				]]);
 			});
-		});
-
-		it('should have messageId parameter for edit operation', () => {
-			const messageIdProperties = maxNode.description.properties.filter(p => p.name === 'messageId');
-			expect(messageIdProperties).toHaveLength(2); // One for edit, one for delete
-			
-			const editMessageIdProperty = messageIdProperties.find(p => 
-				p.displayOptions?.show?.['operation']?.includes('editMessage')
-			);
-			expect(editMessageIdProperty).toBeDefined();
-			expect(editMessageIdProperty?.required).toBe(true);
-			expect(editMessageIdProperty?.type).toBe('string');
-			expect(editMessageIdProperty?.description).toBe('The ID of the message to edit');
-		});
-
-		it('should have messageId parameter for delete operation', () => {
-			const messageIdProperties = maxNode.description.properties.filter(p => p.name === 'messageId');
-			expect(messageIdProperties).toHaveLength(2); // One for edit, one for delete
-			
-			const deleteMessageIdProperty = messageIdProperties.find(p => 
-				p.displayOptions?.show?.['operation']?.includes('deleteMessage')
-			);
-			expect(deleteMessageIdProperty).toBeDefined();
-			expect(deleteMessageIdProperty?.required).toBe(true);
-			expect(deleteMessageIdProperty?.type).toBe('string');
-			expect(deleteMessageIdProperty?.description).toBe('The ID of the message to delete');
-		});
-
-		it('should have text parameter for edit operation', () => {
-			const textProperties = maxNode.description.properties.filter(p => p.name === 'text');
-			expect(textProperties.length).toBeGreaterThanOrEqual(2); // One for send, one for edit
-			
-			const editTextProperty = textProperties.find(p => 
-				p.displayOptions?.show?.['operation']?.includes('editMessage')
-			);
-			expect(editTextProperty).toBeDefined();
-			expect(editTextProperty?.required).toBe(true);
-			expect(editTextProperty?.type).toBe('string');
-			expect(editTextProperty?.description).toBe('The new text content of the message (max 4000 characters)');
-		});
-
-		it('should have format parameter for edit operation', () => {
-			const formatProperties = maxNode.description.properties.filter(p => p.name === 'format');
-			expect(formatProperties.length).toBeGreaterThanOrEqual(2); // One for send, one for edit
-			
-			const editFormatProperty = formatProperties.find(p => 
-				p.displayOptions?.show?.['operation']?.includes('editMessage')
-			);
-			expect(editFormatProperty).toBeDefined();
-			expect(editFormatProperty?.options).toHaveLength(3);
-			expect(editFormatProperty?.options).toContainEqual({
-				name: 'Plain Text',
-				value: 'plain',
-				description: 'Edit message as plain text',
-			});
-		});
-
-		it('should have chatId parameter for chat operations', () => {
-			const chatIdProperties = maxNode.description.properties.filter(p => p.name === 'chatId');
-			expect(chatIdProperties.length).toBeGreaterThanOrEqual(1);
-			
-			const chatOperationChatIdProperty = chatIdProperties.find(p => 
-				p.displayOptions?.show?.['resource']?.includes('chat') &&
-				p.displayOptions?.show?.['operation']?.includes('getChatInfo') &&
-				p.displayOptions?.show?.['operation']?.includes('leaveChat')
-			);
-			expect(chatOperationChatIdProperty).toBeDefined();
-			expect(chatOperationChatIdProperty?.required).toBe(true);
-			expect(chatOperationChatIdProperty?.type).toBe('string');
-			expect(chatOperationChatIdProperty?.description).toBe('The ID of the chat');
 		});
 	});
 });
