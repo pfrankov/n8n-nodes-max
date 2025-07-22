@@ -810,8 +810,8 @@ export class Max implements INodeType {
 								throw new NodeOperationError(this.getNode(), 'Chat ID is required and cannot be empty', { itemIndex: i });
 							}
 							recipientId = parseInt(chatIdStr.trim(), 10);
-							if (isNaN(recipientId) || recipientId <= 0) {
-								throw new NodeOperationError(this.getNode(), `Invalid Chat ID: "${chatIdStr}". Must be a positive number.`, { itemIndex: i });
+							if (isNaN(recipientId)) {
+								throw new NodeOperationError(this.getNode(), `Invalid Chat ID: "${chatIdStr}". Must be a number.`, { itemIndex: i });
 							}
 						}
 
@@ -998,8 +998,8 @@ export class Max implements INodeType {
 						}
 
 						const chatIdNumber = parseInt(chatId.trim(), 10);
-						if (isNaN(chatIdNumber) || chatIdNumber <= 0) {
-							throw new NodeOperationError(this.getNode(), `Invalid Chat ID: "${chatId}". Must be a positive number.`, { itemIndex: i });
+						if (isNaN(chatIdNumber)) {
+							throw new NodeOperationError(this.getNode(), `Invalid Chat ID: "${chatId}". Must be a number.`, { itemIndex: i });
 						}
 
 						// Create Max Bot instance
@@ -1028,8 +1028,8 @@ export class Max implements INodeType {
 						}
 
 						const chatIdNumber = parseInt(chatId.trim(), 10);
-						if (isNaN(chatIdNumber) || chatIdNumber <= 0) {
-							throw new NodeOperationError(this.getNode(), `Invalid Chat ID: "${chatId}". Must be a positive number.`, { itemIndex: i });
+						if (isNaN(chatIdNumber)) {
+							throw new NodeOperationError(this.getNode(), `Invalid Chat ID: "${chatId}". Must be a number.`, { itemIndex: i });
 						}
 
 						// Create Max Bot instance
