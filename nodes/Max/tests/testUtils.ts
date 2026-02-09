@@ -18,7 +18,7 @@ export function createMockExecuteFunctions(overrides: Partial<IExecuteFunctions>
 	const defaultMock = {
 		getCredentials: jest.fn().mockResolvedValue({
 			accessToken: 'test-access-token',
-			baseUrl: 'https://botapi.max.ru'
+			baseUrl: 'https://platform-api.max.ru'
 		}),
 		getNode: jest.fn().mockReturnValue({
 			name: 'Max Test Node',
@@ -254,6 +254,16 @@ export class KeyboardButtonFactory {
 			type: 'request_geo_location' as const,
 			intent: 'default' as const,
 			...overrides
+		};
+	}
+
+	static createChatButton(overrides: any = {}) {
+		return {
+			text: 'Create Chat',
+			type: 'chat' as const,
+			chat_title: 'Discussion Chat',
+			intent: 'default' as const,
+			...overrides,
 		};
 	}
 }

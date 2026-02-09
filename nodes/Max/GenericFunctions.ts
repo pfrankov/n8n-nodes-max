@@ -9,6 +9,15 @@ import { Bot } from '@maxhub/max-bot-api';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import FormData from 'form-data';
+
+const DEFAULT_MAX_BASE_URL = 'https://platform-api.max.ru';
+
+function getAuthHeaders(accessToken: string): IDataObject {
+	return {
+		Authorization: accessToken,
+	};
+}
 
 /**
  * Max API Error Categories
@@ -64,12 +73,12 @@ export async function createMaxBotInstance(
 		} as JsonObject);
 	}
 
-	// Create Bot instance with custom base URL if provided
-	const config = credentials['baseUrl'] ? {
+	// Create Bot instance with configured base URL.
+	const config = {
 		clientOptions: {
-			baseUrl: credentials['baseUrl'],
+			baseUrl: (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL,
 		},
-	} : undefined;
+	};
 
 	return new Bot(credentials['accessToken'] as string, config as any);
 }
@@ -92,7 +101,7 @@ export async function createMaxBotInstance(
  */
 export async function sendMessage(
 	this: IExecuteFunctions,
-	bot: Bot,
+	_bot: Bot,
 	recipientType: 'user' | 'chat',
 	recipientId: number,
 	text: string,
@@ -102,15 +111,37 @@ export async function sendMessage(
 	validateInputParameters(recipientType, recipientId, text, options['format'] as string);
 
 	try {
-		let result;
+		const credentials = await this.getCredentials('maxApi');
+		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const accessToken = credentials['accessToken'] as string;
 
-		if (recipientType === 'user') {
-			result = await bot.api.sendMessageToUser(recipientId, text, options);
-		} else {
-			result = await bot.api.sendMessageToChat(recipientId, text, options);
+		const disableLinkPreview = options['disable_link_preview'] as boolean | undefined;
+		const bodyOptions = { ...options };
+		delete bodyOptions['disable_link_preview'];
+
+		const body: IDataObject = {
+			text,
+			...bodyOptions,
+		};
+
+		const qs: IDataObject = recipientType === 'user'
+			? { user_id: recipientId }
+			: { chat_id: recipientId };
+		if (disableLinkPreview !== undefined) {
+			qs['disable_link_preview'] = disableLinkPreview;
 		}
 
-		return result;
+		return await this.helpers.httpRequest({
+			method: 'POST',
+			url: `${baseUrl}/messages`,
+			qs,
+			headers: {
+				...getAuthHeaders(accessToken),
+				'Content-Type': 'application/json',
+			},
+			body,
+			json: true,
+		});
 	} catch (error) {
 		// Use enhanced error handling
 		return await handleMaxApiError.call(this, error, `send message to ${recipientType}`);
@@ -187,23 +218,28 @@ export async function editMessage(
 	try {
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
-		const baseUrl = credentials['baseUrl'] || 'https://botapi.max.ru';
+		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const accessToken = credentials['accessToken'] as string;
 
-		// Build request body
+		// Build request body. `disable_link_preview` is supported only for POST /messages.
 		const requestBody: IDataObject = {
 			text,
 			...options,
 		};
+		delete requestBody['disable_link_preview'];
 
 		// Make HTTP request to edit message endpoint
 		const result = await this.helpers.httpRequest({
 			method: 'PUT',
-			url: `${baseUrl}/messages/${messageId}`,
+			url: `${baseUrl}/messages`,
+			qs: {
+				message_id: messageId.trim(),
+			},
 			headers: {
-				'Authorization': `Bearer ${credentials['accessToken']}`,
+				...getAuthHeaders(accessToken),
 				'Content-Type': 'application/json',
 			},
-			body: JSON.stringify(requestBody),
+			body: requestBody,
 			json: true,
 		});
 
@@ -240,16 +276,17 @@ export async function deleteMessage(
 	try {
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
-		const baseUrl = credentials['baseUrl'] || 'https://botapi.max.ru';
+		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const accessToken = credentials['accessToken'] as string;
 
 		// Make HTTP request to delete message endpoint
 		const result = await this.helpers.httpRequest({
 			method: 'DELETE',
-			url: `${baseUrl}/messages/${messageId}`,
-			headers: {
-				'Authorization': `Bearer ${credentials['accessToken']}`,
-				'Content-Type': 'application/json',
+			url: `${baseUrl}/messages`,
+			qs: {
+				message_id: messageId.trim(),
 			},
+			headers: getAuthHeaders(accessToken),
 			json: true,
 		});
 
@@ -269,11 +306,9 @@ export async function deleteMessage(
  * @param this - The execution context providing access to credentials and helpers
  * @param bot - Configured Max Bot API instance
  * @param callbackQueryId - Unique identifier of the callback query to answer
- * @param text - Optional response text to show to the user (max 200 characters)
- * @param showAlert - Whether to show an alert dialog instead of a notification
- * @param cacheTime - Maximum time in seconds that the result may be cached client-side (0-3600)
+ * @param text - Optional one-time notification text to show to the user
  * @returns Promise resolving to the API response confirming the callback answer
- * @throws {Error} When callback query ID is invalid or parameters are out of range
+ * @throws {Error} When callback query ID is invalid
  * @throws {NodeApiError} When Max API request fails
  */
 export async function answerCallbackQuery(
@@ -281,65 +316,43 @@ export async function answerCallbackQuery(
 	_bot: Bot,
 	callbackQueryId: string,
 	text?: string,
-	showAlert?: boolean,
-	cacheTime?: number,
 ): Promise<any> {
 	// Validate callback query ID
 	if (!callbackQueryId || callbackQueryId.trim() === '') {
 		throw new Error('Callback Query ID is required and cannot be empty');
 	}
 
-	// Validate response text length if provided
-	if (text && text.length > 200) {
-		throw new Error('Response text cannot exceed 200 characters');
-	}
-
-	// Validate cache time
-	if (cacheTime !== undefined && (cacheTime < 0 || cacheTime > 3600)) {
-		throw new Error('Cache time must be between 0 and 3600 seconds');
-	}
-
 	try {
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
-		const baseUrl = credentials['baseUrl'] || 'https://botapi.max.ru';
+		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const accessToken = credentials['accessToken'] as string;
 
 		// Build request body
-		const requestBody: IDataObject = {
-			callback_query_id: callbackQueryId.trim(),
-		};
-
-		// Add optional parameters
+		const requestBody: IDataObject = {};
 		if (text && text.trim().length > 0) {
-			requestBody['text'] = text.trim();
-		}
-
-		if (showAlert !== undefined) {
-			requestBody['show_alert'] = showAlert;
-		}
-
-		if (cacheTime !== undefined) {
-			requestBody['cache_time'] = cacheTime;
+			requestBody['notification'] = text.trim();
 		}
 
 		// Make HTTP request to answer callback query endpoint
 		const result = await this.helpers.httpRequest({
 			method: 'POST',
-			url: `${baseUrl}/callbacks/answers`,
+			url: `${baseUrl}/answers`,
+			qs: {
+				callback_id: callbackQueryId.trim(),
+			},
 			headers: {
-				'Authorization': `Bearer ${credentials['accessToken']}`,
+				...getAuthHeaders(accessToken),
 				'Content-Type': 'application/json',
 			},
-			body: JSON.stringify(requestBody),
+			body: requestBody,
 			json: true,
 		});
 
 		return result || {
 			success: true,
-			callback_query_id: callbackQueryId,
-			text: text || '',
-			show_alert: showAlert || false,
-			cache_time: cacheTime || 0,
+			callback_id: callbackQueryId,
+			notification: text || '',
 		};
 	} catch (error) {
 		// Use enhanced error handling
@@ -365,29 +378,24 @@ export function validateAndFormatText(text: string, format?: string): string {
 	}
 
 	// Basic validation for HTML format
-	if (format === 'html') {
-		// Simple validation - check for basic HTML tags that Max supports
-		const allowedTags = ['b', 'i', 'u', 's', 'code', 'pre', 'a'];
-		const htmlTagRegex = /<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g;
-		let match;
+    if (format === 'html') {
+        // Simple validation - check for basic HTML tags that Max supports per OpenAPI
+        const allowedTags = ['b', 'strong', 'i', 'em', 'u', 'ins', 's', 'del', 'code', 'pre', 'a', 'mark', 'h1'];
+        const htmlTagRegex = /<\/?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>/g;
+        let match;
 
-		while ((match = htmlTagRegex.exec(text)) !== null) {
-			const tagName = match[1]?.toLowerCase();
-			if (tagName && !allowedTags.includes(tagName)) {
-				throw new Error(`HTML tag '${tagName}' is not supported by Max messenger`);
-			}
-		}
-	}
+        while ((match = htmlTagRegex.exec(text)) !== null) {
+            const tagName = match[1]?.toLowerCase();
+            if (tagName && !allowedTags.includes(tagName)) {
+                throw new Error(`HTML tag '${tagName}' is not supported by Max messenger`);
+            }
+        }
+    }
 
 	// Basic validation for Markdown format
-	if (format === 'markdown') {
-		// Max messenger supports basic markdown: *bold*, _italic_, `code`, ```pre```
-		// This is a simple validation - in production you might want more comprehensive checks
-		const unsupportedMarkdown = /(\[.*?\]\(.*?\)|#{1,6}\s|>\s)/g;
-		if (unsupportedMarkdown.test(text)) {
-			throw new Error('Some Markdown syntax is not supported by Max messenger. Use basic formatting: *bold*, _italic_, `code`, ```pre```');
-		}
-	}
+    if (format === 'markdown') {
+        // Allow Max-flavored markdown as per schema; do not restrict here
+    }
 
 	return text;
 }
@@ -496,7 +504,7 @@ export function createUserFriendlyErrorMessage(error: IMaxError, category: MaxEr
 
 	switch (category) {
 		case MaxErrorCategory.AUTHENTICATION:
-			return `Authorization failed - please check your credentials: ${baseMessage}. Please check your Max API access token in the credentials. Make sure the token is valid and has not expired. You can get a new token from @MasterBot in Max messenger.`;
+			return `Authorization failed - please check your credentials: ${baseMessage}. Please check your Max API access token in the credentials. Make sure the token is valid and has not expired. You can get a new token from @PrimeBot in Max messenger.`;
 
 		case MaxErrorCategory.RATE_LIMIT:
 			const retryAfter = error.parameters?.retry_after;
@@ -687,9 +695,13 @@ export interface IMaxAttachment {
  */
 export interface IMaxKeyboardButton {
 	text: string;
-	type: 'callback' | 'link' | 'request_contact' | 'request_geo_location';
+	type: 'callback' | 'link' | 'open_app' | 'request_contact' | 'request_geo_location' | 'chat';
 	payload?: string;
 	url?: string;
+	chat_title?: string;
+	chat_description?: string;
+	start_payload?: string;
+	uuid?: number;
 	intent?: 'default' | 'positive' | 'negative';
 }
 
@@ -713,7 +725,7 @@ export interface IMaxKeyboard {
  * containing the upload URL and file token for attachment usage.
  */
 export interface IMaxUploadResponse {
-	url: string;
+	url?: string;
 	token?: string;
 }
 
@@ -900,52 +912,60 @@ export async function uploadFileToMax(
 	filePath: string,
 	fileName: string,
 	attachmentType: string,
-): Promise<string> {
+): Promise<IMaxUploadResponse> {
 	try {
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
-		const baseUrl = credentials['baseUrl'] || 'https://botapi.max.ru';
+		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const accessToken = credentials['accessToken'] as string;
 
 		// Step 1: Get upload URL from Max API
 		const uploadUrlResponse = await this.helpers.httpRequest({
 			method: 'POST',
 			url: `${baseUrl}/uploads`,
-			headers: {
-				'Authorization': `Bearer ${credentials['accessToken']}`,
-				'Content-Type': 'application/json',
-			},
-			body: JSON.stringify({
+			qs: {
 				type: attachmentType,
-			}),
+			},
+			headers: getAuthHeaders(accessToken),
 			json: true,
-		});
+		}) as IMaxUploadResponse;
 
-		if (!uploadUrlResponse.url) {
+		// For some media types API can return token immediately.
+		if (uploadUrlResponse.token && !uploadUrlResponse.url) {
+			return { token: uploadUrlResponse.token };
+		}
+
+		if (!uploadUrlResponse.url || typeof uploadUrlResponse.url !== 'string') {
 			throw new Error('Failed to get upload URL from Max API');
 		}
 
 		// Step 2: Read file data from binary data
 		const fs = await import('fs');
 		const fileBuffer = await fs.promises.readFile(filePath);
+		const formData = new FormData();
+		formData.append('data', fileBuffer, {
+			filename: fileName,
+			contentType: 'application/octet-stream',
+		});
 
 		// Step 3: Upload file to the provided URL
 		const uploadResponse = await this.helpers.httpRequest({
 			method: 'POST',
 			url: uploadUrlResponse.url,
-			body: fileBuffer,
+			body: formData,
 			headers: {
-				'Content-Type': 'application/octet-stream',
-				'Content-Disposition': `attachment; filename="${fileName}"`,
+				...formData.getHeaders(),
+				...getAuthHeaders(accessToken),
 			},
 			returnFullResponse: true,
 		});
 
-		if (uploadResponse.statusCode !== 200) {
+		if (uploadResponse.statusCode >= 400) {
 			throw new Error(`File upload failed: HTTP ${uploadResponse.statusCode}`);
 		}
 
 		// Step 4: Get file token from upload response
-		let uploadResult;
+		let uploadResult: IMaxUploadResponse;
 		try {
 			uploadResult = typeof uploadResponse.body === 'string'
 				? JSON.parse(uploadResponse.body)
@@ -954,11 +974,15 @@ export async function uploadFileToMax(
 			throw new Error('Invalid response format from file upload');
 		}
 
-		if (!uploadResult.token) {
-			throw new Error('No file token received from upload response');
+		if (uploadResult.token) {
+			return { token: uploadResult.token };
 		}
 
-		return uploadResult.token;
+		if (uploadResult.url) {
+			return { url: uploadResult.url };
+		}
+
+		throw new Error('No upload token or URL received from upload response');
 	} catch (error) {
 		throw new NodeOperationError(
 			this.getNode(),
@@ -1009,14 +1033,15 @@ export async function processBinaryAttachment(
 		);
 	}
 
-	// Upload file and get token
-	const token = await uploadFileToMax.call(this, bot, filePath, fileName, config.type);
+	// Upload file and get token/url
+	const uploadResult = await uploadFileToMax.call(this, bot, filePath, fileName, config.type);
+	if (!uploadResult.token && !uploadResult.url) {
+		throw new NodeOperationError(this.getNode(), 'Upload completed but no token or URL was returned');
+	}
 
 	return {
 		type: config.type,
-		payload: {
-			token,
-		},
+		payload: uploadResult.token ? { token: uploadResult.token } : { url: uploadResult.url as string },
 	};
 }
 
@@ -1048,14 +1073,15 @@ export async function processUrlAttachment(
 		// Validate downloaded file
 		validateAttachment(config, fileSize, fileName);
 
-		// Upload file and get token
-		const token = await uploadFileToMax.call(this, bot, filePath, fileName, config.type);
+		// Upload file and get token/url
+		const uploadResult = await uploadFileToMax.call(this, bot, filePath, fileName, config.type);
+		if (!uploadResult.token && !uploadResult.url) {
+			throw new NodeOperationError(this.getNode(), 'Upload completed but no token or URL was returned');
+		}
 
 		return {
 			type: config.type,
-			payload: {
-				token,
-			},
+			payload: uploadResult.token ? { token: uploadResult.token } : { url: uploadResult.url as string },
 		};
 	} finally {
 		// Clean up temporary file
@@ -1115,12 +1141,16 @@ export async function handleAttachments(
  * Max API limits for inline keyboards
  */
 const KEYBOARD_LIMITS = {
-	MAX_BUTTONS_PER_ROW: 8,
-	MAX_ROWS: 100,
-	MAX_TOTAL_BUTTONS: 100,
-	MAX_BUTTON_TEXT_LENGTH: 64,
-	MAX_CALLBACK_DATA_LENGTH: 64,
+	MAX_BUTTONS_PER_ROW: 7,
+	MAX_ROWS: 30,
+	MAX_TOTAL_BUTTONS: 210,
+	MAX_LIMITED_TYPE_BUTTONS_PER_ROW: 3,
+	MAX_BUTTON_TEXT_LENGTH: 128,
+	MAX_CALLBACK_DATA_LENGTH: 1024,
 	MAX_URL_LENGTH: 2048,
+	MAX_CHAT_TITLE_LENGTH: 200,
+	MAX_CHAT_DESCRIPTION_LENGTH: 400,
+	MAX_START_PAYLOAD_LENGTH: 512,
 };
 
 /**
@@ -1131,9 +1161,13 @@ const KEYBOARD_LIMITS = {
  */
 export interface IButtonConfig {
 	text: string;
-	type: 'callback' | 'link' | 'request_contact' | 'request_geo_location';
+	type: 'callback' | 'link' | 'open_app' | 'request_contact' | 'request_geo_location' | 'chat';
 	payload?: string;
 	url?: string;
+	chat_title?: string;
+	chat_description?: string;
+	start_payload?: string;
+	uuid?: number;
 	intent?: 'default' | 'positive' | 'negative';
 }
 
@@ -1161,7 +1195,7 @@ export function validateKeyboardButton(button: IButtonConfig): void {
 	}
 
 	// Validate button type
-	const validTypes = ['callback', 'link', 'request_contact', 'request_geo_location'];
+	const validTypes = ['callback', 'link', 'open_app', 'request_contact', 'request_geo_location', 'chat'];
 	if (!validTypes.includes(button.type)) {
 		throw new Error(`Invalid button type: ${button.type}. Valid types: ${validTypes.join(', ')}`);
 	}
@@ -1176,9 +1210,9 @@ export function validateKeyboardButton(button: IButtonConfig): void {
 		}
 	}
 
-	if (button.type === 'link') {
+	if (button.type === 'link' || button.type === 'open_app') {
 		if (!button.url || typeof button.url !== 'string') {
-			throw new Error('Link buttons must have a URL string');
+			throw new Error(`${button.type} buttons must have a URL string`);
 		}
 		if (button.url.length > KEYBOARD_LIMITS.MAX_URL_LENGTH) {
 			throw new Error(`Button URL cannot exceed ${KEYBOARD_LIMITS.MAX_URL_LENGTH} characters`);
@@ -1189,6 +1223,34 @@ export function validateKeyboardButton(button: IButtonConfig): void {
 			new URL(button.url);
 		} catch {
 			throw new Error(`Invalid URL format: ${button.url}`);
+		}
+	}
+
+	if (button.type === 'chat') {
+		if (!button.chat_title || typeof button.chat_title !== 'string' || button.chat_title.trim().length === 0) {
+			throw new Error('Chat buttons must have a non-empty chat_title string');
+		}
+		if (button.chat_title.length > KEYBOARD_LIMITS.MAX_CHAT_TITLE_LENGTH) {
+			throw new Error(`chat_title cannot exceed ${KEYBOARD_LIMITS.MAX_CHAT_TITLE_LENGTH} characters`);
+		}
+		if (button.chat_description !== undefined) {
+			if (typeof button.chat_description !== 'string') {
+				throw new Error('chat_description must be a string when provided');
+			}
+			if (button.chat_description.length > KEYBOARD_LIMITS.MAX_CHAT_DESCRIPTION_LENGTH) {
+				throw new Error(`chat_description cannot exceed ${KEYBOARD_LIMITS.MAX_CHAT_DESCRIPTION_LENGTH} characters`);
+			}
+		}
+		if (button.start_payload !== undefined) {
+			if (typeof button.start_payload !== 'string') {
+				throw new Error('start_payload must be a string when provided');
+			}
+			if (button.start_payload.length > KEYBOARD_LIMITS.MAX_START_PAYLOAD_LENGTH) {
+				throw new Error(`start_payload cannot exceed ${KEYBOARD_LIMITS.MAX_START_PAYLOAD_LENGTH} characters`);
+			}
+		}
+		if (button.uuid !== undefined && (!Number.isInteger(button.uuid) || button.uuid < 0)) {
+			throw new Error('uuid must be a non-negative integer when provided');
 		}
 	}
 
@@ -1223,14 +1285,15 @@ export async function getChatInfo(
 	try {
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
-		const baseUrl = credentials['baseUrl'] || 'https://botapi.max.ru';
+		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const accessToken = credentials['accessToken'] as string;
 
 		// Make HTTP request to get chat info endpoint
 		const result = await this.helpers.httpRequest({
 			method: 'GET',
 			url: `${baseUrl}/chats/${chatId}`,
 			headers: {
-				'Authorization': `Bearer ${credentials['accessToken']}`,
+				...getAuthHeaders(accessToken),
 				'Content-Type': 'application/json',
 			},
 			json: true,
@@ -1268,16 +1331,14 @@ export async function leaveChat(
 	try {
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
-		const baseUrl = credentials['baseUrl'] || 'https://botapi.max.ru';
+		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const accessToken = credentials['accessToken'] as string;
 
 		// Make HTTP request to leave chat endpoint
 		const result = await this.helpers.httpRequest({
-			method: 'POST',
-			url: `${baseUrl}/chats/${chatId}/leave`,
-			headers: {
-				'Authorization': `Bearer ${credentials['accessToken']}`,
-				'Content-Type': 'application/json',
-			},
+			method: 'DELETE',
+			url: `${baseUrl}/chats/${chatId}/members/me`,
+			headers: getAuthHeaders(accessToken),
 			json: true,
 		});
 
@@ -1322,6 +1383,19 @@ export function validateKeyboardLayout(buttons: IButtonConfig[][]): void {
 		// Check maximum buttons per row
 		if (row.length > KEYBOARD_LIMITS.MAX_BUTTONS_PER_ROW) {
 			throw new Error(`Row ${rowIndex + 1} cannot have more than ${KEYBOARD_LIMITS.MAX_BUTTONS_PER_ROW} buttons`);
+		}
+
+		const limitedTypeButtonsInRow = row.filter((button) => (
+			button.type === 'link'
+			|| button.type === 'chat'
+			|| button.type === 'open_app'
+			|| button.type === 'request_geo_location'
+			|| button.type === 'request_contact'
+		)).length;
+		if (limitedTypeButtonsInRow > KEYBOARD_LIMITS.MAX_LIMITED_TYPE_BUTTONS_PER_ROW) {
+			throw new Error(
+				`Row ${rowIndex + 1} cannot have more than ${KEYBOARD_LIMITS.MAX_LIMITED_TYPE_BUTTONS_PER_ROW} link/chat/open_app/request_geo_location/request_contact buttons`
+			);
 		}
 
 		// Validate each button in the row
@@ -1372,8 +1446,23 @@ export function formatInlineKeyboard(buttons: IButtonConfig[][]): IMaxKeyboard {
 				maxButton.payload = button.payload;
 			}
 
-			if (button.type === 'link' && button.url) {
+			if ((button.type === 'link' || button.type === 'open_app') && button.url) {
 				maxButton.url = button.url;
+			}
+
+			if (button.type === 'chat') {
+				if (button.chat_title !== undefined) {
+					maxButton.chat_title = button.chat_title;
+				}
+				if (button.chat_description !== undefined) {
+					maxButton.chat_description = button.chat_description;
+				}
+				if (button.start_payload !== undefined) {
+					maxButton.start_payload = button.start_payload;
+				}
+				if (button.uuid !== undefined) {
+					maxButton.uuid = button.uuid;
+				}
 			}
 
 			// Add intent if specified
@@ -1412,6 +1501,25 @@ export function createInlineKeyboardAttachment(buttons: IButtonConfig[][]): IMax
 	};
 }
 
+function normalizeButtonUuid(value: unknown): number | undefined {
+	if (value === undefined || value === null || value === '') {
+		return undefined;
+	}
+
+	if (typeof value === 'number' && Number.isInteger(value)) {
+		return value;
+	}
+
+	if (typeof value === 'string') {
+		const parsed = Number.parseInt(value, 10);
+		if (Number.isInteger(parsed)) {
+			return parsed;
+		}
+	}
+
+	return undefined;
+}
+
 /**
  * Process keyboard configuration from n8n parameters
  * 
@@ -1443,6 +1551,10 @@ export function processKeyboardFromParameters(
 					type: buttonData.type || 'callback',
 					payload: buttonData.payload || undefined,
 					url: buttonData.url || undefined,
+					chat_title: buttonData.chatTitle || undefined,
+					chat_description: buttonData.chatDescription || undefined,
+					start_payload: buttonData.startPayload || undefined,
+					uuid: normalizeButtonUuid(buttonData.uuid),
 					intent: buttonData.intent || 'default',
 				}));
 
@@ -1491,6 +1603,10 @@ export function processKeyboardFromAdditionalFields(
 					type: buttonData.type || 'callback',
 					payload: buttonData.payload || undefined,
 					url: buttonData.url || undefined,
+					chat_title: buttonData.chatTitle || undefined,
+					chat_description: buttonData.chatDescription || undefined,
+					start_payload: buttonData.startPayload || undefined,
+					uuid: normalizeButtonUuid(buttonData.uuid),
 					intent: buttonData.intent || 'default',
 				}));
 

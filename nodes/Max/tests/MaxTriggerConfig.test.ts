@@ -80,11 +80,11 @@ describe('MaxTriggerConfig', () => {
 			expect((additionalFieldsProperty as any).default).toEqual({});
 		});
 
-		it('should have chatIds and userIds options in additionalFields', () => {
+		it('should have chatIds, userIds, secret, and version options in additionalFields', () => {
 			const additionalFieldsProperty = MAX_TRIGGER_PROPERTIES.find(prop => prop.name === 'additionalFields');
 			const options = (additionalFieldsProperty as any).options;
 
-			expect(options).toHaveLength(2);
+			expect(options).toHaveLength(4);
 
 			const chatIdsOption = options.find((opt: any) => opt.name === 'chatIds');
 			expect(chatIdsOption).toEqual({
@@ -102,6 +102,27 @@ describe('MaxTriggerConfig', () => {
 				type: 'string',
 				default: '',
 				description: 'The user IDs to restrict the trigger to. Multiple can be defined separated by comma.',
+			});
+
+			const secretOption = options.find((opt: any) => opt.name === 'secret');
+			expect(secretOption).toEqual({
+				displayName: 'Webhook Secret',
+				name: 'secret',
+				type: 'string',
+				typeOptions: {
+					password: true,
+				},
+				default: '',
+				description: 'Optional secret sent in X-Max-Bot-Api-Secret header for webhook requests (5-256 chars, A-Z a-z 0-9 _ -)',
+			});
+
+			const versionOption = options.find((opt: any) => opt.name === 'version');
+			expect(versionOption).toEqual({
+				displayName: 'API Version',
+				name: 'version',
+				type: 'string',
+				default: '',
+				description: 'Optional API version for webhook payload schema, for example 0.0.1',
 			});
 		});
 

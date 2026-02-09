@@ -367,7 +367,7 @@ export class Max implements INodeType {
 														type: 'string',
 														required: true,
 														default: '',
-														description: 'Text displayed on the button (max 64 characters)',
+														description: 'Text displayed on the button (max 128 characters)',
 													},
 													{
 														displayName: 'Button Type',
@@ -380,9 +380,19 @@ export class Max implements INodeType {
 																description: 'Button that sends callback data when pressed',
 															},
 															{
+																name: 'Create Chat',
+																value: 'chat',
+																description: 'Button that creates a new chat when clicked',
+															},
+															{
 																name: 'Link',
 																value: 'link',
 																description: 'Button that opens a URL when pressed',
+															},
+															{
+																name: 'Open App',
+																value: 'open_app',
+																description: 'Button that opens a MAX Mini App URL',
 															},
 															{
 																name: 'Request Contact',
@@ -403,16 +413,75 @@ export class Max implements INodeType {
 														name: 'payload',
 														type: 'string',
 														required: true,
+														displayOptions: {
+															show: {
+																type: ['callback'],
+															},
+														},
 														default: '',
-														description: 'Data sent back when button is pressed (max 64 characters)',
+														description: 'Data sent back when button is pressed (max 1024 characters)',
+													},
+													{
+														displayName: 'Chat Description',
+														name: 'chatDescription',
+														type: 'string',
+														displayOptions: {
+															show: {
+																type: ['chat'],
+															},
+														},
+														default: '',
+														description: 'Optional description of the chat (max 400 characters)',
+													},
+													{
+														displayName: 'Chat Title',
+														name: 'chatTitle',
+														type: 'string',
+														required: true,
+														displayOptions: {
+															show: {
+																type: ['chat'],
+															},
+														},
+														default: '',
+														description: 'Title of the chat to be created (max 200 characters)',
+													},
+													{
+														displayName: 'Start Payload',
+														name: 'startPayload',
+														type: 'string',
+														displayOptions: {
+															show: {
+																type: ['chat'],
+															},
+														},
+														default: '',
+														description: 'Optional payload sent to the bot when the chat is created (max 512 characters)',
 													},
 													{
 														displayName: 'URL',
 														name: 'url',
 														type: 'string',
 														required: true,
+														displayOptions: {
+															show: {
+																type: ['link', 'open_app'],
+															},
+														},
 														default: '',
 														description: 'URL to open when button is pressed',
+													},
+													{
+														displayName: 'UUID',
+														name: 'uuid',
+														type: 'string',
+														displayOptions: {
+															show: {
+																type: ['chat'],
+															},
+														},
+														default: '',
+														description: 'Optional chat button identifier reused when editing the keyboard',
 													},
 												],
 											},
@@ -564,7 +633,7 @@ export class Max implements INodeType {
 												type: 'string',
 												required: true,
 												default: '',
-												description: 'Text displayed on the button (max 64 characters)',
+												description: 'Text displayed on the button (max 128 characters)',
 											},
 											{
 												displayName: 'Button Type',
@@ -577,9 +646,19 @@ export class Max implements INodeType {
 														description: 'Button that sends callback data when pressed',
 													},
 													{
+														name: 'Create Chat',
+														value: 'chat',
+														description: 'Button that creates a new chat when clicked',
+													},
+													{
 														name: 'Link',
 														value: 'link',
 														description: 'Button that opens a URL when pressed',
+													},
+													{
+														name: 'Open App',
+														value: 'open_app',
+														description: 'Button that opens a MAX Mini App URL',
 													},
 													{
 														name: 'Request Contact',
@@ -600,44 +679,81 @@ export class Max implements INodeType {
 												name: 'payload',
 												type: 'string',
 												required: true,
+												displayOptions: {
+													show: {
+														type: ['callback'],
+													},
+												},
 												default: '',
-												description: 'Data sent back when button is pressed (max 64 characters)',
+												description: 'Data sent back when button is pressed (max 1024 characters)',
+											},
+											{
+												displayName: 'Chat Description',
+												name: 'chatDescription',
+												type: 'string',
+												displayOptions: {
+													show: {
+														type: ['chat'],
+													},
+												},
+												default: '',
+												description: 'Optional description of the chat (max 400 characters)',
+											},
+											{
+												displayName: 'Chat Title',
+												name: 'chatTitle',
+												type: 'string',
+												required: true,
+												displayOptions: {
+													show: {
+														type: ['chat'],
+													},
+												},
+												default: '',
+												description: 'Title of the chat to be created (max 200 characters)',
+											},
+											{
+												displayName: 'Start Payload',
+												name: 'startPayload',
+												type: 'string',
+												displayOptions: {
+													show: {
+														type: ['chat'],
+													},
+												},
+												default: '',
+												description: 'Optional payload sent to the bot when the chat is created (max 512 characters)',
 											},
 											{
 												displayName: 'URL',
 												name: 'url',
 												type: 'string',
 												required: true,
+												displayOptions: {
+													show: {
+														type: ['link', 'open_app'],
+													},
+												},
 												default: '',
 												description: 'URL to open when button is pressed',
+											},
+											{
+												displayName: 'UUID',
+												name: 'uuid',
+												type: 'string',
+												displayOptions: {
+													show: {
+														type: ['chat'],
+													},
+												},
+												default: '',
+												description: 'Optional chat button identifier reused when editing the keyboard',
 											},
 										],
 									},
 								],
 							},
 						],
-					},
-				],
-			},
-			{
-				displayName: 'Additional Fields',
-				name: 'additionalFields',
-				type: 'collection',
-				placeholder: 'Add Field',
-				displayOptions: {
-					show: {
-						resource: ['message'],
-						operation: ['editMessage'],
-					},
-				},
-				default: {},
-				options: [
-					{
-						displayName: 'Disable Link Preview',
-						name: 'disable_link_preview',
-						type: 'boolean',
-						default: false,
-						description: 'Whether to disable link previews for URLs in the message',
 					},
 				],
 			},
@@ -682,33 +798,7 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'Text to show to the user (optional, max 200 characters)',
-			},
-			{
-				displayName: 'Show Alert',
-				name: 'showAlert',
-				type: 'boolean',
-				displayOptions: {
-					show: {
-						resource: ['message'],
-						operation: ['answerCallbackQuery'],
-					},
-				},
-				default: false,
-				description: 'Whether to show an alert dialog instead of a notification',
-			},
-			{
-				displayName: 'Cache Time',
-				name: 'cacheTime',
-				type: 'number',
-				displayOptions: {
-					show: {
-						resource: ['message'],
-						operation: ['answerCallbackQuery'],
-					},
-				},
-				default: 0,
-				description: 'Maximum time in seconds that the result may be cached client-side',
+				description: 'Optional one-time notification text to show to the user',
 			},
 			// Chat Resource
 			{
@@ -905,12 +995,6 @@ export class Max implements INodeType {
 							options['format'] = format;
 						}
 
-						// Add additional fields for edit message
-						const additionalFields = this.getNodeParameter('additionalFields', i, {}) as IDataObject;
-						if (additionalFields['disable_link_preview'] !== undefined) {
-							options['disable_link_preview'] = additionalFields['disable_link_preview'];
-						}
-
 						// Create Max Bot instance
 						const bot = await createMaxBotInstance.call(this);
 
@@ -965,22 +1049,10 @@ export class Max implements INodeType {
 						// Get parameters
 						const callbackQueryId = this.getNodeParameter('callbackQueryId', i) as string;
 						const text = this.getNodeParameter('text', i, '') as string;
-						const showAlert = this.getNodeParameter('showAlert', i, false) as boolean;
-						const cacheTime = this.getNodeParameter('cacheTime', i, 0) as number;
 
 						// Validate callback query ID
 						if (!callbackQueryId || callbackQueryId.trim() === '') {
 							throw new NodeOperationError(this.getNode(), 'Callback Query ID is required and cannot be empty', { itemIndex: i });
-						}
-
-						// Validate response text length if provided
-						if (text && text.length > 200) {
-							throw new NodeOperationError(this.getNode(), 'Response text cannot exceed 200 characters', { itemIndex: i });
-						}
-
-						// Validate cache time
-						if (cacheTime < 0 || cacheTime > 3600) {
-							throw new NodeOperationError(this.getNode(), 'Cache time must be between 0 and 3600 seconds', { itemIndex: i });
 						}
 
 						// Create Max Bot instance
@@ -992,8 +1064,6 @@ export class Max implements INodeType {
 							bot,
 							callbackQueryId.trim(),
 							text,
-							showAlert,
-							cacheTime,
 						);
 
 						returnData.push({

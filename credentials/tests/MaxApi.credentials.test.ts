@@ -25,7 +25,7 @@ describe('MaxApi Credentials', () => {
 		});
 
 		it('should have correct documentation URL', () => {
-			expect(maxApiCredentials.documentationUrl).toBe('https://dev.max.ru/docs/chatbots/bots-coding/library/js');
+			expect(maxApiCredentials.documentationUrl).toBe('https://dev.max.ru/docs-api');
 		});
 
 		it('should have access token property with password masking', () => {
@@ -49,7 +49,7 @@ describe('MaxApi Credentials', () => {
 			expect(baseUrlProperty).toBeDefined();
 			expect(baseUrlProperty?.displayName).toBe('Base URL');
 			expect(baseUrlProperty?.type).toBe('string');
-			expect(baseUrlProperty?.default).toBe('https://botapi.max.ru');
+			expect(baseUrlProperty?.default).toBe('https://platform-api.max.ru');
 			expect(baseUrlProperty?.description).toContain('Base URL for Max messenger Bot API');
 		});
 	});
@@ -60,8 +60,8 @@ describe('MaxApi Credentials', () => {
 			expect(maxApiCredentials.test.request).toBeDefined();
 			expect(maxApiCredentials.test.request.baseURL).toBe('={{$credentials.baseUrl}}');
 			expect(maxApiCredentials.test.request.url).toBe('/me');
-			expect(maxApiCredentials.test.request.qs).toEqual({
-				access_token: '={{$credentials.accessToken}}',
+			expect(maxApiCredentials.test.request.headers).toEqual({
+				Authorization: '={{$credentials.accessToken}}',
 			});
 		});
 
@@ -69,7 +69,7 @@ describe('MaxApi Credentials', () => {
 			const testRequest = maxApiCredentials.test.request;
 
 			expect(testRequest.url).toBe('/me');
-			expect(testRequest.qs?.['access_token']).toBe('={{$credentials.accessToken}}');
+			expect(testRequest.headers?.['Authorization']).toBe('={{$credentials.accessToken}}');
 		});
 	});
 
@@ -93,7 +93,7 @@ describe('MaxApi Credentials', () => {
 			);
 
 			expect(accessTokenProperty?.description).toContain('Bot access token');
-			expect(accessTokenProperty?.description).toContain('@MasterBot');
+			expect(accessTokenProperty?.description).toContain('@PrimeBot');
 			expect(baseUrlProperty?.description).toContain('Base URL for Max messenger Bot API');
 		});
 
@@ -110,10 +110,9 @@ describe('MaxApi Credentials', () => {
 		it('should use proper Max API authentication format', () => {
 			const testRequest = maxApiCredentials.test.request;
 
-			// Max API uses access_token as query parameter, not Authorization header
-			expect(testRequest.qs).toBeDefined();
-			expect(testRequest.qs?.['access_token']).toBeDefined();
-			expect(testRequest.headers).toBeUndefined();
+			expect(testRequest.headers).toBeDefined();
+			expect(testRequest.headers?.['Authorization']).toBeDefined();
+			expect(testRequest.qs).toBeUndefined();
 		});
 	});
 });

@@ -53,7 +53,7 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 
 ## Настройка
 
-1. Создайте бота через @MasterBot в Max мессенджере
+1. Создайте бота через @PrimeBot в Max мессенджере
 2. Получите токен доступа
 3. Добавьте токен в настройки ноды в n8n
 
@@ -72,7 +72,7 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 
 ## Ресурсы
 
-- [Документация Max Bot API](https://dev.max.ru/docs/chatbots/bots-coding/library/js)
+- [Документация Max Bot API](https://dev.max.ru/docs-api)
 - [GitHub репозиторий](https://github.com/pfrankov/n8n-nodes-max)
 
 ## Лицензия

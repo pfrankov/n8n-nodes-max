@@ -6,7 +6,7 @@ import type { IDataObject } from 'n8n-workflow';
 
 export const TEST_CREDENTIALS = {
 	accessToken: 'test-bot-token-12345',
-	baseUrl: 'https://botapi.max.ru'
+	baseUrl: 'https://platform-api.max.ru'
 };
 
 export const TEST_USER_ID = '123456789';

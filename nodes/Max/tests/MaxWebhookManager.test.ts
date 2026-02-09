@@ -19,11 +19,11 @@ describe('MaxWebhookManager', () => {
 	});
 
 	describe('checkExists', () => {
-		it('should return true when webhook exists', async () => {
-			const mockCredentials = {
-				accessToken: 'test-token',
-				baseUrl: 'https://botapi.max.ru',
-			};
+			it('should return true when webhook exists', async () => {
+				const mockCredentials = {
+					accessToken: 'test-token',
+					baseUrl: 'https://platform-api.max.ru',
+				};
 			const mockWebhookUrl = 'https://test.com/webhook';
 			const mockResponse = {
 				subscriptions: [
@@ -37,22 +37,22 @@ describe('MaxWebhookManager', () => {
 
 			const result = await webhookManager.checkExists.call(mockHookFunctions as IHookFunctions);
 
-			expect(result).toBe(true);
-			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledWith({
-				method: 'GET',
-				url: 'https://botapi.max.ru/subscriptions',
-				qs: {
-					access_token: 'test-token',
-				},
-				json: true,
+				expect(result).toBe(true);
+				expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledWith({
+					method: 'GET',
+					url: 'https://platform-api.max.ru/subscriptions',
+					headers: {
+						Authorization: 'test-token',
+					},
+					json: true,
+				});
 			});
-		});
 
-		it('should return false when webhook does not exist', async () => {
-			const mockCredentials = {
-				accessToken: 'test-token',
-				baseUrl: 'https://botapi.max.ru',
-			};
+			it('should return false when webhook does not exist', async () => {
+				const mockCredentials = {
+					accessToken: 'test-token',
+					baseUrl: 'https://platform-api.max.ru',
+				};
 			const mockWebhookUrl = 'https://test.com/webhook';
 			const mockResponse = {
 				subscriptions: [
@@ -69,11 +69,11 @@ describe('MaxWebhookManager', () => {
 			expect(result).toBe(false);
 		});
 
-		it('should return false when no subscriptions exist', async () => {
-			const mockCredentials = {
-				accessToken: 'test-token',
-				baseUrl: 'https://botapi.max.ru',
-			};
+			it('should return false when no subscriptions exist', async () => {
+				const mockCredentials = {
+					accessToken: 'test-token',
+					baseUrl: 'https://platform-api.max.ru',
+				};
 			const mockWebhookUrl = 'https://test.com/webhook';
 			const mockResponse = {
 				subscriptions: [],
@@ -88,11 +88,11 @@ describe('MaxWebhookManager', () => {
 			expect(result).toBe(false);
 		});
 
-		it('should return false on API error', async () => {
-			const mockCredentials = {
-				accessToken: 'test-token',
-				baseUrl: 'https://botapi.max.ru',
-			};
+			it('should return false on API error', async () => {
+				const mockCredentials = {
+					accessToken: 'test-token',
+					baseUrl: 'https://platform-api.max.ru',
+				};
 			const mockWebhookUrl = 'https://test.com/webhook';
 
 			(mockHookFunctions.getCredentials as jest.Mock).mockResolvedValue(mockCredentials);
@@ -115,25 +115,25 @@ describe('MaxWebhookManager', () => {
 			(mockHookFunctions.getNodeWebhookUrl as jest.Mock).mockReturnValue(mockWebhookUrl);
 			(mockHookFunctions.helpers!.httpRequest as jest.Mock).mockResolvedValue(mockResponse);
 
-			await webhookManager.checkExists.call(mockHookFunctions as IHookFunctions);
+				await webhookManager.checkExists.call(mockHookFunctions as IHookFunctions);
 
-			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledWith({
-				method: 'GET',
-				url: 'https://botapi.max.ru/subscriptions',
-				qs: {
-					access_token: 'test-token',
-				},
-				json: true,
+				expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledWith({
+					method: 'GET',
+					url: 'https://platform-api.max.ru/subscriptions',
+					headers: {
+						Authorization: 'test-token',
+					},
+					json: true,
+				});
 			});
-		});
 	});
 
 	describe('create', () => {
-		it('should create webhook when it does not exist', async () => {
-			const mockCredentials = {
-				accessToken: 'test-token',
-				baseUrl: 'https://botapi.max.ru',
-			};
+			it('should create webhook when it does not exist', async () => {
+				const mockCredentials = {
+					accessToken: 'test-token',
+					baseUrl: 'https://platform-api.max.ru',
+				};
 			const mockWebhookUrl = 'https://test.com/webhook';
 			const mockEvents = ['message_created', 'message_edited'];
 			const mockResponse = { subscriptions: [] };
@@ -147,30 +147,72 @@ describe('MaxWebhookManager', () => {
 
 			const result = await webhookManager.create.call(mockHookFunctions as IHookFunctions);
 
+				expect(result).toBe(true);
+				expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledTimes(2);
+				expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenNthCalledWith(2, {
+					method: 'POST',
+					url: 'https://platform-api.max.ru/subscriptions',
+					headers: {
+						Authorization: 'test-token',
+						'Content-Type': 'application/json',
+					},
+					body: {
+						url: mockWebhookUrl,
+						update_types: mockEvents,
+					},
+					json: true,
+				});
+			});
+
+		it('should include secret and version when provided', async () => {
+			const mockCredentials = {
+				accessToken: 'test-token',
+				baseUrl: 'https://platform-api.max.ru',
+			};
+			const mockWebhookUrl = 'https://test.com/webhook';
+			const mockEvents = ['message_created', 'message_edited'];
+			const mockResponse = { subscriptions: [] };
+			const additionalFields = {
+				secret: 'my_secret_123',
+				version: '0.0.1',
+			};
+
+			(mockHookFunctions.getCredentials as jest.Mock).mockResolvedValue(mockCredentials);
+			(mockHookFunctions.getNodeWebhookUrl as jest.Mock).mockReturnValue(mockWebhookUrl);
+			(mockHookFunctions.getNodeParameter as jest.Mock).mockImplementation((name: string) => {
+				if (name === 'events') return mockEvents;
+				if (name === 'additionalFields') return additionalFields;
+				return undefined;
+			});
+			(mockHookFunctions.helpers!.httpRequest as jest.Mock)
+				.mockResolvedValueOnce(mockResponse)
+				.mockResolvedValueOnce({});
+
+			const result = await webhookManager.create.call(mockHookFunctions as IHookFunctions);
+
 			expect(result).toBe(true);
-			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledTimes(2);
 			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenNthCalledWith(2, {
 				method: 'POST',
-				url: 'https://botapi.max.ru/subscriptions',
-				qs: {
-					access_token: 'test-token',
-				},
+				url: 'https://platform-api.max.ru/subscriptions',
 				headers: {
+					Authorization: 'test-token',
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({
+				body: {
 					url: mockWebhookUrl,
 					update_types: mockEvents,
-				}),
+					secret: 'my_secret_123',
+					version: '0.0.1',
+				},
 				json: true,
 			});
 		});
 
-		it('should skip creation when webhook already exists', async () => {
-			const mockCredentials = {
-				accessToken: 'test-token',
-				baseUrl: 'https://botapi.max.ru',
-			};
+			it('should skip creation when webhook already exists', async () => {
+				const mockCredentials = {
+					accessToken: 'test-token',
+					baseUrl: 'https://platform-api.max.ru',
+				};
 			const mockWebhookUrl = 'https://test.com/webhook';
 			const mockEvents = ['message_created'];
 			const mockResponse = {
@@ -190,11 +232,11 @@ describe('MaxWebhookManager', () => {
 			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledTimes(1); // Only GET, no POST
 		});
 
-		it('should throw error when creation fails', async () => {
-			const mockCredentials = {
-				accessToken: 'test-token',
-				baseUrl: 'https://botapi.max.ru',
-			};
+			it('should throw error when creation fails', async () => {
+				const mockCredentials = {
+					accessToken: 'test-token',
+					baseUrl: 'https://platform-api.max.ru',
+				};
 			const mockWebhookUrl = 'https://test.com/webhook';
 			const mockEvents = ['message_created'];
 			const mockResponse = { subscriptions: [] };
@@ -213,11 +255,11 @@ describe('MaxWebhookManager', () => {
 	});
 
 	describe('delete', () => {
-		it('should delete existing webhook', async () => {
-			const mockCredentials = {
-				accessToken: 'test-token',
-				baseUrl: 'https://botapi.max.ru',
-			};
+			it('should delete existing webhook', async () => {
+				const mockCredentials = {
+					accessToken: 'test-token',
+					baseUrl: 'https://platform-api.max.ru',
+				};
 			const mockWebhookUrl = 'https://test.com/webhook';
 			const mockResponse = {
 				subscriptions: [
@@ -233,24 +275,26 @@ describe('MaxWebhookManager', () => {
 
 			const result = await webhookManager.delete.call(mockHookFunctions as IHookFunctions);
 
-			expect(result).toBe(true);
-			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledTimes(2);
-			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenNthCalledWith(2, {
-				method: 'DELETE',
-				url: 'https://botapi.max.ru/subscriptions',
-				qs: {
-					access_token: 'test-token',
-					url: mockWebhookUrl,
-				},
-				json: true,
+				expect(result).toBe(true);
+				expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledTimes(2);
+				expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenNthCalledWith(2, {
+					method: 'DELETE',
+					url: 'https://platform-api.max.ru/subscriptions',
+					qs: {
+						url: mockWebhookUrl,
+					},
+					headers: {
+						Authorization: 'test-token',
+					},
+					json: true,
+				});
 			});
-		});
 
-		it('should handle case when webhook does not exist', async () => {
-			const mockCredentials = {
-				accessToken: 'test-token',
-				baseUrl: 'https://botapi.max.ru',
-			};
+			it('should handle case when webhook does not exist', async () => {
+				const mockCredentials = {
+					accessToken: 'test-token',
+					baseUrl: 'https://platform-api.max.ru',
+				};
 			const mockWebhookUrl = 'https://test.com/webhook';
 			const mockResponse = {
 				subscriptions: [
@@ -268,11 +312,11 @@ describe('MaxWebhookManager', () => {
 			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledTimes(1); // Only GET, no DELETE
 		});
 
-		it('should return false on error but not throw', async () => {
-			const mockCredentials = {
-				accessToken: 'test-token',
-				baseUrl: 'https://botapi.max.ru',
-			};
+			it('should return false on error but not throw', async () => {
+				const mockCredentials = {
+					accessToken: 'test-token',
+					baseUrl: 'https://platform-api.max.ru',
+				};
 			const mockWebhookUrl = 'https://test.com/webhook';
 
 			(mockHookFunctions.getCredentials as jest.Mock).mockResolvedValue(mockCredentials);

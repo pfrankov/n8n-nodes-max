@@ -126,10 +126,10 @@ describe('Max Node', () => {
 				});
 
 			it('should call answerCallbackQuery', async () => {
-					const params = { resource: 'message', operation: 'answerCallbackQuery', callbackQueryId: 'cbq-123', text: 'Alert!', showAlert: false, cacheTime: 0 };
+					const params = { resource: 'message', operation: 'answerCallbackQuery', callbackQueryId: 'cbq-123', text: 'Alert!' };
 					const executeFunctions = getExecuteFunctionsMock(params);
 					await maxNode.execute.call(executeFunctions);
-					expect(answerCallbackQuery).toHaveBeenCalledWith(expect.anything(), 'cbq-123', 'Alert!', false, 0);
+					expect(answerCallbackQuery).toHaveBeenCalledWith(expect.anything(), 'cbq-123', 'Alert!');
 				});
 		});
 			describe('sendMessage with userId validation', () => {

@@ -1,4 +1,4 @@
-import type { IHookFunctions } from 'n8n-workflow';
+import type { IDataObject, IHookFunctions } from 'n8n-workflow';
 import type { MaxSubscriptionsResponse, MaxTriggerEvent } from './MaxTriggerConfig';
 
 /**
@@ -8,7 +8,7 @@ import type { MaxSubscriptionsResponse, MaxTriggerEvent } from './MaxTriggerConf
  * Provides methods to check, create, and delete webhook subscriptions.
  */
 export class MaxWebhookManager {
-	private readonly DEFAULT_BASE_URL = 'https://botapi.max.ru';
+	private readonly DEFAULT_BASE_URL = 'https://platform-api.max.ru';
 
 	/**
 	 * Check if webhook subscription already exists
@@ -65,7 +65,7 @@ export class MaxWebhookManager {
 		const manager = new MaxWebhookManager();
 		
 		try {
-			const { baseUrl, webhookUrl, events, credentials } = await manager.getWebhookConfig(this);
+			const { baseUrl, webhookUrl, events, credentials, additionalFields } = await manager.getWebhookConfig(this);
 
 			console.log('Max Trigger - create: Creating webhook for:', webhookUrl);
 
@@ -88,7 +88,7 @@ export class MaxWebhookManager {
 			}
 
 			// Create new webhook subscription
-			await manager.createSubscription(this, baseUrl, webhookUrl, events, credentials);
+			await manager.createSubscription(this, baseUrl, webhookUrl, events, credentials, additionalFields);
 
 			console.log('Max Trigger - create: Webhook subscription created successfully');
 			return true;
@@ -146,12 +146,14 @@ export class MaxWebhookManager {
 		const baseUrl = (credentials['baseUrl'] as string) || this.DEFAULT_BASE_URL;
 		const webhookUrl = context.getNodeWebhookUrl('default') as string;
 		const events = context.getNodeParameter('events') as MaxTriggerEvent[];
+		const additionalFields = context.getNodeParameter('additionalFields', {}) as IDataObject;
 
 		return {
 			credentials,
 			baseUrl,
 			webhookUrl,
 			events,
+			additionalFields,
 		};
 	}
 
@@ -167,8 +169,8 @@ export class MaxWebhookManager {
 		return context.helpers.httpRequest({
 			method: 'GET',
 			url: `${baseUrl}/subscriptions`,
-			qs: {
-				access_token: credentials['accessToken'],
+			headers: {
+				Authorization: credentials['accessToken'] as string,
 			},
 			json: true,
 		});
@@ -182,23 +184,32 @@ export class MaxWebhookManager {
 		baseUrl: string,
 		webhookUrl: string,
 		events: MaxTriggerEvent[],
-		credentials: any
+		credentials: any,
+		additionalFields: IDataObject = {},
 	): Promise<void> {
-		const body = {
+		const body: IDataObject = {
 			url: webhookUrl,
 			update_types: events,
 		};
 
+		const secret = additionalFields['secret'];
+		if (typeof secret === 'string' && secret.trim().length > 0) {
+			body['secret'] = secret.trim();
+		}
+
+		const version = additionalFields['version'];
+		if (typeof version === 'string' && version.trim().length > 0) {
+			body['version'] = version.trim();
+		}
+
 		await context.helpers.httpRequest({
 			method: 'POST',
 			url: `${baseUrl}/subscriptions`,
-			qs: {
-				access_token: credentials['accessToken'],
-			},
 			headers: {
+				Authorization: credentials['accessToken'] as string,
 				'Content-Type': 'application/json',
 			},
-			body: JSON.stringify(body),
+			body,
 			json: true,
 		});
 	}
@@ -216,8 +227,10 @@ export class MaxWebhookManager {
 			method: 'DELETE',
 			url: `${baseUrl}/subscriptions`,
 			qs: {
-				access_token: credentials['accessToken'],
 				url: webhookUrl,
+			},
+			headers: {
+				Authorization: credentials['accessToken'] as string,
 			},
 			json: true,
 		});

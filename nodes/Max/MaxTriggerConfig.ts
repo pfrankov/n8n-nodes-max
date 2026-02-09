@@ -110,6 +110,23 @@ export const MAX_TRIGGER_PROPERTIES: INodeProperties[] = [
 				default: '',
 				description: 'The user IDs to restrict the trigger to. Multiple can be defined separated by comma.',
 			},
+			{
+				displayName: 'Webhook Secret',
+				name: 'secret',
+				type: 'string',
+				typeOptions: {
+					password: true,
+				},
+				default: '',
+				description: 'Optional secret sent in X-Max-Bot-Api-Secret header for webhook requests (5-256 chars, A-Z a-z 0-9 _ -)',
+			},
+			{
+				displayName: 'API Version',
+				name: 'version',
+				type: 'string',
+				default: '',
+				description: 'Optional API version for webhook payload schema, for example 0.0.1',
+			},
 		],
 	},
 ];

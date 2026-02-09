@@ -275,7 +275,7 @@ describe('Max Error Handling', () => {
 		it('should provide token refresh guidance for auth errors', () => {
 			const tokenError = { description: 'Token expired' };
 			const message = createUserFriendlyErrorMessage(tokenError, MaxErrorCategory.AUTHENTICATION);
-			expect(message).toContain('@MasterBot in Max messenger');
+			expect(message).toContain('@PrimeBot in Max messenger');
 			expect(message).toContain('token is valid and has not expired');
 		});
 	});
