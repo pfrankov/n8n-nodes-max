@@ -30,6 +30,7 @@
 - Authentication is sent via `Authorization` header.
 - Message and webhook operations use direct HTTP requests for strict API-shape control.
 - Webhook processing is fail-soft: invalid events or filter issues should not crash trigger execution.
+- Webhook subscription URLs are normalized to ASCII/Punycode hostnames before registration to avoid TLS issues on IDN domains.
 - Upload flow is two-step (`POST /uploads` then multipart upload to returned URL), with support for both `token` and `url` payload responses.
 - Keyboard validation enforces documented limits (rows/buttons/text/payload/url and limited-type per-row constraints).
 

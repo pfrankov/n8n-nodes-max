@@ -18,6 +18,59 @@ describe('MaxWebhookManager', () => {
 		};
 	});
 
+	describe('getWebhookConfig', () => {
+		it('should convert IDN webhook hostname to punycode', async () => {
+			const mockCredentials = {
+				accessToken: 'test-token',
+				baseUrl: 'https://platform-api.max.ru',
+			};
+			const mockEvents = ['message_created'];
+			const additionalFields = {
+				secret: 'secret-key',
+			};
+
+			(mockHookFunctions.getCredentials as jest.Mock).mockResolvedValue(mockCredentials);
+			(mockHookFunctions.getNodeWebhookUrl as jest.Mock).mockReturnValue(
+				'https://пример.рф/webhook',
+			);
+			(mockHookFunctions.getNodeParameter as jest.Mock).mockImplementation((name: string) => {
+				if (name === 'events') return mockEvents;
+				if (name === 'additionalFields') return additionalFields;
+				return undefined;
+			});
+
+			const result = await webhookManager.getWebhookConfig(mockHookFunctions as IHookFunctions);
+
+			expect(result).toEqual({
+				credentials: mockCredentials,
+				baseUrl: 'https://platform-api.max.ru',
+				webhookUrl: 'https://xn--e1afmkfd.xn--p1ai/webhook',
+				events: mockEvents,
+				additionalFields,
+			});
+		});
+
+		it('should keep webhook URL unchanged when it is not a valid URL', async () => {
+			const mockCredentials = {
+				accessToken: 'test-token',
+				baseUrl: 'https://platform-api.max.ru',
+			};
+			const mockEvents = ['message_created'];
+
+			(mockHookFunctions.getCredentials as jest.Mock).mockResolvedValue(mockCredentials);
+			(mockHookFunctions.getNodeWebhookUrl as jest.Mock).mockReturnValue('not-a-valid-url');
+			(mockHookFunctions.getNodeParameter as jest.Mock).mockImplementation((name: string) => {
+				if (name === 'events') return mockEvents;
+				if (name === 'additionalFields') return {};
+				return undefined;
+			});
+
+			const result = await webhookManager.getWebhookConfig(mockHookFunctions as IHookFunctions);
+
+			expect(result.webhookUrl).toBe('not-a-valid-url');
+		});
+	});
+
 	describe('checkExists', () => {
 			it('should return true when webhook exists', async () => {
 				const mockCredentials = {
