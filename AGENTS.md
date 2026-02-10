@@ -4,6 +4,19 @@
 
 - At the start of any non-trivial task, quickly re-check `AGENTS.md` and `README.md` for current conventions and expected behavior.
 - Keep `AGENTS.md` and `README.md` in lockstep with behavior changes. If API semantics, limits, or UI fields change, update both.
+- Keep `CHANGELOG.md` up to date for release-relevant changes. Changelog entries must be written in Russian.
+- Changelog format must be tag-based: each tag section summarizes changes from the previous tag to the current tag.
+- Changelog items should be product-oriented with minimal technical detail plus user impact ("what changed" + "why it matters").
+- Changelog section headings must be in Russian (for example: `Добавлено`, `Улучшено`, `Сопровождение`, `Для разработки`).
+- For user usefulness, each release entry should include two operational sections:
+  - `Кому важно` (which n8n users/workflows are affected),
+  - `Что проверить после обновления` (practical post-update checks).
+- Keep operational checks specific to node behavior (credentials, trigger activation, message sending, attachments, filtering) rather than generic advice.
+- Changelog wording must be plain and human-readable. Avoid bureaucratic phrasing; prefer direct language (for example, "token is now sent in `Authorization` header" over abstract "aligned with contract" wording).
+- Include "why" only when it is clearly supported by source evidence (commit message, issue discussion, official docs, or PR context). Do not guess motivations.
+- If the reason is uncertain, write only the confirmed fact of the change.
+- Avoid file-level/internal implementation notes in changelog unless they directly affect user-facing behavior.
+- If an item maps to a single commit, append only a short commit hash (no URL).
 - Treat `https://dev.max.ru/docs-api` as the source of truth for request/response contracts.
 - `openapi_schema.yaml` is a deprecated local reference and may lag behind current API behavior.
 - Before merging API-facing changes, verify alignment in three places: implementation, tests, and user-facing descriptions in node parameters.
