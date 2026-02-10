@@ -29,8 +29,8 @@ describe('MaxTriggerConfig', () => {
 
 	describe('MAX_TRIGGER_PROPERTIES', () => {
 		it('should have events property with correct configuration', () => {
-			const eventsProperty = MAX_TRIGGER_PROPERTIES.find(prop => prop.name === 'events');
-			
+			const eventsProperty = MAX_TRIGGER_PROPERTIES.find((prop) => prop.name === 'events');
+
 			expect(eventsProperty).toBeDefined();
 			expect(eventsProperty!.displayName).toBe('Events');
 			expect(eventsProperty!.type).toBe('multiOptions');
@@ -39,7 +39,7 @@ describe('MaxTriggerConfig', () => {
 		});
 
 		it('should have all event options with correct structure', () => {
-			const eventsProperty = MAX_TRIGGER_PROPERTIES.find(prop => prop.name === 'events');
+			const eventsProperty = MAX_TRIGGER_PROPERTIES.find((prop) => prop.name === 'events');
 			const options = (eventsProperty as any).options;
 
 			expect(options).toHaveLength(11);
@@ -59,20 +59,24 @@ describe('MaxTriggerConfig', () => {
 			expect(messageCreatedOption).toEqual({
 				name: 'Message Received (Direct)',
 				value: 'message_created',
-				description: 'Trigger when a new message is received in direct conversation (update_type: message_created)',
+				description:
+					'Trigger when a new message is received in direct conversation (update_type: message_created)',
 			});
 
 			const botStartedOption = options.find((opt: any) => opt.value === 'bot_started');
 			expect(botStartedOption).toEqual({
 				name: 'Bot Started',
 				value: 'bot_started',
-				description: 'Trigger when a user starts interaction with the bot (update_type: bot_started)',
+				description:
+					'Trigger when a user starts interaction with the bot (update_type: bot_started)',
 			});
 		});
 
 		it('should have additionalFields property with correct configuration', () => {
-			const additionalFieldsProperty = MAX_TRIGGER_PROPERTIES.find(prop => prop.name === 'additionalFields');
-			
+			const additionalFieldsProperty = MAX_TRIGGER_PROPERTIES.find(
+				(prop) => prop.name === 'additionalFields',
+			);
+
 			expect(additionalFieldsProperty).toBeDefined();
 			expect(additionalFieldsProperty!.displayName).toBe('Additional Fields');
 			expect(additionalFieldsProperty!.type).toBe('collection');
@@ -81,7 +85,9 @@ describe('MaxTriggerConfig', () => {
 		});
 
 		it('should have chatIds, userIds, secret, and version options in additionalFields', () => {
-			const additionalFieldsProperty = MAX_TRIGGER_PROPERTIES.find(prop => prop.name === 'additionalFields');
+			const additionalFieldsProperty = MAX_TRIGGER_PROPERTIES.find(
+				(prop) => prop.name === 'additionalFields',
+			);
 			const options = (additionalFieldsProperty as any).options;
 
 			expect(options).toHaveLength(4);
@@ -92,7 +98,8 @@ describe('MaxTriggerConfig', () => {
 				name: 'chatIds',
 				type: 'string',
 				default: '',
-				description: 'The chat IDs to restrict the trigger to. Multiple can be defined separated by comma.',
+				description:
+					'The chat IDs to restrict the trigger to. Multiple can be defined separated by comma.',
 			});
 
 			const userIdsOption = options.find((opt: any) => opt.name === 'userIds');
@@ -101,7 +108,8 @@ describe('MaxTriggerConfig', () => {
 				name: 'userIds',
 				type: 'string',
 				default: '',
-				description: 'The user IDs to restrict the trigger to. Multiple can be defined separated by comma.',
+				description:
+					'The user IDs to restrict the trigger to. Multiple can be defined separated by comma.',
 			});
 
 			const secretOption = options.find((opt: any) => opt.name === 'secret');
@@ -113,7 +121,8 @@ describe('MaxTriggerConfig', () => {
 					password: true,
 				},
 				default: '',
-				description: 'Optional secret sent in X-Max-Bot-Api-Secret header for webhook requests (5-256 chars, A-Z a-z 0-9 _ -)',
+				description:
+					'Optional secret sent in X-Max-Bot-Api-Secret header for webhook requests (5-256 chars, A-Z a-z 0-9 _ -)',
 			});
 
 			const versionOption = options.find((opt: any) => opt.name === 'version');
@@ -131,14 +140,14 @@ describe('MaxTriggerConfig', () => {
 		});
 
 		it('should have properties with correct names', () => {
-			const propertyNames = MAX_TRIGGER_PROPERTIES.map(prop => prop.name);
+			const propertyNames = MAX_TRIGGER_PROPERTIES.map((prop) => prop.name);
 			expect(propertyNames).toEqual(['events', 'additionalFields']);
 		});
 	});
 
 	describe('Event values match constants', () => {
 		it('should have event option values that match MAX_TRIGGER_EVENTS', () => {
-			const eventsProperty = MAX_TRIGGER_PROPERTIES.find(prop => prop.name === 'events');
+			const eventsProperty = MAX_TRIGGER_PROPERTIES.find((prop) => prop.name === 'events');
 			const optionValues = (eventsProperty as any).options.map((opt: any) => opt.value);
 
 			expect(optionValues.sort()).toEqual([...MAX_TRIGGER_EVENTS].sort());

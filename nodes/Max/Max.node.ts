@@ -7,15 +7,28 @@ import type {
 } from 'n8n-workflow';
 import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
 
-import { createMaxBotInstance, sendMessage, editMessage, deleteMessage, answerCallbackQuery, getChatInfo, leaveChat, validateAndFormatText, addAdditionalFields, handleAttachments, processKeyboardFromParameters, processKeyboardFromAdditionalFields } from './GenericFunctions';
+import {
+	createMaxBotInstance,
+	sendMessage,
+	editMessage,
+	deleteMessage,
+	answerCallbackQuery,
+	getChatInfo,
+	leaveChat,
+	validateAndFormatText,
+	addAdditionalFields,
+	handleAttachments,
+	processKeyboardFromParameters,
+	processKeyboardFromAdditionalFields,
+} from './GenericFunctions';
 
 /**
  * Max messenger node for n8n
- * 
+ *
  * This node provides comprehensive integration with Max messenger Bot API,
  * enabling users to send messages, manage chats, handle attachments,
  * and create interactive keyboard interfaces.
- * 
+ *
  * Supported operations:
  * - Send messages to users and chats with text formatting
  * - Edit and delete existing messages
@@ -23,7 +36,7 @@ import { createMaxBotInstance, sendMessage, editMessage, deleteMessage, answerCa
  * - Create inline keyboards with callback buttons
  * - Answer callback queries from button interactions
  * - Get chat information and manage chat membership
- * 
+ *
  * @implements {INodeType}
  */
 export class Max implements INodeType {
@@ -245,7 +258,8 @@ export class Max implements INodeType {
 										name: 'fileName',
 										type: 'string',
 										default: '',
-										description: 'Name of the file (optional, will be auto-detected if not provided)',
+										description:
+											'Name of the file (optional, will be auto-detected if not provided)',
 									},
 									{
 										displayName: 'File URL',
@@ -419,7 +433,8 @@ export class Max implements INodeType {
 															},
 														},
 														default: '',
-														description: 'Data sent back when button is pressed (max 1024 characters)',
+														description:
+															'Data sent back when button is pressed (max 1024 characters)',
 													},
 													{
 														displayName: 'Chat Description',
@@ -456,7 +471,8 @@ export class Max implements INodeType {
 															},
 														},
 														default: '',
-														description: 'Optional payload sent to the bot when the chat is created (max 512 characters)',
+														description:
+															'Optional payload sent to the bot when the chat is created (max 512 characters)',
 													},
 													{
 														displayName: 'URL',
@@ -481,7 +497,8 @@ export class Max implements INodeType {
 															},
 														},
 														default: '',
-														description: 'Optional chat button identifier reused when editing the keyboard',
+														description:
+															'Optional chat button identifier reused when editing the keyboard',
 													},
 												],
 											},
@@ -722,7 +739,8 @@ export class Max implements INodeType {
 													},
 												},
 												default: '',
-												description: 'Optional payload sent to the bot when the chat is created (max 512 characters)',
+												description:
+													'Optional payload sent to the bot when the chat is created (max 512 characters)',
 											},
 											{
 												displayName: 'URL',
@@ -747,7 +765,8 @@ export class Max implements INodeType {
 													},
 												},
 												default: '',
-												description: 'Optional chat button identifier reused when editing the keyboard',
+												description:
+													'Optional chat button identifier reused when editing the keyboard',
 											},
 										],
 									},
@@ -847,10 +866,10 @@ export class Max implements INodeType {
 
 	/**
 	 * Execute the Max messenger node operations
-	 * 
+	 *
 	 * Processes input data and executes the specified operation (send message, edit message, etc.)
 	 * based on the configured resource and operation parameters.
-	 * 
+	 *
 	 * @param this - The execution context providing access to node parameters and credentials
 	 * @returns Promise resolving to an array of node execution data containing API responses
 	 * @throws {NodeOperationError} When validation fails or required parameters are missing
@@ -873,8 +892,12 @@ export class Max implements INodeType {
 						const format = this.getNodeParameter('format', i) as string;
 
 						// Get additional fields
-						const additionalFields = this.getNodeParameter('additionalFields', i, {}) as IDataObject;
-						const replyToMessageId = additionalFields['replyToMessageId'] as string || '';
+						const additionalFields = this.getNodeParameter(
+							'additionalFields',
+							i,
+							{},
+						) as IDataObject;
+						const replyToMessageId = (additionalFields['replyToMessageId'] as string) || '';
 
 						// Validate and format text
 						const formattedText = validateAndFormatText(text, format);
@@ -886,22 +909,38 @@ export class Max implements INodeType {
 							// Handle both string and number inputs
 							const userIdStr = String(userId || '');
 							if (!userIdStr || userIdStr.trim() === '') {
-								throw new NodeOperationError(this.getNode(), 'User ID is required and cannot be empty', { itemIndex: i });
+								throw new NodeOperationError(
+									this.getNode(),
+									'User ID is required and cannot be empty',
+									{ itemIndex: i },
+								);
 							}
 							recipientId = parseInt(userIdStr.trim(), 10);
 							if (isNaN(recipientId)) {
-								throw new NodeOperationError(this.getNode(), `Invalid User ID: "${userIdStr}". Must be a number.`, { itemIndex: i });
+								throw new NodeOperationError(
+									this.getNode(),
+									`Invalid User ID: "${userIdStr}". Must be a number.`,
+									{ itemIndex: i },
+								);
 							}
 						} else {
 							const chatId = this.getNodeParameter('chatId', i);
 							// Handle both string and number inputs
 							const chatIdStr = String(chatId || '');
 							if (!chatIdStr || chatIdStr.trim() === '') {
-								throw new NodeOperationError(this.getNode(), 'Chat ID is required and cannot be empty', { itemIndex: i });
+								throw new NodeOperationError(
+									this.getNode(),
+									'Chat ID is required and cannot be empty',
+									{ itemIndex: i },
+								);
 							}
 							recipientId = parseInt(chatIdStr.trim(), 10);
 							if (isNaN(recipientId)) {
-								throw new NodeOperationError(this.getNode(), `Invalid Chat ID: "${chatIdStr}". Must be a number.`, { itemIndex: i });
+								throw new NodeOperationError(
+									this.getNode(),
+									`Invalid Chat ID: "${chatIdStr}". Must be a number.`,
+									{ itemIndex: i },
+								);
 							}
 						}
 
@@ -918,7 +957,11 @@ export class Max implements INodeType {
 							const trimmedReplyId = replyToMessageId.trim();
 							// Basic validation for message ID format
 							if (trimmedReplyId.length === 0) {
-								throw new NodeOperationError(this.getNode(), 'Reply to Message ID cannot be empty', { itemIndex: i });
+								throw new NodeOperationError(
+									this.getNode(),
+									'Reply to Message ID cannot be empty',
+									{ itemIndex: i },
+								);
 							}
 
 							options['link'] = {
@@ -934,18 +977,34 @@ export class Max implements INodeType {
 						const bot = await createMaxBotInstance.call(this);
 
 						// Handle attachments if provided
-						const attachments = additionalFields['attachments'] as IDataObject || {};
-						if (attachments && attachments['attachment'] && Array.isArray(attachments['attachment']) && attachments['attachment'].length > 0) {
+						const attachments = (additionalFields['attachments'] as IDataObject) || {};
+						if (
+							attachments &&
+							attachments['attachment'] &&
+							Array.isArray(attachments['attachment']) &&
+							attachments['attachment'].length > 0
+						) {
 							// Process attachments and add to options
 							const currentItem = items[i];
 							if (currentItem) {
-								options['attachments'] = await handleAttachments.call(this, bot, attachments['attachment'] as any[], currentItem);
+								options['attachments'] = await handleAttachments.call(
+									this,
+									bot,
+									attachments['attachment'] as any[],
+									currentItem,
+									i,
+								);
 							}
 						}
 
 						// Handle inline keyboard if provided
-						const inlineKeyboard = additionalFields['inlineKeyboard'] as IDataObject || {};
-						if (inlineKeyboard && inlineKeyboard['buttons'] && Array.isArray(inlineKeyboard['buttons']) && inlineKeyboard['buttons'].length > 0) {
+						const inlineKeyboard = (additionalFields['inlineKeyboard'] as IDataObject) || {};
+						if (
+							inlineKeyboard &&
+							inlineKeyboard['buttons'] &&
+							Array.isArray(inlineKeyboard['buttons']) &&
+							inlineKeyboard['buttons'].length > 0
+						) {
 							// Process keyboard and add to attachments
 							const keyboardAttachment = processKeyboardFromAdditionalFields(inlineKeyboard);
 							if (keyboardAttachment) {
@@ -981,7 +1040,11 @@ export class Max implements INodeType {
 
 						// Validate message ID
 						if (!messageId || messageId.trim() === '') {
-							throw new NodeOperationError(this.getNode(), 'Message ID is required and cannot be empty', { itemIndex: i });
+							throw new NodeOperationError(
+								this.getNode(),
+								'Message ID is required and cannot be empty',
+								{ itemIndex: i },
+							);
 						}
 
 						// Validate and format text
@@ -1026,18 +1089,18 @@ export class Max implements INodeType {
 
 						// Validate message ID
 						if (!messageId || messageId.trim() === '') {
-							throw new NodeOperationError(this.getNode(), 'Message ID is required and cannot be empty', { itemIndex: i });
+							throw new NodeOperationError(
+								this.getNode(),
+								'Message ID is required and cannot be empty',
+								{ itemIndex: i },
+							);
 						}
 
 						// Create Max Bot instance
 						const bot = await createMaxBotInstance.call(this);
 
 						// Delete message using Max Bot API
-						const responseData = await deleteMessage.call(
-							this,
-							bot,
-							messageId.trim(),
-						);
+						const responseData = await deleteMessage.call(this, bot, messageId.trim());
 
 						returnData.push({
 							json: responseData,
@@ -1052,7 +1115,11 @@ export class Max implements INodeType {
 
 						// Validate callback query ID
 						if (!callbackQueryId || callbackQueryId.trim() === '') {
-							throw new NodeOperationError(this.getNode(), 'Callback Query ID is required and cannot be empty', { itemIndex: i });
+							throw new NodeOperationError(
+								this.getNode(),
+								'Callback Query ID is required and cannot be empty',
+								{ itemIndex: i },
+							);
 						}
 
 						// Create Max Bot instance
@@ -1073,7 +1140,11 @@ export class Max implements INodeType {
 							},
 						});
 					} else {
-						throw new NodeOperationError(this.getNode(), `The operation '${operation}' is not supported for resource '${resource}'`, { itemIndex: i });
+						throw new NodeOperationError(
+							this.getNode(),
+							`The operation '${operation}' is not supported for resource '${resource}'`,
+							{ itemIndex: i },
+						);
 					}
 				} else if (resource === 'chat') {
 					if (operation === 'getChatInfo') {
@@ -1082,23 +1153,27 @@ export class Max implements INodeType {
 
 						// Validate chat ID
 						if (!chatId || chatId.trim() === '') {
-							throw new NodeOperationError(this.getNode(), 'Chat ID is required and cannot be empty', { itemIndex: i });
+							throw new NodeOperationError(
+								this.getNode(),
+								'Chat ID is required and cannot be empty',
+								{ itemIndex: i },
+							);
 						}
 
 						const chatIdNumber = parseInt(chatId.trim(), 10);
 						if (isNaN(chatIdNumber)) {
-							throw new NodeOperationError(this.getNode(), `Invalid Chat ID: "${chatId}". Must be a number.`, { itemIndex: i });
+							throw new NodeOperationError(
+								this.getNode(),
+								`Invalid Chat ID: "${chatId}". Must be a number.`,
+								{ itemIndex: i },
+							);
 						}
 
 						// Create Max Bot instance
 						const bot = await createMaxBotInstance.call(this);
 
 						// Get chat info using Max Bot API
-						const responseData = await getChatInfo.call(
-							this,
-							bot,
-							chatIdNumber,
-						);
+						const responseData = await getChatInfo.call(this, bot, chatIdNumber);
 
 						returnData.push({
 							json: responseData,
@@ -1112,23 +1187,27 @@ export class Max implements INodeType {
 
 						// Validate chat ID
 						if (!chatId || chatId.trim() === '') {
-							throw new NodeOperationError(this.getNode(), 'Chat ID is required and cannot be empty', { itemIndex: i });
+							throw new NodeOperationError(
+								this.getNode(),
+								'Chat ID is required and cannot be empty',
+								{ itemIndex: i },
+							);
 						}
 
 						const chatIdNumber = parseInt(chatId.trim(), 10);
 						if (isNaN(chatIdNumber)) {
-							throw new NodeOperationError(this.getNode(), `Invalid Chat ID: "${chatId}". Must be a number.`, { itemIndex: i });
+							throw new NodeOperationError(
+								this.getNode(),
+								`Invalid Chat ID: "${chatId}". Must be a number.`,
+								{ itemIndex: i },
+							);
 						}
 
 						// Create Max Bot instance
 						const bot = await createMaxBotInstance.call(this);
 
 						// Leave chat using Max Bot API
-						const responseData = await leaveChat.call(
-							this,
-							bot,
-							chatIdNumber,
-						);
+						const responseData = await leaveChat.call(this, bot, chatIdNumber);
 
 						returnData.push({
 							json: responseData,
@@ -1137,10 +1216,18 @@ export class Max implements INodeType {
 							},
 						});
 					} else {
-						throw new NodeOperationError(this.getNode(), `The operation '${operation}' is not supported for resource '${resource}'`, { itemIndex: i });
+						throw new NodeOperationError(
+							this.getNode(),
+							`The operation '${operation}' is not supported for resource '${resource}'`,
+							{ itemIndex: i },
+						);
 					}
 				} else {
-					throw new NodeOperationError(this.getNode(), `The resource '${resource}' is not supported.`, { itemIndex: i });
+					throw new NodeOperationError(
+						this.getNode(),
+						`The resource '${resource}' is not supported.`,
+						{ itemIndex: i },
+					);
 				}
 			} catch (error) {
 				if (this.continueOnFail()) {

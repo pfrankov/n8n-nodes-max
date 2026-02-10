@@ -13,17 +13,17 @@ import { MAX_TRIGGER_PROPERTIES } from './MaxTriggerConfig';
 
 /**
  * Max messenger trigger node for n8n
- * 
+ *
  * This trigger node enables webhook-based event reception from Max messenger,
  * allowing workflows to react to various Max messenger events such as:
  * - New messages and message edits
  * - Bot interactions and chat membership changes
  * - Inline keyboard button callbacks
  * - User and chat management events
- * 
+ *
  * The node automatically manages webhook subscriptions with the Max API
  * and filters events based on configured criteria.
- * 
+ *
  * @implements {INodeType}
  */
 export class MaxTrigger implements INodeType {
@@ -57,7 +57,7 @@ export class MaxTrigger implements INodeType {
 		properties: MAX_TRIGGER_PROPERTIES,
 	};
 
-	/** 
+	/**
 	 * Webhook management methods for Max messenger trigger
 	 * Uses static instances to avoid context binding issues
 	 */

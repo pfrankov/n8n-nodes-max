@@ -27,16 +27,8 @@
 		"declaration": true,
 		"sourceMap": true,
 		"skipLibCheck": true,
-		"outDir": "./dist/",
+		"outDir": "./dist/"
 	},
-	"include": [
-		"credentials/**/*",
-		"nodes/**/*",
-		"nodes/**/*.json",
-		"package.json",
-	],
-	"exclude": [
-		"**/*.test.ts",
-		"**/tests/**/*"
-	],
+	"include": ["credentials/**/*", "nodes/**/*", "nodes/**/*.json", "package.json"],
+	"exclude": ["**/*.test.ts", "**/tests/**/*"]
 }

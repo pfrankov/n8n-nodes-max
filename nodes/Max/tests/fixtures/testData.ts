@@ -6,7 +6,7 @@ import type { IDataObject } from 'n8n-workflow';
 
 export const TEST_CREDENTIALS = {
 	accessToken: 'test-bot-token-12345',
-	baseUrl: 'https://platform-api.max.ru'
+	baseUrl: 'https://platform-api.max.ru',
 };
 
 export const TEST_USER_ID = '123456789';
@@ -30,30 +30,30 @@ export const SAMPLE_ATTACHMENTS = {
 		type: 'image',
 		payload: {
 			token: 'image-token-123',
-			url: 'https://example.com/image.jpg'
-		}
+			url: 'https://example.com/image.jpg',
+		},
 	},
 	video: {
 		type: 'video',
 		payload: {
 			token: 'video-token-456',
-			url: 'https://example.com/video.mp4'
-		}
+			url: 'https://example.com/video.mp4',
+		},
 	},
 	audio: {
 		type: 'audio',
 		payload: {
 			token: 'audio-token-789',
-			url: 'https://example.com/audio.mp3'
-		}
+			url: 'https://example.com/audio.mp3',
+		},
 	},
 	document: {
 		type: 'file',
 		payload: {
 			token: 'file-token-101',
-			url: 'https://example.com/document.pdf'
-		}
-	}
+			url: 'https://example.com/document.pdf',
+		},
+	},
 };
 
 export const SAMPLE_KEYBOARDS = {
@@ -65,11 +65,11 @@ export const SAMPLE_KEYBOARDS = {
 					{
 						text: 'Button 1',
 						type: 'callback',
-						payload: 'btn1_clicked'
-					}
-				]
-			]
-		}
+						payload: 'btn1_clicked',
+					},
+				],
+			],
+		},
 	},
 	complex: {
 		type: 'inline_keyboard',
@@ -80,35 +80,35 @@ export const SAMPLE_KEYBOARDS = {
 						text: 'Yes',
 						type: 'callback',
 						payload: 'yes',
-						intent: 'positive'
+						intent: 'positive',
 					},
 					{
 						text: 'No',
 						type: 'callback',
 						payload: 'no',
-						intent: 'negative'
-					}
+						intent: 'negative',
+					},
 				],
 				[
 					{
 						text: 'Visit Website',
 						type: 'link',
-						url: 'https://example.com'
-					}
+						url: 'https://example.com',
+					},
 				],
 				[
 					{
 						text: 'Share Contact',
-						type: 'request_contact'
+						type: 'request_contact',
 					},
 					{
 						text: 'Share Location',
-						type: 'request_geo_location'
-					}
-				]
-			]
-		}
-	}
+						type: 'request_geo_location',
+					},
+				],
+			],
+		},
+	},
 };
 
 export const SAMPLE_API_RESPONSES = {
@@ -116,73 +116,73 @@ export const SAMPLE_API_RESPONSES = {
 		message_id: TEST_MESSAGE_ID,
 		text: SAMPLE_MESSAGES.simple,
 		user_id: parseInt(TEST_USER_ID),
-		timestamp: Date.now()
+		timestamp: Date.now(),
 	},
 	sendMessageToChat: {
 		message_id: TEST_MESSAGE_ID,
 		text: SAMPLE_MESSAGES.simple,
 		chat_id: parseInt(TEST_CHAT_ID),
-		timestamp: Date.now()
+		timestamp: Date.now(),
 	},
 	editMessageSuccess: {
 		message_id: TEST_MESSAGE_ID,
 		text: 'Updated message text',
 		user_id: parseInt(TEST_USER_ID),
-		timestamp: Date.now()
+		timestamp: Date.now(),
 	},
 	deleteMessageSuccess: {
 		message_id: TEST_MESSAGE_ID,
-		deleted: true
+		deleted: true,
 	},
 	getChatInfoSuccess: {
 		chat_id: parseInt(TEST_CHAT_ID),
 		title: 'Test Chat',
 		type: 'group',
 		members_count: 5,
-		description: 'A test chat for integration testing'
+		description: 'A test chat for integration testing',
 	},
 	leaveChatSuccess: {
 		chat_id: parseInt(TEST_CHAT_ID),
-		left: true
+		left: true,
 	},
 	uploadSuccess: {
 		url: 'https://upload.max.ru/upload/12345',
-		token: 'upload-token-12345'
+		token: 'upload-token-12345',
 	},
 	callbackQuerySuccess: {
 		callback_query_id: 'callback-123',
-		answered: true
-	}
+		answered: true,
+	},
 };
 
 export const SAMPLE_API_ERRORS = {
 	unauthorized: {
 		error_code: 401,
-		description: 'Unauthorized'
+		description: 'Unauthorized',
 	},
 	rateLimited: {
 		error_code: 429,
 		description: 'Too Many Requests',
 		parameters: {
-			retry_after: 60
-		}
+			retry_after: 60,
+		},
 	},
 	chatNotFound: {
 		error_code: 404,
-		description: 'Chat not found'
+		description: 'Chat not found',
 	},
 	messageNotFound: {
 		error_code: 404,
-		description: 'Message not found'
+		description: 'Message not found',
 	},
 	invalidParameter: {
 		error_code: 400,
-		description: 'Bad Request: invalid parameter'
+		description: 'Bad Request: invalid parameter',
 	},
 	networkError: {
 		code: 'ECONNREFUSED',
-		message: 'Connection refused'
-	}
+		message: 'Connection refused',
+	},
 };
 
 export const SAMPLE_WEBHOOK_EVENTS = {
@@ -196,24 +196,24 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 				last_name: 'User',
 				username: 'testuser',
 				is_bot: false,
-				last_activity_time: Date.now()
+				last_activity_time: Date.now(),
 			},
 			recipient: {
 				chat_id: parseInt(TEST_CHAT_ID),
-				chat_type: 'chat'
+				chat_type: 'chat',
 			},
 			timestamp: Date.now(),
 			body: {
 				mid: TEST_MESSAGE_ID,
 				seq: 1,
-				text: SAMPLE_MESSAGES.simple
+				text: SAMPLE_MESSAGES.simple,
 			},
 			stat: {
-				views: 0
+				views: 0,
 			},
-			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`
+			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`,
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 	messageChatCreated: {
 		update_type: 'message_chat_created',
@@ -225,24 +225,24 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 				last_name: 'User',
 				username: 'testuser',
 				is_bot: false,
-				last_activity_time: Date.now()
+				last_activity_time: Date.now(),
 			},
 			recipient: {
 				chat_id: parseInt(TEST_CHAT_ID),
-				chat_type: 'chat'
+				chat_type: 'chat',
 			},
 			timestamp: Date.now(),
 			body: {
 				mid: TEST_MESSAGE_ID,
 				seq: 1,
-				text: SAMPLE_MESSAGES.simple
+				text: SAMPLE_MESSAGES.simple,
 			},
 			stat: {
-				views: 0
+				views: 0,
 			},
-			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`
+			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`,
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 	messageEdited: {
 		update_type: 'message_edited',
@@ -254,38 +254,38 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 				last_name: 'User',
 				username: 'testuser',
 				is_bot: false,
-				last_activity_time: Date.now()
+				last_activity_time: Date.now(),
 			},
 			recipient: {
 				chat_id: parseInt(TEST_CHAT_ID),
-				chat_type: 'chat'
+				chat_type: 'chat',
 			},
 			timestamp: Date.now(),
 			body: {
 				mid: TEST_MESSAGE_ID,
 				seq: 1,
-				text: 'Updated message text'
+				text: 'Updated message text',
 			},
 			stat: {
-				views: 0
+				views: 0,
 			},
-			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`
+			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`,
 		},
 		old_message: {
 			mid: TEST_MESSAGE_ID,
 			seq: 1,
 			text: 'Original message text',
 			attachments: [],
-			markup: []
+			markup: [],
 		},
 		new_message: {
 			mid: TEST_MESSAGE_ID,
 			seq: 1,
 			text: 'Updated message text',
 			attachments: [],
-			markup: []
+			markup: [],
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 	messageRemoved: {
 		update_type: 'message_removed',
@@ -297,33 +297,33 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 				last_name: 'User',
 				username: 'testuser',
 				is_bot: false,
-				last_activity_time: Date.now()
+				last_activity_time: Date.now(),
 			},
 			recipient: {
 				chat_id: parseInt(TEST_CHAT_ID),
-				chat_type: 'chat'
+				chat_type: 'chat',
 			},
 			timestamp: Date.now(),
 			body: {
 				mid: TEST_MESSAGE_ID,
 				seq: 1,
-				text: 'This message was deleted'
+				text: 'This message was deleted',
 			},
 			stat: {
-				views: 0
+				views: 0,
 			},
-			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`
+			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`,
 		},
 		deletion_context: {
 			deleted_by: {
 				user_id: 789,
 				name: 'Admin User',
-				username: 'admin'
+				username: 'admin',
 			},
 			deletion_reason: 'inappropriate_content',
-			deleted_at: Date.now()
+			deleted_at: Date.now(),
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 	botStarted: {
 		update_type: 'bot_started',
@@ -334,8 +334,8 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 			last_name: 'User',
 			username: 'testuser',
 			is_bot: false,
-			last_activity_time: Date.now()
-		}
+			last_activity_time: Date.now(),
+		},
 	},
 	botAdded: {
 		update_type: 'bot_added',
@@ -345,7 +345,7 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 			type: 'chat',
 			title: 'Test Group Chat',
 			description: 'A test group chat',
-			members_count: 5
+			members_count: 5,
 		},
 		user: {
 			user_id: parseInt(TEST_USER_ID),
@@ -353,16 +353,16 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 			last_name: 'User',
 			username: 'testuser',
 			is_bot: false,
-			last_activity_time: Date.now()
+			last_activity_time: Date.now(),
 		},
 		membership_context: {
 			added_by: {
 				user_id: parseInt(TEST_USER_ID),
 				name: 'Test User',
-				username: 'testuser'
+				username: 'testuser',
 			},
-			action_timestamp: Date.now()
-		}
+			action_timestamp: Date.now(),
+		},
 	},
 	botRemoved: {
 		update_type: 'bot_removed',
@@ -372,7 +372,7 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 			type: 'chat',
 			title: 'Test Group Chat',
 			description: 'A test group chat',
-			members_count: 4
+			members_count: 4,
 		},
 		user: {
 			user_id: parseInt(TEST_USER_ID),
@@ -380,16 +380,16 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 			last_name: 'User',
 			username: 'testuser',
 			is_bot: false,
-			last_activity_time: Date.now()
+			last_activity_time: Date.now(),
 		},
 		membership_context: {
 			removed_by: {
 				user_id: parseInt(TEST_USER_ID),
 				name: 'Test User',
-				username: 'testuser'
+				username: 'testuser',
 			},
-			action_timestamp: Date.now()
-		}
+			action_timestamp: Date.now(),
+		},
 	},
 	messageCallback: {
 		update_type: 'message_callback',
@@ -401,29 +401,29 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 				last_name: 'User',
 				username: 'testuser',
 				is_bot: false,
-				last_activity_time: Date.now()
+				last_activity_time: Date.now(),
 			},
 			recipient: {
 				chat_id: parseInt(TEST_CHAT_ID),
-				chat_type: 'chat'
+				chat_type: 'chat',
 			},
 			timestamp: Date.now(),
 			body: {
 				mid: TEST_MESSAGE_ID,
 				seq: 1,
 				text: 'Please click a button',
-				attachments: [SAMPLE_KEYBOARDS.simple]
+				attachments: [SAMPLE_KEYBOARDS.simple],
 			},
 			stat: {
-				views: 0
+				views: 0,
 			},
-			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`
+			url: `https://max.ru/messages/${TEST_MESSAGE_ID}`,
 		},
 		callback: {
 			callback_id: 'callback-123',
-			payload: 'btn1_clicked'
+			payload: 'btn1_clicked',
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 	chatTitleChanged: {
 		update_type: 'chat_title_changed',
@@ -433,7 +433,7 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 			type: 'chat',
 			title: 'New Chat Title',
 			description: 'A test group chat',
-			members_count: 5
+			members_count: 5,
 		},
 		user: {
 			user_id: parseInt(TEST_USER_ID),
@@ -441,7 +441,7 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 			last_name: 'User',
 			username: 'testuser',
 			is_bot: false,
-			last_activity_time: Date.now()
+			last_activity_time: Date.now(),
 		},
 		chat_changes: {
 			old_title: 'Old Chat Title',
@@ -449,10 +449,10 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 			changed_by: {
 				user_id: parseInt(TEST_USER_ID),
 				name: 'Test User',
-				username: 'testuser'
+				username: 'testuser',
 			},
-			changed_at: Date.now()
-		}
+			changed_at: Date.now(),
+		},
 	},
 	userAdded: {
 		update_type: 'user_added',
@@ -462,7 +462,7 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 			type: 'chat',
 			title: 'Test Group Chat',
 			description: 'A test group chat',
-			members_count: 6
+			members_count: 6,
 		},
 		user: {
 			user_id: 999,
@@ -470,17 +470,17 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 			last_name: 'User',
 			username: 'newuser',
 			is_bot: false,
-			last_activity_time: Date.now()
+			last_activity_time: Date.now(),
 		},
 		membership_context: {
 			added_by: {
 				user_id: parseInt(TEST_USER_ID),
 				name: 'Test User',
-				username: 'testuser'
+				username: 'testuser',
 			},
 			user_role: 'member',
-			action_timestamp: Date.now()
-		}
+			action_timestamp: Date.now(),
+		},
 	},
 	userRemoved: {
 		update_type: 'user_removed',
@@ -490,7 +490,7 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 			type: 'chat',
 			title: 'Test Group Chat',
 			description: 'A test group chat',
-			members_count: 4
+			members_count: 4,
 		},
 		user: {
 			user_id: 999,
@@ -498,18 +498,18 @@ export const SAMPLE_WEBHOOK_EVENTS = {
 			last_name: 'User',
 			username: 'removeduser',
 			is_bot: false,
-			last_activity_time: Date.now()
+			last_activity_time: Date.now(),
 		},
 		membership_context: {
 			removed_by: {
 				user_id: parseInt(TEST_USER_ID),
 				name: 'Test User',
-				username: 'testuser'
+				username: 'testuser',
 			},
 			user_role: 'member',
-			action_timestamp: Date.now()
-		}
-	}
+			action_timestamp: Date.now(),
+		},
+	},
 };
 
 export const WORKFLOW_TEST_DATA = {
@@ -524,10 +524,10 @@ export const WORKFLOW_TEST_DATA = {
 					sendTo: 'user',
 					text: SAMPLE_MESSAGES.simple,
 					format: 'plain',
-					userId: TEST_USER_ID
-				}
-			}
-		]
+					userId: TEST_USER_ID,
+				},
+			},
+		],
 	},
 	sendMessageWithAttachmentWorkflow: {
 		nodes: [
@@ -542,11 +542,11 @@ export const WORKFLOW_TEST_DATA = {
 					format: 'plain',
 					userId: TEST_USER_ID,
 					additionalFields: {
-						attachments: [SAMPLE_ATTACHMENTS.image]
-					}
-				}
-			}
-		]
+						attachments: [SAMPLE_ATTACHMENTS.image],
+					},
+				},
+			},
+		],
 	},
 	sendMessageWithKeyboardWorkflow: {
 		nodes: [
@@ -561,12 +561,12 @@ export const WORKFLOW_TEST_DATA = {
 					format: 'plain',
 					userId: TEST_USER_ID,
 					additionalFields: {
-						keyboard: SAMPLE_KEYBOARDS.simple
-					}
-				}
-			}
-		]
-	}
+						keyboard: SAMPLE_KEYBOARDS.simple,
+					},
+				},
+			},
+		],
+	},
 };
 
 export function createMockExecuteFunctions(parameters: IDataObject = {}) {
@@ -580,8 +580,8 @@ export function createMockExecuteFunctions(parameters: IDataObject = {}) {
 		continueOnFail: jest.fn().mockReturnValue(false),
 		helpers: {
 			prepareBinaryData: jest.fn(),
-			getBinaryDataBuffer: jest.fn()
-		}
+			getBinaryDataBuffer: jest.fn(),
+		},
 	};
 }
 
@@ -591,6 +591,6 @@ export function createMockWebhookFunctions(body: IDataObject = {}) {
 		getHeaderData: jest.fn().mockReturnValue({}),
 		getNodeParameter: jest.fn(),
 		getCredentials: jest.fn().mockResolvedValue(TEST_CREDENTIALS),
-		getNode: jest.fn().mockReturnValue({ name: 'Max Trigger', type: 'maxTrigger' })
+		getNode: jest.fn().mockReturnValue({ name: 'Max Trigger', type: 'maxTrigger' }),
 	};
 }

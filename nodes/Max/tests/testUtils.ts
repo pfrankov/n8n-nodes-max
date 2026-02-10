@@ -2,7 +2,7 @@ import type { IExecuteFunctions, INodeExecutionData, IBinaryData } from 'n8n-wor
 
 /**
  * Test Utilities for GenericFunctions Testing
- * 
+ *
  * Provides comprehensive mock infrastructure and test data factories
  * for achieving maximum code coverage with minimum test cases.
  */
@@ -14,20 +14,23 @@ import type { IExecuteFunctions, INodeExecutionData, IBinaryData } from 'n8n-wor
 /**
  * Creates a comprehensive mock of IExecuteFunctions with all required methods
  */
-export function createMockExecuteFunctions(overrides: Partial<IExecuteFunctions> = {}): IExecuteFunctions {
+export function createMockExecuteFunctions(
+	overrides: Partial<IExecuteFunctions> = {},
+): IExecuteFunctions {
 	const defaultMock = {
 		getCredentials: jest.fn().mockResolvedValue({
 			accessToken: 'test-access-token',
-			baseUrl: 'https://platform-api.max.ru'
+			baseUrl: 'https://platform-api.max.ru',
 		}),
 		getNode: jest.fn().mockReturnValue({
 			name: 'Max Test Node',
 			type: 'n8n-nodes-max.max',
-			typeVersion: 1
+			typeVersion: 1,
 		}),
 		getNodeParameter: jest.fn(),
 		helpers: {
 			httpRequest: jest.fn(),
+			getBinaryDataBuffer: jest.fn().mockResolvedValue(Buffer.from('test file content')),
 		},
 		// Add other required methods as needed
 		continueOnFail: jest.fn().mockReturnValue(false),
@@ -60,7 +63,7 @@ export function createMockExecuteFunctions(overrides: Partial<IExecuteFunctions>
 		setBinaryDataBuffer: jest.fn(),
 		getScheduleTriggerData: jest.fn(),
 		getSSHClient: jest.fn(),
-		...overrides
+		...overrides,
 	} as unknown as IExecuteFunctions;
 
 	return defaultMock;
@@ -75,7 +78,7 @@ export function createMockHttpRequest() {
 		return Promise.resolve({
 			statusCode: 200,
 			body: { success: true },
-			headers: {}
+			headers: {},
 		});
 	});
 }
@@ -88,8 +91,8 @@ export function createMockFileSystem() {
 		promises: {
 			writeFile: jest.fn().mockResolvedValue(undefined),
 			readFile: jest.fn().mockResolvedValue(Buffer.from('test file content')),
-			unlink: jest.fn().mockResolvedValue(undefined)
-		}
+			unlink: jest.fn().mockResolvedValue(undefined),
+		},
 	};
 }
 
@@ -98,7 +101,7 @@ export function createMockFileSystem() {
  */
 export function createMockCrypto() {
 	return {
-		randomUUID: jest.fn().mockReturnValue('test-uuid-12345')
+		randomUUID: jest.fn().mockReturnValue('test-uuid-12345'),
 	};
 }
 
@@ -107,7 +110,7 @@ export function createMockCrypto() {
  */
 export function createMockOS() {
 	return {
-		tmpdir: jest.fn().mockReturnValue('/tmp')
+		tmpdir: jest.fn().mockReturnValue('/tmp'),
 	};
 }
 
@@ -116,7 +119,7 @@ export function createMockOS() {
  */
 export function createMockPath() {
 	return {
-		join: jest.fn().mockImplementation((...paths: string[]) => paths.join('/'))
+		join: jest.fn().mockImplementation((...paths: string[]) => paths.join('/')),
 	};
 }
 
@@ -133,7 +136,7 @@ export class ErrorFactory {
 			error_code: 401,
 			description: 'Unauthorized access',
 			message: 'Invalid token provided',
-			...overrides
+			...overrides,
 		};
 	}
 
@@ -142,7 +145,7 @@ export class ErrorFactory {
 			error_code: 429,
 			description: 'Too Many Requests',
 			parameters: { retry_after: 60 },
-			...overrides
+			...overrides,
 		};
 	}
 
@@ -151,7 +154,7 @@ export class ErrorFactory {
 			error_code: 400,
 			description: 'Bad Request',
 			message: 'Invalid parameter: text too long',
-			...overrides
+			...overrides,
 		};
 	}
 
@@ -160,7 +163,7 @@ export class ErrorFactory {
 			error_code: 404,
 			description: 'Chat not found',
 			message: 'The specified chat does not exist',
-			...overrides
+			...overrides,
 		};
 	}
 
@@ -168,14 +171,14 @@ export class ErrorFactory {
 		return {
 			code: 'ECONNREFUSED',
 			message: 'Connection refused',
-			...overrides
+			...overrides,
 		};
 	}
 
 	static createUnknownError(overrides: any = {}) {
 		return {
 			message: 'Something unexpected happened',
-			...overrides
+			...overrides,
 		};
 	}
 }
@@ -190,7 +193,7 @@ export class AttachmentConfigFactory {
 			inputType: 'binary' as const,
 			binaryProperty: 'data',
 			fileName: 'test-image.jpg',
-			...overrides
+			...overrides,
 		};
 	}
 
@@ -200,7 +203,7 @@ export class AttachmentConfigFactory {
 			inputType: 'url' as const,
 			fileUrl: 'https://example.com/video.mp4',
 			fileName: 'test-video.mp4',
-			...overrides
+			...overrides,
 		};
 	}
 
@@ -210,7 +213,7 @@ export class AttachmentConfigFactory {
 			inputType: 'binary' as const,
 			binaryProperty: 'document',
 			fileName: 'test-document.pdf',
-			...overrides
+			...overrides,
 		};
 	}
 }
@@ -225,7 +228,7 @@ export class KeyboardButtonFactory {
 			type: 'callback' as const,
 			payload: 'button_clicked',
 			intent: 'default' as const,
-			...overrides
+			...overrides,
 		};
 	}
 
@@ -235,7 +238,7 @@ export class KeyboardButtonFactory {
 			type: 'link' as const,
 			url: 'https://example.com',
 			intent: 'positive' as const,
-			...overrides
+			...overrides,
 		};
 	}
 
@@ -244,7 +247,7 @@ export class KeyboardButtonFactory {
 			text: 'Share Contact',
 			type: 'request_contact' as const,
 			intent: 'default' as const,
-			...overrides
+			...overrides,
 		};
 	}
 
@@ -253,7 +256,7 @@ export class KeyboardButtonFactory {
 			text: 'Share Location',
 			type: 'request_geo_location' as const,
 			intent: 'default' as const,
-			...overrides
+			...overrides,
 		};
 	}
 
@@ -280,7 +283,7 @@ export class BinaryDataFactory {
 			fileSize: '102400', // 100KB
 			fileExtension: 'jpg',
 			id: '/tmp/test-image-12345.jpg',
-			...overrides
+			...overrides,
 		};
 	}
 
@@ -292,7 +295,7 @@ export class BinaryDataFactory {
 			fileSize: '10485760', // 10MB
 			fileExtension: 'mp4',
 			id: '/tmp/test-video-12345.mp4',
-			...overrides
+			...overrides,
 		};
 	}
 
@@ -304,7 +307,7 @@ export class BinaryDataFactory {
 			fileSize: '512000', // 500KB
 			fileExtension: 'pdf',
 			id: '/tmp/test-document-12345.pdf',
-			...overrides
+			...overrides,
 		};
 	}
 }
@@ -313,10 +316,13 @@ export class BinaryDataFactory {
  * Factory for creating test node execution data
  */
 export class NodeExecutionDataFactory {
-	static createWithBinary(binaryData: Record<string, IBinaryData>, jsonData: any = {}): INodeExecutionData {
+	static createWithBinary(
+		binaryData: Record<string, IBinaryData>,
+		jsonData: any = {},
+	): INodeExecutionData {
 		return {
 			json: jsonData,
-			binary: binaryData
+			binary: binaryData,
 		};
 	}
 
@@ -324,8 +330,8 @@ export class NodeExecutionDataFactory {
 		return {
 			json: jsonData,
 			binary: {
-				data: BinaryDataFactory.createImageBinary()
-			}
+				data: BinaryDataFactory.createImageBinary(),
+			},
 		};
 	}
 
@@ -333,8 +339,8 @@ export class NodeExecutionDataFactory {
 		return {
 			json: jsonData,
 			binary: {
-				document: BinaryDataFactory.createDocumentBinary()
-			}
+				document: BinaryDataFactory.createDocumentBinary(),
+			},
 		};
 	}
 }
@@ -360,7 +366,11 @@ export class AssertionHelpers {
 	/**
 	 * Asserts that an async function throws a specific error type with message
 	 */
-	static async expectAsyncError(fn: () => Promise<any>, errorType: any, messagePattern?: string | RegExp) {
+	static async expectAsyncError(
+		fn: () => Promise<any>,
+		errorType: any,
+		messagePattern?: string | RegExp,
+	) {
 		await expect(fn()).rejects.toThrow(errorType);
 		if (messagePattern) {
 			await expect(fn()).rejects.toThrow(messagePattern);
@@ -371,9 +381,7 @@ export class AssertionHelpers {
 	 * Asserts HTTP request was called with specific parameters
 	 */
 	static expectHttpRequest(mockHttpRequest: jest.Mock, expectedOptions: any) {
-		expect(mockHttpRequest).toHaveBeenCalledWith(
-			expect.objectContaining(expectedOptions)
-		);
+		expect(mockHttpRequest).toHaveBeenCalledWith(expect.objectContaining(expectedOptions));
 	}
 
 	/**
@@ -400,7 +408,7 @@ export class MockScenarioBuilder {
 		this.mockExecuteFunctions = createMockExecuteFunctions({
 			helpers: {
 				httpRequest: this.mockHttpRequest,
-			} as any
+			} as any,
 		});
 	}
 
@@ -430,7 +438,7 @@ export class MockScenarioBuilder {
 	build() {
 		return {
 			mockExecuteFunctions: this.mockExecuteFunctions,
-			mockHttpRequest: this.mockHttpRequest
+			mockHttpRequest: this.mockHttpRequest,
 		};
 	}
 }
@@ -471,5 +479,5 @@ export const TEST_CONSTANTS = {
 		INVALID_ZERO: 0,
 		INVALID_NEGATIVE: -1,
 		INVALID_NAN: NaN,
-	}
+	},
 };

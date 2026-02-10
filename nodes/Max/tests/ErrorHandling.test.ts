@@ -1,10 +1,10 @@
 import type { IExecuteFunctions } from 'n8n-workflow';
 import { NodeApiError, NodeOperationError } from 'n8n-workflow';
-import { 
+import {
 	categorizeMaxError,
 	createUserFriendlyErrorMessage,
 	handleMaxApiError,
-	MaxErrorCategory
+	MaxErrorCategory,
 } from '../GenericFunctions';
 
 describe('Max Error Handling', () => {
@@ -58,11 +58,17 @@ describe('Max Error Handling', () => {
 
 		it('should provide specific guidance for different business logic errors', () => {
 			const forbiddenError = { description: 'Forbidden access' };
-			const forbiddenMessage = createUserFriendlyErrorMessage(forbiddenError, MaxErrorCategory.BUSINESS_LOGIC);
+			const forbiddenMessage = createUserFriendlyErrorMessage(
+				forbiddenError,
+				MaxErrorCategory.BUSINESS_LOGIC,
+			);
 			expect(forbiddenMessage).toContain('Access denied');
 
 			const notFoundError = { description: 'Resource not found' };
-			const notFoundMessage = createUserFriendlyErrorMessage(notFoundError, MaxErrorCategory.BUSINESS_LOGIC);
+			const notFoundMessage = createUserFriendlyErrorMessage(
+				notFoundError,
+				MaxErrorCategory.BUSINESS_LOGIC,
+			);
 			expect(notFoundMessage).toContain('Operation failed');
 		});
 	});
@@ -72,7 +78,7 @@ describe('Max Error Handling', () => {
 			const rateLimitError = {
 				error_code: 429,
 				description: 'Too Many Requests',
-				parameters: { retry_after: 120 }
+				parameters: { retry_after: 120 },
 			};
 
 			try {
@@ -81,7 +87,7 @@ describe('Max Error Handling', () => {
 					rateLimitError,
 					'send message',
 					0,
-					3
+					3,
 				);
 			} catch (error) {
 				expect(error).toBeInstanceOf(NodeApiError);
@@ -94,7 +100,7 @@ describe('Max Error Handling', () => {
 		it('should handle network errors with retry logic', async () => {
 			const networkError = {
 				code: 'ETIMEDOUT',
-				message: 'Request timeout'
+				message: 'Request timeout',
 			};
 
 			try {
@@ -103,7 +109,7 @@ describe('Max Error Handling', () => {
 					networkError,
 					'send message',
 					1,
-					3
+					3,
 				);
 			} catch (error) {
 				expect(error).toBeInstanceOf(NodeApiError);
@@ -115,14 +121,14 @@ describe('Max Error Handling', () => {
 		it('should not retry validation errors', async () => {
 			const validationError = {
 				error_code: 400,
-				description: 'Invalid parameter: message too long'
+				description: 'Invalid parameter: message too long',
 			};
 
 			try {
 				await handleMaxApiError.call(
 					mockExecuteFunctions as IExecuteFunctions,
 					validationError,
-					'send message'
+					'send message',
 				);
 			} catch (error) {
 				expect(error).toBeInstanceOf(NodeOperationError);
@@ -133,14 +139,14 @@ describe('Max Error Handling', () => {
 		it('should handle authentication errors without retry', async () => {
 			const authError = {
 				error_code: 401,
-				description: 'Invalid access token'
+				description: 'Invalid access token',
 			};
 
 			try {
 				await handleMaxApiError.call(
 					mockExecuteFunctions as IExecuteFunctions,
 					authError,
-					'send message'
+					'send message',
 				);
 			} catch (error) {
 				expect(error).toBeInstanceOf(NodeApiError);
@@ -155,14 +161,14 @@ describe('Max Error Handling', () => {
 			const migrationError = {
 				error_code: 400,
 				description: 'Chat migrated',
-				parameters: { migrate_to_chat_id: 12345 }
+				parameters: { migrate_to_chat_id: 12345 },
 			};
 
 			try {
 				await handleMaxApiError.call(
 					mockExecuteFunctions as IExecuteFunctions,
 					migrationError,
-					'send message'
+					'send message',
 				);
 			} catch (error) {
 				expect(error).toBeInstanceOf(NodeOperationError);
@@ -175,16 +181,16 @@ describe('Max Error Handling', () => {
 				response: {
 					data: {
 						error_code: 404,
-						description: 'Chat not found'
-					}
-				}
+						description: 'Chat not found',
+					},
+				},
 			};
 
 			try {
 				await handleMaxApiError.call(
 					mockExecuteFunctions as IExecuteFunctions,
 					nestedError,
-					'send message'
+					'send message',
 				);
 			} catch (error) {
 				expect(error).toBeInstanceOf(NodeApiError);
@@ -195,7 +201,7 @@ describe('Max Error Handling', () => {
 		it('should handle errors with multiple retry attempts', async () => {
 			const networkError = {
 				code: 'ECONNRESET',
-				message: 'Connection reset by peer'
+				message: 'Connection reset by peer',
 			};
 
 			// Test with max retries reached
@@ -205,7 +211,7 @@ describe('Max Error Handling', () => {
 					networkError,
 					'send message',
 					3, // At max retries
-					3
+					3,
 				);
 			} catch (error) {
 				expect(error).toBeInstanceOf(NodeApiError);
@@ -220,14 +226,14 @@ describe('Max Error Handling', () => {
 				error_code: 500,
 				description: 'Internal server error',
 				timestamp: Date.now(),
-				request_id: 'req_123'
+				request_id: 'req_123',
 			};
 
 			try {
 				await handleMaxApiError.call(
 					mockExecuteFunctions as IExecuteFunctions,
 					originalError,
-					'test operation'
+					'test operation',
 				);
 			} catch (error) {
 				expect(error).toBeInstanceOf(NodeApiError);
@@ -243,7 +249,7 @@ describe('Max Error Handling', () => {
 				await handleMaxApiError.call(
 					mockExecuteFunctions as IExecuteFunctions,
 					error,
-					'send message to user'
+					'send message to user',
 				);
 			} catch (thrownError) {
 				expect(thrownError.description).toContain('send message to user');
@@ -255,13 +261,19 @@ describe('Max Error Handling', () => {
 		it('should provide specific recovery steps for common errors', () => {
 			// Test chat not found error
 			const chatNotFoundError = { description: 'Chat not found' };
-			const chatMessage = createUserFriendlyErrorMessage(chatNotFoundError, MaxErrorCategory.BUSINESS_LOGIC);
+			const chatMessage = createUserFriendlyErrorMessage(
+				chatNotFoundError,
+				MaxErrorCategory.BUSINESS_LOGIC,
+			);
 			expect(chatMessage).toContain('bot has been added to the chat');
 			expect(chatMessage).toContain('appropriate permissions');
 
 			// Test user blocked error
 			const userBlockedError = { description: 'User blocked bot' };
-			const userMessage = createUserFriendlyErrorMessage(userBlockedError, MaxErrorCategory.BUSINESS_LOGIC);
+			const userMessage = createUserFriendlyErrorMessage(
+				userBlockedError,
+				MaxErrorCategory.BUSINESS_LOGIC,
+			);
 			expect(userMessage).toContain('user may have blocked the bot');
 			expect(userMessage).toContain('properly configured and authorized');
 

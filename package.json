@@ -1,67 +1,74 @@
 {
-  "name": "n8n-nodes-max",
-  "version": "0.1.5",
-  "description": "n8n community node for Max messenger integration. Send messages, handle webhooks, manage attachments, and create interactive bot experiences using the official Max Bot API.",
-  "keywords": [
-    "n8n-community-node-package"
-  ],
-  "license": "MIT",
-  "homepage": "",
-  "author": {
-    "name": "Pavel Frankov"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/pfrankov/n8n-nodes-max.git"
-  },
-  "engines": {
-    "node": ">=20.15"
-  },
-  "main": "index.js",
-  "scripts": {
-    "build": "npx rimraf dist && tsc && gulp build:icons",
-    "dev": "tsc --watch",
-    "format": "prettier nodes credentials --write",
-    "lint": "eslint nodes credentials package.json",
-    "lintfix": "eslint nodes credentials package.json --fix",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "debug:setup": "npm run build && npm link && npm install --prefix ~/.n8n/custom file:$(pwd)",
-    "debug:start": "n8n start",
-    "debug:auto": "node debug-auto.js",
-    "debug:verify": "node debug-verification.js",
-    "prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes credentials package.json"
-  },
-  "files": [
-    "dist"
-  ],
-  "n8n": {
-    "n8nNodesApiVersion": 1,
-    "credentials": [
-      "dist/credentials/MaxApi.credentials.js"
-    ],
-    "nodes": [
-      "dist/nodes/Max/Max.node.js",
-      "dist/nodes/Max/MaxTrigger.node.js"
-    ]
-  },
-  "devDependencies": {
-    "@types/jest": "^30.0.0",
-    "@typescript-eslint/parser": "~8.32.0",
-    "eslint": "^8.57.0",
-    "eslint-plugin-n8n-nodes-base": "^1.16.3",
-    "gulp": "^5.0.0",
-    "jest": "^30.0.4",
-    "jest-mock-extended": "^4.0.0",
-    "prettier": "^3.5.3",
-    "ts-jest": "^29.4.0",
-    "typescript": "^5.8.2"
-  },
-  "dependencies": {
-    "@maxhub/max-bot-api": "^0.2.1"
-  },
-  "peerDependencies": {
-    "n8n-workflow": "*"
-  }
+	"name": "n8n-nodes-max",
+	"version": "0.1.5",
+	"description": "n8n community node for Max messenger integration. Send messages, handle webhooks, manage attachments, and create interactive bot experiences using the official Max Bot API.",
+	"keywords": [
+		"n8n-community-node-package"
+	],
+	"license": "MIT",
+	"homepage": "",
+	"author": {
+		"name": "Pavel Frankov"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/pfrankov/n8n-nodes-max.git"
+	},
+	"engines": {
+		"node": ">=20.15"
+	},
+	"main": "index.js",
+	"scripts": {
+		"build": "npx rimraf dist && tsc && gulp build:icons",
+		"dev": "tsc --watch",
+		"format": "prettier nodes credentials --write",
+		"format:all": "prettier --write \"**/*.{ts,js,mjs,cjs,json,md,yml,yaml}\"",
+		"lint": "eslint nodes credentials package.json",
+		"lintfix": "eslint nodes credentials package.json --fix",
+		"prepare": "husky",
+		"test": "jest",
+		"test:watch": "jest --watch",
+		"test:coverage": "jest --coverage",
+		"debug:setup": "npm run build && npm link && npm install --prefix ~/.n8n/custom file:$(pwd)",
+		"debug:start": "n8n start",
+		"debug:auto": "node debug-auto.js",
+		"debug:verify": "node debug-verification.js",
+		"prepublishOnly": "npm run build && npm run lint -c .eslintrc.prepublish.js nodes credentials package.json"
+	},
+	"files": [
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"credentials": [
+			"dist/credentials/MaxApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/Max/Max.node.js",
+			"dist/nodes/Max/MaxTrigger.node.js"
+		]
+	},
+	"devDependencies": {
+		"@types/jest": "^30.0.0",
+		"@typescript-eslint/parser": "~8.32.0",
+		"eslint": "^8.57.0",
+		"eslint-plugin-n8n-nodes-base": "^1.16.3",
+		"gulp": "^5.0.0",
+		"husky": "^9.1.7",
+		"jest": "^30.0.4",
+		"jest-mock-extended": "^4.0.0",
+		"lint-staged": "^16.2.7",
+		"prettier": "^3.5.3",
+		"ts-jest": "^29.4.0",
+		"typescript": "^5.8.2"
+	},
+	"dependencies": {
+		"@maxhub/max-bot-api": "^0.2.1"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	},
+	"lint-staged": {
+		"**/*.{ts,js,mjs,cjs,json,md,yml,yaml}": "prettier --write"
+	}
 }

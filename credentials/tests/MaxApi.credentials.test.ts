@@ -1,6 +1,6 @@
 /**
  * Jest unit tests for MaxApi credentials
- * 
+ *
  * Run with: npm test
  * Run with coverage: npm run test:coverage
  * Run in watch mode: npm run test:watch
@@ -30,7 +30,7 @@ describe('MaxApi Credentials', () => {
 
 		it('should have access token property with password masking', () => {
 			const accessTokenProperty = maxApiCredentials.properties.find(
-				(prop) => prop.name === 'accessToken'
+				(prop) => prop.name === 'accessToken',
 			);
 
 			expect(accessTokenProperty).toBeDefined();
@@ -42,9 +42,7 @@ describe('MaxApi Credentials', () => {
 		});
 
 		it('should have base URL property with default value', () => {
-			const baseUrlProperty = maxApiCredentials.properties.find(
-				(prop) => prop.name === 'baseUrl'
-			);
+			const baseUrlProperty = maxApiCredentials.properties.find((prop) => prop.name === 'baseUrl');
 
 			expect(baseUrlProperty).toBeDefined();
 			expect(baseUrlProperty?.displayName).toBe('Base URL');
@@ -77,20 +75,18 @@ describe('MaxApi Credentials', () => {
 		it('should validate credentials structure', () => {
 			// Test that all required properties are present
 			const requiredProperties = ['accessToken', 'baseUrl'];
-			const propertyNames = maxApiCredentials.properties.map(prop => prop.name);
+			const propertyNames = maxApiCredentials.properties.map((prop) => prop.name);
 
-			requiredProperties.forEach(prop => {
+			requiredProperties.forEach((prop) => {
 				expect(propertyNames).toContain(prop);
 			});
 		});
 
 		it('should have proper field descriptions', () => {
 			const accessTokenProperty = maxApiCredentials.properties.find(
-				(prop) => prop.name === 'accessToken'
+				(prop) => prop.name === 'accessToken',
 			);
-			const baseUrlProperty = maxApiCredentials.properties.find(
-				(prop) => prop.name === 'baseUrl'
-			);
+			const baseUrlProperty = maxApiCredentials.properties.find((prop) => prop.name === 'baseUrl');
 
 			expect(accessTokenProperty?.description).toContain('Bot access token');
 			expect(accessTokenProperty?.description).toContain('@PrimeBot');

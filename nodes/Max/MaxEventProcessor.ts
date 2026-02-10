@@ -90,12 +90,12 @@ export class MaxEventProcessor {
 				return { workflowData: [] };
 			}
 
-		// Extract and validate event type
-		const eventType = bodyData.update_type;
-		if (!eventType) {
-			console.log('Max Trigger - No event type found in webhook body');
-			return { workflowData: [] };
-		}			// Filter by event type
+			// Extract and validate event type
+			const eventType = bodyData.update_type;
+			if (!eventType) {
+				console.log('Max Trigger - No event type found in webhook body');
+				return { workflowData: [] };
+			} // Filter by event type
 			if (!events.includes(eventType as MaxTriggerEvent)) {
 				console.log(`Max Trigger - Event type '${eventType}' filtered out`);
 				return { workflowData: [] };
@@ -114,7 +114,6 @@ export class MaxEventProcessor {
 			return {
 				workflowData: [this.helpers.returnJsonArray([normalizedData as unknown as IDataObject])],
 			};
-
 		} catch (error) {
 			// Log error but don't throw - return empty response to avoid webhook recreation
 			console.log('Max Trigger - Error processing webhook:', error);
@@ -122,14 +121,12 @@ export class MaxEventProcessor {
 		}
 	}
 
-
-
 	/**
 	 * Apply additional filters (chat IDs, user IDs)
 	 */
 	public passesAdditionalFilters(
 		bodyData: MaxWebhookEvent,
-		additionalFields: IDataObject
+		additionalFields: IDataObject,
 	): boolean {
 		try {
 			// Extract chat and user info safely
@@ -157,7 +154,14 @@ export class MaxEventProcessor {
 	 * Extract chat and user information from event data
 	 */
 	private extractChatAndUserInfo(bodyData: MaxWebhookEvent) {
-		const chatInfo = bodyData.chat || (bodyData.message ? { chat_id: bodyData.message.recipient?.chat_id, type: bodyData.message.recipient?.chat_type } : { chat_id: bodyData.chat_id });
+		const chatInfo =
+			bodyData.chat ||
+			(bodyData.message
+				? {
+						chat_id: bodyData.message.recipient?.chat_id,
+						type: bodyData.message.recipient?.chat_type,
+					}
+				: { chat_id: bodyData.chat_id });
 		const userInfo = bodyData.user || bodyData.message?.sender || bodyData.callback?.user;
 
 		return { chatInfo, userInfo };
@@ -245,7 +249,10 @@ export class MaxEventProcessor {
 	 * @param eventType - The type of event being processed
 	 * @returns Normalized event data with event-specific enhancements, validation, and metadata
 	 */
-	public processEventSpecificData(bodyData: MaxWebhookEvent, eventType: string): INormalizedEventData {
+	public processEventSpecificData(
+		bodyData: MaxWebhookEvent,
+		eventType: string,
+	): INormalizedEventData {
 		const startTime = Date.now();
 
 		// Validate event payload structure
@@ -263,45 +270,61 @@ export class MaxEventProcessor {
 
 		switch (eventType) {
 			case 'message_edited':
-				({ data: eventSpecificData, context: eventContext } = this.processMessageEditedEvent(bodyData));
+				({ data: eventSpecificData, context: eventContext } =
+					this.processMessageEditedEvent(bodyData));
 				break;
 
 			case 'message_removed':
-				({ data: eventSpecificData, context: eventContext } = this.processMessageRemovedEvent(bodyData));
+				({ data: eventSpecificData, context: eventContext } =
+					this.processMessageRemovedEvent(bodyData));
 				break;
 
 			case 'bot_added':
 			case 'bot_removed':
-				({ data: eventSpecificData, context: eventContext } = this.processBotMembershipEvent(bodyData, eventType));
+				({ data: eventSpecificData, context: eventContext } = this.processBotMembershipEvent(
+					bodyData,
+					eventType,
+				));
 				break;
 
 			case 'user_added':
 			case 'user_removed':
-				({ data: eventSpecificData, context: eventContext } = this.processUserMembershipEvent(bodyData, eventType));
+				({ data: eventSpecificData, context: eventContext } = this.processUserMembershipEvent(
+					bodyData,
+					eventType,
+				));
 				break;
 
 			case 'chat_title_changed':
-				({ data: eventSpecificData, context: eventContext } = this.processChatTitleChangedEvent(bodyData));
+				({ data: eventSpecificData, context: eventContext } =
+					this.processChatTitleChangedEvent(bodyData));
 				break;
 
 			case 'message_created':
-				({ data: eventSpecificData, context: eventContext } = this.processMessageCreatedEvent(bodyData));
+				({ data: eventSpecificData, context: eventContext } =
+					this.processMessageCreatedEvent(bodyData));
 				break;
 
 			case 'message_chat_created':
-				({ data: eventSpecificData, context: eventContext } = this.processMessageChatCreatedEvent(bodyData));
+				({ data: eventSpecificData, context: eventContext } =
+					this.processMessageChatCreatedEvent(bodyData));
 				break;
 
 			case 'message_callback':
-				({ data: eventSpecificData, context: eventContext } = this.processMessageCallbackEvent(bodyData));
+				({ data: eventSpecificData, context: eventContext } =
+					this.processMessageCallbackEvent(bodyData));
 				break;
 
 			case 'bot_started':
-				({ data: eventSpecificData, context: eventContext } = this.processBotStartedEvent(bodyData));
+				({ data: eventSpecificData, context: eventContext } =
+					this.processBotStartedEvent(bodyData));
 				break;
 
 			default:
-				({ data: eventSpecificData, context: eventContext } = this.processGenericEvent(bodyData, eventType));
+				({ data: eventSpecificData, context: eventContext } = this.processGenericEvent(
+					bodyData,
+					eventType,
+				));
 				break;
 		}
 
@@ -327,10 +350,6 @@ export class MaxEventProcessor {
 		return normalizedData;
 	}
 
-
-
-
-
 	/**
 	 * Validate event payload structure and required fields
 	 *
@@ -341,7 +360,10 @@ export class MaxEventProcessor {
 	 * @param eventType - Type of event being validated
 	 * @returns Validation result with errors and warnings
 	 */
-	private validateEventPayload(bodyData: MaxWebhookEvent, eventType: string): {
+	private validateEventPayload(
+		bodyData: MaxWebhookEvent,
+		eventType: string,
+	): {
 		isValid: boolean;
 		errors: IEventValidationError[];
 		warnings: IEventValidationError[];
@@ -405,10 +427,14 @@ export class MaxEventProcessor {
 			errors,
 			warnings,
 		};
-	}	/**
+	} /**
 	 * Validate message events (message_created, message_chat_created)
 	 */
-	private validateMessageEvent(bodyData: MaxWebhookEvent, errors: IEventValidationError[], warnings: IEventValidationError[]): void {
+	private validateMessageEvent(
+		bodyData: MaxWebhookEvent,
+		errors: IEventValidationError[],
+		warnings: IEventValidationError[],
+	): void {
 		if (!bodyData.message) {
 			errors.push({
 				field: 'message',
@@ -419,15 +445,12 @@ export class MaxEventProcessor {
 		}
 
 		// Check for text content - prioritize official API structure
-		const hasText = Boolean(
-			bodyData.message.body?.text ||
-			bodyData.message.text
-		);
+		const hasText = Boolean(bodyData.message.body?.text || bodyData.message.text);
 
 		// Check for attachments - prioritize official API structure
 		const hasAttachments = Boolean(
 			(bodyData.message.body?.attachments && bodyData.message.body.attachments.length) ||
-			(bodyData.message.attachments && bodyData.message.attachments.length)
+				(bodyData.message.attachments && bodyData.message.attachments.length),
 		);
 
 		if (!hasText && !hasAttachments) {
@@ -451,7 +474,11 @@ export class MaxEventProcessor {
 	/**
 	 * Validate message edited events
 	 */
-	private validateMessageEditedEvent(bodyData: MaxWebhookEvent, errors: IEventValidationError[], warnings: IEventValidationError[]): void {
+	private validateMessageEditedEvent(
+		bodyData: MaxWebhookEvent,
+		errors: IEventValidationError[],
+		warnings: IEventValidationError[],
+	): void {
 		if (!bodyData.message) {
 			errors.push({
 				field: 'message',
@@ -473,9 +500,17 @@ export class MaxEventProcessor {
 	/**
 	 * Validate message removed events
 	 */
-	private validateMessageRemovedEvent(bodyData: MaxWebhookEvent, _errors: IEventValidationError[], warnings: IEventValidationError[]): void {
+	private validateMessageRemovedEvent(
+		bodyData: MaxWebhookEvent,
+		_errors: IEventValidationError[],
+		warnings: IEventValidationError[],
+	): void {
 		// Check for message_id in multiple possible locations - make it a warning for flexibility
-		const hasMessageId = bodyData.message_id || bodyData.message?.message_id || bodyData.message?.body?.mid || bodyData.message?.id;
+		const hasMessageId =
+			bodyData.message_id ||
+			bodyData.message?.message_id ||
+			bodyData.message?.body?.mid ||
+			bodyData.message?.id;
 		if (!hasMessageId) {
 			warnings.push({
 				field: 'message_id',
@@ -517,7 +552,11 @@ export class MaxEventProcessor {
 	/**
 	 * Validate callback events
 	 */
-	private validateCallbackEvent(bodyData: MaxWebhookEvent, errors: IEventValidationError[], warnings: IEventValidationError[]): void {
+	private validateCallbackEvent(
+		bodyData: MaxWebhookEvent,
+		errors: IEventValidationError[],
+		warnings: IEventValidationError[],
+	): void {
 		if (!bodyData.callback) {
 			errors.push({
 				field: 'callback',
@@ -539,7 +578,11 @@ export class MaxEventProcessor {
 	/**
 	 * Validate membership events (bot_added, bot_removed, user_added, user_removed)
 	 */
-	private validateMembershipEvent(bodyData: MaxWebhookEvent, errors: IEventValidationError[], warnings: IEventValidationError[]): void {
+	private validateMembershipEvent(
+		bodyData: MaxWebhookEvent,
+		errors: IEventValidationError[],
+		warnings: IEventValidationError[],
+	): void {
 		// Check for chat object first, then chat_id - require for strict validation as expected by tests
 		const hasChatId = bodyData.chat_id || bodyData.chat?.chat_id;
 		if (!bodyData.chat && !bodyData.chat_id) {
@@ -585,7 +628,11 @@ export class MaxEventProcessor {
 	/**
 	 * Validate chat title changed events
 	 */
-	private validateChatTitleChangedEvent(bodyData: MaxWebhookEvent, errors: IEventValidationError[], warnings: IEventValidationError[]): void {
+	private validateChatTitleChangedEvent(
+		bodyData: MaxWebhookEvent,
+		errors: IEventValidationError[],
+		warnings: IEventValidationError[],
+	): void {
 		// Check for chat object first, then chat_id - require for strict validation as expected by tests
 		if (!bodyData.chat && !bodyData.chat_id) {
 			errors.push({
@@ -634,7 +681,11 @@ export class MaxEventProcessor {
 	/**
 	 * Validate bot started events
 	 */
-	private validateBotStartedEvent(bodyData: MaxWebhookEvent, _errors: IEventValidationError[], warnings: IEventValidationError[]): void {
+	private validateBotStartedEvent(
+		bodyData: MaxWebhookEvent,
+		_errors: IEventValidationError[],
+		warnings: IEventValidationError[],
+	): void {
 		if (!bodyData.user) {
 			warnings.push({
 				field: 'user',
@@ -647,7 +698,11 @@ export class MaxEventProcessor {
 	/**
 	 * Validate message chat created events
 	 */
-	private validateMessageChatCreatedEvent(bodyData: MaxWebhookEvent, _errors: IEventValidationError[], warnings: IEventValidationError[]): void {
+	private validateMessageChatCreatedEvent(
+		bodyData: MaxWebhookEvent,
+		_errors: IEventValidationError[],
+		warnings: IEventValidationError[],
+	): void {
 		if (!bodyData.chat) {
 			warnings.push({
 				field: 'chat',
@@ -689,23 +744,23 @@ export class MaxEventProcessor {
 		const timestamp = bodyData.timestamp || Date.now();
 
 		// Get chat ID from various possible locations
-		const chatId = bodyData.chat_id ||
+		const chatId =
+			bodyData.chat_id ||
 			bodyData.chat?.chat_id ||
 			bodyData.message?.recipient?.chat_id ||
 			'unknown';
 
 		// Get user ID from various possible locations
-		const userId = bodyData.user?.user_id ||
+		const userId =
+			bodyData.user?.user_id ||
 			bodyData.message?.sender?.user_id ||
 			bodyData.callback?.user?.user_id ||
 			bodyData.user_id ||
 			'unknown';
 
 		// Get message ID
-		const messageId = bodyData.message_id ||
-			bodyData.message?.message_id ||
-			bodyData.message?.body?.mid ||
-			'';
+		const messageId =
+			bodyData.message_id || bodyData.message?.message_id || bodyData.message?.body?.mid || '';
 
 		// Get callback ID for callback events
 		const callbackId = bodyData.callback?.callback_id || '';
@@ -799,7 +854,10 @@ export class MaxEventProcessor {
 	/**
 	 * Compare attachments between old and new messages
 	 */
-	private compareAttachments(oldAttachments?: Array<{ type: string; payload: any }>, newAttachments?: Array<{ type: string; payload: any }>): boolean {
+	private compareAttachments(
+		oldAttachments?: Array<{ type: string; payload: any }>,
+		newAttachments?: Array<{ type: string; payload: any }>,
+	): boolean {
 		if (!oldAttachments && !newAttachments) return false;
 		if (!oldAttachments || !newAttachments) return true;
 		if (oldAttachments.length !== newAttachments.length) return true;
@@ -811,16 +869,18 @@ export class MaxEventProcessor {
 	/**
 	 * Process message_created events
 	 */
-	private processMessageCreatedEvent(bodyData: MaxWebhookEvent): { data: IDataObject; context: IEventContext } {
+	private processMessageCreatedEvent(bodyData: MaxWebhookEvent): {
+		data: IDataObject;
+		context: IEventContext;
+	} {
 		const messageText = bodyData.message?.body?.text;
-		const hasAttachments = Boolean(
-			bodyData.message?.body?.attachments?.length
-		);
+		const hasAttachments = Boolean(bodyData.message?.body?.attachments?.length);
 
 		const context: IEventContext = {
 			type: 'message_created',
 			description: 'New message received in direct conversation',
-			message_id: bodyData.message?.body?.mid || bodyData.message?.message_id || bodyData.message?.id,
+			message_id:
+				bodyData.message?.body?.mid || bodyData.message?.message_id || bodyData.message?.id,
 			has_text: Boolean(messageText),
 			has_attachments: hasAttachments,
 			message_length: messageText?.length || 0,
@@ -835,14 +895,16 @@ export class MaxEventProcessor {
 	/**
 	 * Process message_chat_created events
 	 */
-	private processMessageChatCreatedEvent(bodyData: MaxWebhookEvent): { data: IDataObject; context: IEventContext } {
+	private processMessageChatCreatedEvent(bodyData: MaxWebhookEvent): {
+		data: IDataObject;
+		context: IEventContext;
+	} {
 		// Check if this is actually a message event (for backward compatibility with tests)
 		if (bodyData.message) {
 			// Prioritize official API structure over legacy fields
 			const messageText = bodyData.message.body?.text || bodyData.message.text;
 			const hasAttachments = Boolean(
-				bodyData.message.body?.attachments?.length ||
-				bodyData.message.attachments?.length
+				bodyData.message.body?.attachments?.length || bodyData.message.attachments?.length,
 			);
 
 			const context: IEventContext = {
@@ -880,7 +942,10 @@ export class MaxEventProcessor {
 	/**
 	 * Process message_callback events
 	 */
-	private processMessageCallbackEvent(bodyData: MaxWebhookEvent): { data: IDataObject; context: IEventContext } {
+	private processMessageCallbackEvent(bodyData: MaxWebhookEvent): {
+		data: IDataObject;
+		context: IEventContext;
+	} {
 		const context: IEventContext = {
 			type: 'message_callback',
 			description: 'User clicked an inline keyboard button',
@@ -899,7 +964,10 @@ export class MaxEventProcessor {
 	/**
 	 * Process bot_started events
 	 */
-	private processBotStartedEvent(bodyData: MaxWebhookEvent): { data: IDataObject; context: IEventContext } {
+	private processBotStartedEvent(bodyData: MaxWebhookEvent): {
+		data: IDataObject;
+		context: IEventContext;
+	} {
 		const context: IEventContext = {
 			type: 'bot_started',
 			description: 'User started interaction with the bot',
@@ -918,7 +986,10 @@ export class MaxEventProcessor {
 	/**
 	 * Process generic/unknown events
 	 */
-	private processGenericEvent(bodyData: MaxWebhookEvent, eventType: string): { data: IDataObject; context: IEventContext } {
+	private processGenericEvent(
+		bodyData: MaxWebhookEvent,
+		eventType: string,
+	): { data: IDataObject; context: IEventContext } {
 		const context: IEventContext = {
 			type: eventType,
 			description: `Generic event of type: ${eventType}`,
@@ -934,14 +1005,18 @@ export class MaxEventProcessor {
 	/**
 	 * Process message_edited events
 	 */
-	private processMessageEditedEvent(bodyData: MaxWebhookEvent): { data: IDataObject; context: IEventContext } {
+	private processMessageEditedEvent(bodyData: MaxWebhookEvent): {
+		data: IDataObject;
+		context: IEventContext;
+	} {
 		// For edited_at, prefer new_message timestamp, then timestamp in seconds for backward compatibility
 		let editedAt = bodyData.timestamp;
 		if (bodyData.new_message?.timestamp) {
 			// Convert to seconds if it looks like milliseconds (greater than year 2020)
-			editedAt = bodyData.new_message.timestamp > 1600000000000 ?
-				Math.floor(bodyData.new_message.timestamp / 1000) :
-				bodyData.new_message.timestamp;
+			editedAt =
+				bodyData.new_message.timestamp > 1600000000000
+					? Math.floor(bodyData.new_message.timestamp / 1000)
+					: bodyData.new_message.timestamp;
 		} else if (bodyData.timestamp > 1600000000000) {
 			// Convert main timestamp to seconds if it's in milliseconds
 			editedAt = Math.floor(bodyData.timestamp / 1000);
@@ -955,11 +1030,22 @@ export class MaxEventProcessor {
 			edited_at: editedAt,
 			// Legacy support for tests
 			old_content: bodyData.old_message?.text || null,
-			new_content: bodyData.new_message?.text || bodyData.message?.body?.text || bodyData.message?.text || null,
-			has_content_changes: bodyData.old_message && bodyData.new_message ?
-				(bodyData.old_message.text || '') !== (bodyData.new_message.text || '') : undefined,
-			has_attachment_changes: bodyData.old_message && bodyData.new_message ?
-				this.compareAttachments(bodyData.old_message.attachments, bodyData.new_message.attachments) : undefined,
+			new_content:
+				bodyData.new_message?.text ||
+				bodyData.message?.body?.text ||
+				bodyData.message?.text ||
+				null,
+			has_content_changes:
+				bodyData.old_message && bodyData.new_message
+					? (bodyData.old_message.text || '') !== (bodyData.new_message.text || '')
+					: undefined,
+			has_attachment_changes:
+				bodyData.old_message && bodyData.new_message
+					? this.compareAttachments(
+							bodyData.old_message.attachments,
+							bodyData.new_message.attachments,
+						)
+					: undefined,
 		};
 
 		return {
@@ -971,18 +1057,23 @@ export class MaxEventProcessor {
 	/**
 	 * Process message_removed events
 	 */
-	private processMessageRemovedEvent(bodyData: MaxWebhookEvent): { data: IDataObject; context: IEventContext } {
+	private processMessageRemovedEvent(bodyData: MaxWebhookEvent): {
+		data: IDataObject;
+		context: IEventContext;
+	} {
 		// Handle legacy test format with deletion_context
-		const deletedBy = bodyData.deletion_context?.deleted_by ||
+		const deletedBy =
+			bodyData.deletion_context?.deleted_by ||
 			(bodyData.user_id ? { user_id: bodyData.user_id } : null);
 
 		// For deleted_at, prefer deletion_context.deleted_at in seconds, then main timestamp
 		let deletedAt = bodyData.timestamp;
 		if (bodyData.deletion_context?.deleted_at) {
 			// Convert to seconds if it looks like milliseconds
-			deletedAt = bodyData.deletion_context.deleted_at > 1600000000000 ?
-				Math.floor(bodyData.deletion_context.deleted_at / 1000) :
-				bodyData.deletion_context.deleted_at;
+			deletedAt =
+				bodyData.deletion_context.deleted_at > 1600000000000
+					? Math.floor(bodyData.deletion_context.deleted_at / 1000)
+					: bodyData.deletion_context.deleted_at;
 		} else if (bodyData.timestamp > 1600000000000) {
 			// Convert main timestamp to seconds if it's in milliseconds
 			deletedAt = Math.floor(bodyData.timestamp / 1000);
@@ -991,8 +1082,11 @@ export class MaxEventProcessor {
 		const context: IEventContext = {
 			type: 'message_removed',
 			description: 'Message was deleted from chat',
-			deleted_message_id: bodyData.message_id || bodyData.message?.body?.mid ||
-				bodyData.message?.message_id || bodyData.message?.id,
+			deleted_message_id:
+				bodyData.message_id ||
+				bodyData.message?.body?.mid ||
+				bodyData.message?.message_id ||
+				bodyData.message?.id,
 			chat_id: bodyData.chat_id,
 			deleted_by_user_id: bodyData.user_id,
 			deleted_at: deletedAt,
@@ -1011,11 +1105,15 @@ export class MaxEventProcessor {
 	/**
 	 * Process bot membership events
 	 */
-	private processBotMembershipEvent(bodyData: MaxWebhookEvent, eventType: string): { data: IDataObject; context: IEventContext } {
+	private processBotMembershipEvent(
+		bodyData: MaxWebhookEvent,
+		eventType: string,
+	): { data: IDataObject; context: IEventContext } {
 		const isAdded = eventType === 'bot_added';
 
 		// Handle legacy test format with membership_context
-		const actionBy = bodyData.membership_context?.added_by ||
+		const actionBy =
+			bodyData.membership_context?.added_by ||
 			bodyData.membership_context?.removed_by ||
 			bodyData.user;
 
@@ -1045,11 +1143,15 @@ export class MaxEventProcessor {
 	/**
 	 * Process user membership events
 	 */
-	private processUserMembershipEvent(bodyData: MaxWebhookEvent, eventType: string): { data: IDataObject; context: IEventContext } {
+	private processUserMembershipEvent(
+		bodyData: MaxWebhookEvent,
+		eventType: string,
+	): { data: IDataObject; context: IEventContext } {
 		const isAdded = eventType === 'user_added';
 
 		// Handle legacy test format with membership_context
-		const actionBy = bodyData.membership_context?.added_by ||
+		const actionBy =
+			bodyData.membership_context?.added_by ||
 			bodyData.membership_context?.removed_by ||
 			(isAdded ? { user_id: bodyData.inviter_id } : { user_id: bodyData.admin_id });
 
@@ -1088,7 +1190,10 @@ export class MaxEventProcessor {
 	/**
 	 * Process chat title changed events
 	 */
-	private processChatTitleChangedEvent(bodyData: MaxWebhookEvent): { data: IDataObject; context: IEventContext } {
+	private processChatTitleChangedEvent(bodyData: MaxWebhookEvent): {
+		data: IDataObject;
+		context: IEventContext;
+	} {
 		// Handle legacy test format with chat_changes
 		const oldTitle = bodyData.chat_changes?.old_title || null;
 		const newTitle = bodyData.chat_changes?.new_title || bodyData.title || bodyData.chat?.title;
@@ -1115,6 +1220,4 @@ export class MaxEventProcessor {
 			context,
 		};
 	}
-
-
 }

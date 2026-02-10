@@ -20,7 +20,7 @@ export const BASE_USER = {
 	last_name: 'Doe',
 	username: 'john_doe',
 	is_bot: false,
-	last_activity_time: BASE_TIMESTAMP
+	last_activity_time: BASE_TIMESTAMP,
 };
 
 /**
@@ -31,7 +31,7 @@ export const BASE_CHAT = {
 	type: 'group' as const,
 	title: 'Test Group Chat',
 	description: 'A test group chat for integration testing',
-	members_count: 5
+	members_count: 5,
 };
 
 /**
@@ -41,19 +41,19 @@ export const BASE_MESSAGE = {
 	sender: BASE_USER,
 	recipient: {
 		chat_id: TEST_CHAT_ID,
-		chat_type: 'group' as const
+		chat_type: 'group' as const,
 	},
 	timestamp: BASE_TIMESTAMP,
 	body: {
 		mid: TEST_MESSAGE_ID,
 		seq: 1,
 		text: 'Hello from Max messenger!',
-		attachments: [] as Array<{type: string; payload: any}>
+		attachments: [] as Array<{ type: string; payload: any }>,
 	},
 	stat: {
-		views: 0
+		views: 0,
 	},
-	url: `https://max.ru/messages/${TEST_MESSAGE_ID}`
+	url: `https://max.ru/messages/${TEST_MESSAGE_ID}`,
 };
 
 /**
@@ -70,10 +70,10 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 			...BASE_MESSAGE,
 			recipient: {
 				chat_id: TEST_CHAT_ID,
-				chat_type: 'chat'
-			}
+				chat_type: 'chat',
+			},
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 
 	/**
@@ -92,13 +92,13 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 						type: 'image',
 						payload: {
 							token: 'img_token_123',
-							url: 'https://example.com/image.jpg'
-						}
-					}
-				]
-			}
+							url: 'https://example.com/image.jpg',
+						},
+					},
+				],
+			},
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 
 	/**
@@ -114,11 +114,11 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 			body: {
 				...BASE_MESSAGE.body,
 				text: 'Updated message text',
-				seq: 2
+				seq: 2,
 			},
-			timestamp: BASE_TIMESTAMP + 60000
+			timestamp: BASE_TIMESTAMP + 60000,
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 
 	/**
@@ -133,10 +133,10 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 			...BASE_MESSAGE,
 			body: {
 				...BASE_MESSAGE.body,
-				text: 'This message will be deleted'
-			}
+				text: 'This message will be deleted',
+			},
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 
 	/**
@@ -149,8 +149,8 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 			...BASE_USER,
 			first_name: 'Alice',
 			last_name: 'Smith',
-			username: 'alice_smith'
-		}
+			username: 'alice_smith',
+		},
 	},
 
 	/**
@@ -160,7 +160,7 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 		update_type: 'bot_added',
 		timestamp: BASE_TIMESTAMP,
 		chat: BASE_CHAT,
-		user: BASE_USER
+		user: BASE_USER,
 	},
 
 	/**
@@ -171,9 +171,9 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 		timestamp: BASE_TIMESTAMP + 180000, // 3 minutes later
 		chat: {
 			...BASE_CHAT,
-			members_count: 4 // One less member
+			members_count: 4, // One less member
 		},
-		user: BASE_USER
+		user: BASE_USER,
 	},
 
 	/**
@@ -184,7 +184,7 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 		timestamp: BASE_TIMESTAMP + 240000, // 4 minutes later
 		chat: {
 			...BASE_CHAT,
-			members_count: 6 // One more member
+			members_count: 6, // One more member
 		},
 		user: {
 			user_id: 555444,
@@ -192,17 +192,17 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 			last_name: 'Wilson',
 			username: 'bob_wilson',
 			is_bot: false,
-			last_activity_time: BASE_TIMESTAMP + 240000
+			last_activity_time: BASE_TIMESTAMP + 240000,
 		},
 		membership_context: {
 			added_by: {
 				user_id: TEST_USER_ID,
 				name: 'John Doe',
-				username: 'john_doe'
+				username: 'john_doe',
 			},
 			user_role: 'member',
-			action_timestamp: BASE_TIMESTAMP + 240000
-		}
+			action_timestamp: BASE_TIMESTAMP + 240000,
+		},
 	},
 
 	/**
@@ -213,7 +213,7 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 		timestamp: BASE_TIMESTAMP + 300000, // 5 minutes later
 		chat: {
 			...BASE_CHAT,
-			members_count: 4 // One less member
+			members_count: 4, // One less member
 		},
 		user: {
 			user_id: 333222,
@@ -221,8 +221,8 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 			last_name: 'Brown',
 			username: 'charlie_brown',
 			is_bot: false,
-			last_activity_time: BASE_TIMESTAMP + 300000
-		}
+			last_activity_time: BASE_TIMESTAMP + 300000,
+		},
 	},
 
 	/**
@@ -233,9 +233,9 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 		timestamp: BASE_TIMESTAMP + 360000, // 6 minutes later
 		chat: {
 			...BASE_CHAT,
-			title: 'Updated Group Chat Title'
+			title: 'Updated Group Chat Title',
 		},
-		user: BASE_USER
+		user: BASE_USER,
 	},
 
 	/**
@@ -259,34 +259,34 @@ export const EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 										text: 'Confirm',
 										type: 'callback',
 										payload: 'action_confirm',
-										intent: 'positive'
+										intent: 'positive',
 									},
 									{
 										text: 'Cancel',
 										type: 'callback',
 										payload: 'action_cancel',
-										intent: 'negative'
-									}
+										intent: 'negative',
+									},
 								],
 								[
 									{
 										text: 'More Info',
 										type: 'link',
-										url: 'https://example.com/info'
-									}
-								]
-							]
-						}
-					}
-				]
-			}
+										url: 'https://example.com/info',
+									},
+								],
+							],
+						},
+					},
+				],
+			},
 		},
 		callback: {
 			callback_id: TEST_CALLBACK_ID,
-			payload: 'action_confirm'
+			payload: 'action_confirm',
 		},
-		user_locale: 'en'
-	}
+		user_locale: 'en',
+	},
 };
 
 /**
@@ -300,7 +300,7 @@ export const MALFORMED_EVENT_FIXTURES: Record<string, any> = {
 		update_type: 'message_created',
 		timestamp: BASE_TIMESTAMP,
 		// Missing message object
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 
 	/**
@@ -311,7 +311,7 @@ export const MALFORMED_EVENT_FIXTURES: Record<string, any> = {
 		timestamp: BASE_TIMESTAMP,
 		message: BASE_MESSAGE,
 		// Missing callback object
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 
 	/**
@@ -331,7 +331,7 @@ export const MALFORMED_EVENT_FIXTURES: Record<string, any> = {
 		update_type: 'message_created',
 		// Missing timestamp
 		message: BASE_MESSAGE,
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 
 	/**
@@ -346,9 +346,9 @@ export const MALFORMED_EVENT_FIXTURES: Record<string, any> = {
 				mid: TEST_MESSAGE_ID,
 				seq: 1,
 				// No text or attachments
-			}
+			},
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 
 	/**
@@ -358,7 +358,7 @@ export const MALFORMED_EVENT_FIXTURES: Record<string, any> = {
 		update_type: 'message_created',
 		timestamp: BASE_TIMESTAMP,
 		message: 'invalid_message_structure', // Should be object
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 
 	/**
@@ -370,8 +370,8 @@ export const MALFORMED_EVENT_FIXTURES: Record<string, any> = {
 		message: null,
 		user: null,
 		chat: null,
-		user_locale: 'en'
-	}
+		user_locale: 'en',
+	},
 };
 
 /**
@@ -388,10 +388,10 @@ export const EDGE_CASE_EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 			...BASE_MESSAGE,
 			body: {
 				...BASE_MESSAGE.body,
-				text: 'A'.repeat(4000) // Max allowed length
-			}
+				text: 'A'.repeat(4000), // Max allowed length
+			},
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 
 	/**
@@ -408,24 +408,24 @@ export const EDGE_CASE_EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 				attachments: [
 					{
 						type: 'image',
-						payload: { token: 'img_token_1' }
+						payload: { token: 'img_token_1' },
 					},
 					{
 						type: 'video',
-						payload: { token: 'vid_token_1' }
+						payload: { token: 'vid_token_1' },
 					},
 					{
 						type: 'audio',
-						payload: { token: 'aud_token_1' }
+						payload: { token: 'aud_token_1' },
 					},
 					{
 						type: 'file',
-						payload: { token: 'file_token_1' }
-					}
-				]
-			}
+						payload: { token: 'file_token_1' },
+					},
+				],
+			},
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 
 	/**
@@ -447,31 +447,29 @@ export const EDGE_CASE_EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 								[
 									{ text: '1', type: 'callback', payload: 'num_1' },
 									{ text: '2', type: 'callback', payload: 'num_2' },
-									{ text: '3', type: 'callback', payload: 'num_3' }
+									{ text: '3', type: 'callback', payload: 'num_3' },
 								],
 								[
 									{ text: '4', type: 'callback', payload: 'num_4' },
 									{ text: '5', type: 'callback', payload: 'num_5' },
-									{ text: '6', type: 'callback', payload: 'num_6' }
+									{ text: '6', type: 'callback', payload: 'num_6' },
 								],
 								[
 									{ text: 'Contact', type: 'request_contact' },
-									{ text: 'Location', type: 'request_geo_location' }
+									{ text: 'Location', type: 'request_geo_location' },
 								],
-								[
-									{ text: 'Website', type: 'link', url: 'https://example.com' }
-								]
-							]
-						}
-					}
-				]
-			}
+								[{ text: 'Website', type: 'link', url: 'https://example.com' }],
+							],
+						},
+					},
+				],
+			},
 		},
 		callback: {
 			callback_id: TEST_CALLBACK_ID,
-			payload: 'num_5'
+			payload: 'num_5',
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 
 	/**
@@ -486,8 +484,8 @@ export const EDGE_CASE_EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 			last_name: 'VeryLongLastNameThatExceedsNormalLimits',
 			username: 'very_long_username_that_exceeds_normal_limits_for_testing',
 			is_bot: false,
-			last_activity_time: BASE_TIMESTAMP
-		}
+			last_activity_time: BASE_TIMESTAMP,
+		},
 	},
 
 	/**
@@ -500,10 +498,10 @@ export const EDGE_CASE_EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 			...BASE_MESSAGE,
 			body: {
 				...BASE_MESSAGE.body,
-				text: '🎉 Special chars: áéíóú ñ ç 中文 العربية русский 日本語 emoji: 👋🎊🚀'
-			}
+				text: '🎉 Special chars: áéíóú ñ ç 中文 العربية русский 日本語 emoji: 👋🎊🚀',
+			},
 		},
-		user_locale: 'en'
+		user_locale: 'en',
 	},
 
 	/**
@@ -520,12 +518,12 @@ export const EDGE_CASE_EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
 				markup: [
 					{ type: 'strong', from: 0, length: 9 },
 					{ type: 'emphasis', from: 14, length: 11 },
-					{ type: 'link', from: 31, length: 4 }
-				]
-			}
+					{ type: 'link', from: 31, length: 4 },
+				],
+			},
 		},
-		user_locale: 'en'
-	}
+		user_locale: 'en',
+	},
 };
 
 /**
@@ -533,7 +531,7 @@ export const EDGE_CASE_EVENT_FIXTURES: Record<string, MaxWebhookEvent> = {
  */
 export function createCustomEventFixture(
 	eventType: string,
-	overrides: Partial<MaxWebhookEvent> = {}
+	overrides: Partial<MaxWebhookEvent> = {},
 ): MaxWebhookEvent {
 	const baseEvent = EVENT_FIXTURES[eventType];
 	if (!baseEvent) {
@@ -543,7 +541,7 @@ export function createCustomEventFixture(
 	return {
 		...baseEvent,
 		...overrides,
-		timestamp: overrides.timestamp || Date.now()
+		timestamp: overrides.timestamp || Date.now(),
 	};
 }
 
@@ -553,13 +551,13 @@ export function createCustomEventFixture(
 export function createEventWithIds(
 	eventType: string,
 	userId?: number,
-	chatId?: number
+	chatId?: number,
 ): MaxWebhookEvent {
 	const baseEvent = EVENT_FIXTURES[eventType];
 	if (!baseEvent) {
 		throw new Error(`Unknown event type: ${eventType}`);
 	}
-	
+
 	// Create deep copy
 	const event = JSON.parse(JSON.stringify(baseEvent)) as MaxWebhookEvent;
 
@@ -586,24 +584,24 @@ export function createEventWithIds(
 export function createEventBatch(
 	eventType: string,
 	count: number,
-	startTimestamp: number = BASE_TIMESTAMP
+	startTimestamp: number = BASE_TIMESTAMP,
 ): MaxWebhookEvent[] {
 	const events: MaxWebhookEvent[] = [];
-	
+
 	for (let i = 0; i < count; i++) {
 		const event = createCustomEventFixture(eventType, {
-			timestamp: startTimestamp + (i * 1000), // 1 second apart
+			timestamp: startTimestamp + i * 1000, // 1 second apart
 		});
-		
+
 		// Make each event unique
 		if (event.message?.body) {
 			event.message.body.mid = `${TEST_MESSAGE_ID}_${i}`;
 			event.message.body.seq = i + 1;
 			event.message.body.text = `${event.message.body.text} (${i + 1})`;
 		}
-		
+
 		events.push(event);
 	}
-	
+
 	return events;
 }

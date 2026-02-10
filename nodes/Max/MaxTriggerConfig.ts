@@ -18,7 +18,7 @@ export const MAX_TRIGGER_EVENTS = [
 	'user_removed',
 ] as const;
 
-export type MaxTriggerEvent = typeof MAX_TRIGGER_EVENTS[number];
+export type MaxTriggerEvent = (typeof MAX_TRIGGER_EVENTS)[number];
 
 /**
  * Node properties configuration for Max Trigger
@@ -42,12 +42,14 @@ export const MAX_TRIGGER_PROPERTIES: INodeProperties[] = [
 			{
 				name: 'Bot Started',
 				value: 'bot_started',
-				description: 'Trigger when a user starts interaction with the bot (update_type: bot_started)',
+				description:
+					'Trigger when a user starts interaction with the bot (update_type: bot_started)',
 			},
 			{
 				name: 'Button Clicked',
 				value: 'message_callback',
-				description: 'Trigger when a user clicks an inline keyboard button (update_type: message_callback)',
+				description:
+					'Trigger when a user clicks an inline keyboard button (update_type: message_callback)',
 			},
 			{
 				name: 'Chat Title Changed',
@@ -67,12 +69,14 @@ export const MAX_TRIGGER_PROPERTIES: INodeProperties[] = [
 			{
 				name: 'Message Received (Chat)',
 				value: 'message_chat_created',
-				description: 'Trigger when a new message is received in group chats (update_type: message_chat_created)',
+				description:
+					'Trigger when a new message is received in group chats (update_type: message_chat_created)',
 			},
 			{
 				name: 'Message Received (Direct)',
 				value: 'message_created',
-				description: 'Trigger when a new message is received in direct conversation (update_type: message_created)',
+				description:
+					'Trigger when a new message is received in direct conversation (update_type: message_created)',
 			},
 			{
 				name: 'User Joined Chat',
@@ -101,14 +105,16 @@ export const MAX_TRIGGER_PROPERTIES: INodeProperties[] = [
 				name: 'chatIds',
 				type: 'string',
 				default: '',
-				description: 'The chat IDs to restrict the trigger to. Multiple can be defined separated by comma.',
+				description:
+					'The chat IDs to restrict the trigger to. Multiple can be defined separated by comma.',
 			},
 			{
 				displayName: 'Restrict to User IDs',
 				name: 'userIds',
 				type: 'string',
 				default: '',
-				description: 'The user IDs to restrict the trigger to. Multiple can be defined separated by comma.',
+				description:
+					'The user IDs to restrict the trigger to. Multiple can be defined separated by comma.',
 			},
 			{
 				displayName: 'Webhook Secret',
@@ -118,7 +124,8 @@ export const MAX_TRIGGER_PROPERTIES: INodeProperties[] = [
 					password: true,
 				},
 				default: '',
-				description: 'Optional secret sent in X-Max-Bot-Api-Secret header for webhook requests (5-256 chars, A-Z a-z 0-9 _ -)',
+				description:
+					'Optional secret sent in X-Max-Bot-Api-Secret header for webhook requests (5-256 chars, A-Z a-z 0-9 _ -)',
 			},
 			{
 				displayName: 'API Version',
@@ -154,7 +161,7 @@ export interface MaxSubscriptionsResponse {
 export interface MaxWebhookEvent {
 	update_type: string;
 	timestamp: number;
-	
+
 	// Common fields for message events
 	message?: {
 		message_id?: string;
@@ -280,7 +287,7 @@ export interface MaxWebhookEvent {
 	};
 
 	// Event-specific fields based on OpenAPI schema
-	
+
 	// For bot_added/bot_removed events
 	chat_id?: number;
 	is_channel?: boolean;
@@ -288,7 +295,7 @@ export interface MaxWebhookEvent {
 	// For user_added events
 	inviter_id?: number;
 
-	// For user_removed events  
+	// For user_removed events
 	admin_id?: number;
 
 	// For message_removed events

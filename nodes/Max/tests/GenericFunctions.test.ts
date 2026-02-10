@@ -25,7 +25,7 @@ import {
 	validateKeyboardLayout,
 	formatInlineKeyboard,
 	createInlineKeyboardAttachment,
-	processKeyboardFromParameters
+	processKeyboardFromParameters,
 } from '../GenericFunctions';
 import {
 	createMockExecuteFunctions,
@@ -36,7 +36,7 @@ import {
 	NodeExecutionDataFactory,
 	AssertionHelpers,
 	MockScenarioBuilder,
-	TEST_CONSTANTS
+	TEST_CONSTANTS,
 } from './testUtils';
 
 // Mock the Max Bot API
@@ -54,11 +54,11 @@ jest.mock('@maxhub/max-bot-api', () => ({
 
 // Mock external dependencies for comprehensive tests
 jest.mock('crypto', () => ({
-	randomUUID: jest.fn().mockReturnValue('test-uuid-12345')
+	randomUUID: jest.fn().mockReturnValue('test-uuid-12345'),
 }));
 
 jest.mock('os', () => ({
-	tmpdir: jest.fn().mockReturnValue('/tmp')
+	tmpdir: jest.fn().mockReturnValue('/tmp'),
 }));
 
 jest.mock('path', () => ({
@@ -73,19 +73,21 @@ jest.mock('fs', () => ({
 	promises: {
 		writeFile: jest.fn().mockResolvedValue(undefined),
 		readFile: jest.fn().mockResolvedValue(Buffer.from('test file content')),
-		unlink: jest.fn().mockResolvedValue(undefined)
-	}
+		unlink: jest.fn().mockResolvedValue(undefined),
+	},
 }));
 
 describe('GenericFunctions - Comprehensive Test Suite', () => {
 	// ============================================================================
 	// CORE TEXT VALIDATION AND FORMATTING
 	// ============================================================================
-	
+
 	describe('validateAndFormatText', () => {
 		it('should validate text length', () => {
 			const longText = 'a'.repeat(4001);
-			expect(() => validateAndFormatText(longText)).toThrow('Message text cannot exceed 4000 characters');
+			expect(() => validateAndFormatText(longText)).toThrow(
+				'Message text cannot exceed 4000 characters',
+			);
 		});
 
 		it('should allow text within limit', () => {
@@ -100,7 +102,9 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 		it('should reject invalid HTML tags', () => {
 			const invalidHtml = 'Hello <script>alert("test")</script>';
-			expect(() => validateAndFormatText(invalidHtml, 'html')).toThrow("HTML tag 'script' is not supported by Max messenger");
+			expect(() => validateAndFormatText(invalidHtml, 'html')).toThrow(
+				"HTML tag 'script' is not supported by Max messenger",
+			);
 		});
 
 		it('should validate basic markdown', () => {
@@ -108,10 +112,10 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(validateAndFormatText(validMarkdown, 'markdown')).toBe(validMarkdown);
 		});
 
-        it('should allow Max-flavored markdown including links', () => {
-            const markdownWithLink = 'Hello [link](http://example.com)';
-            expect(() => validateAndFormatText(markdownWithLink, 'markdown')).not.toThrow();
-        });
+		it('should allow Max-flavored markdown including links', () => {
+			const markdownWithLink = 'Hello [link](http://example.com)';
+			expect(() => validateAndFormatText(markdownWithLink, 'markdown')).not.toThrow();
+		});
 
 		it('should handle plain text format', () => {
 			const plainText = 'Hello world';
@@ -162,14 +166,15 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const credentials = { accessToken: '' };
 			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue(credentials);
 
-			await expect(createMaxBotInstance.call(mockExecuteFunctions as IExecuteFunctions))
-				.rejects.toThrow(NodeApiError);
+			await expect(
+				createMaxBotInstance.call(mockExecuteFunctions as IExecuteFunctions),
+			).rejects.toThrow(NodeApiError);
 		});
 
 		it('should handle custom base URL configuration', async () => {
-			const credentials = { 
+			const credentials = {
 				accessToken: 'test-token',
-				baseUrl: 'https://custom.max.api'
+				baseUrl: 'https://custom.max.api',
 			};
 			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue(credentials);
 
@@ -180,8 +185,9 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		it('should handle missing credentials gracefully', async () => {
 			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({});
 
-			await expect(createMaxBotInstance.call(mockExecuteFunctions as IExecuteFunctions))
-				.rejects.toThrow(NodeApiError);
+			await expect(
+				createMaxBotInstance.call(mockExecuteFunctions as IExecuteFunctions),
+			).rejects.toThrow(NodeApiError);
 		});
 	});
 
@@ -243,7 +249,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		it('should handle complex error structures', () => {
 			const complexError = {
 				error_code: 403,
-				description: 'Forbidden access'
+				description: 'Forbidden access',
 			};
 			expect(categorizeMaxError(complexError)).toBe(MaxErrorCategory.BUSINESS_LOGIC);
 		});
@@ -274,12 +280,18 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 		it('should create business logic error messages', () => {
 			const chatError = { description: 'Chat not found' };
-			const chatMessage = createUserFriendlyErrorMessage(chatError, MaxErrorCategory.BUSINESS_LOGIC);
+			const chatMessage = createUserFriendlyErrorMessage(
+				chatError,
+				MaxErrorCategory.BUSINESS_LOGIC,
+			);
 			expect(chatMessage).toContain('Chat not found');
 			expect(chatMessage).toContain('bot has been added to the chat');
 
 			const blockedError = { description: 'User blocked bot' };
-			const blockedMessage = createUserFriendlyErrorMessage(blockedError, MaxErrorCategory.BUSINESS_LOGIC);
+			const blockedMessage = createUserFriendlyErrorMessage(
+				blockedError,
+				MaxErrorCategory.BUSINESS_LOGIC,
+			);
 			expect(blockedMessage).toContain('Access denied');
 			expect(blockedMessage).toContain('user may have blocked the bot');
 		});
@@ -320,69 +332,105 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 		it('should handle authentication errors with proper categorization', async () => {
 			const authError = ErrorFactory.createAuthError();
-			
+
 			await AssertionHelpers.expectAsyncError(
-				() => handleMaxApiError.call(mockExecuteFunctions as IExecuteFunctions, authError, 'test operation'),
+				() =>
+					handleMaxApiError.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						authError,
+						'test operation',
+					),
 				NodeApiError,
-				/Authorization failed - please check your credentials/
+				/Authorization failed - please check your credentials/,
 			);
 		});
 
 		it('should handle rate limit errors with retry guidance', async () => {
 			const rateLimitError = ErrorFactory.createRateLimitError({ parameters: { retry_after: 30 } });
-			
+
 			await AssertionHelpers.expectAsyncError(
-				() => handleMaxApiError.call(mockExecuteFunctions as IExecuteFunctions, rateLimitError, 'test operation'),
+				() =>
+					handleMaxApiError.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						rateLimitError,
+						'test operation',
+					),
 				NodeApiError,
-				/too many requests/i
+				/too many requests/i,
 			);
 		});
 
 		it('should handle validation errors as NodeOperationError', async () => {
 			const validationError = ErrorFactory.createValidationError();
-			
+
 			await AssertionHelpers.expectAsyncError(
-				() => handleMaxApiError.call(mockExecuteFunctions as IExecuteFunctions, validationError, 'test operation'),
+				() =>
+					handleMaxApiError.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						validationError,
+						'test operation',
+					),
 				NodeOperationError,
-				/Invalid request parameters/
+				/Invalid request parameters/,
 			);
 		});
 
 		it('should handle business logic errors with specific guidance', async () => {
 			const businessError = ErrorFactory.createBusinessLogicError();
-			
+
 			await AssertionHelpers.expectAsyncError(
-				() => handleMaxApiError.call(mockExecuteFunctions as IExecuteFunctions, businessError, 'test operation'),
+				() =>
+					handleMaxApiError.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						businessError,
+						'test operation',
+					),
 				NodeApiError,
-				/resource you are requesting could not be found/i
+				/resource you are requesting could not be found/i,
 			);
 		});
 
 		it('should handle network errors with retry indication', async () => {
 			const networkError = ErrorFactory.createNetworkError();
-			
+
 			await AssertionHelpers.expectAsyncError(
-				() => handleMaxApiError.call(mockExecuteFunctions as IExecuteFunctions, networkError, 'test operation'),
+				() =>
+					handleMaxApiError.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						networkError,
+						'test operation',
+					),
 				NodeApiError,
-				/Network error.*check your internet connection/i
+				/Network error.*check your internet connection/i,
 			);
 		});
 
 		it('should handle unknown errors with generic guidance', async () => {
 			const unknownError = ErrorFactory.createUnknownError();
-			
+
 			await AssertionHelpers.expectAsyncError(
-				() => handleMaxApiError.call(mockExecuteFunctions as IExecuteFunctions, unknownError, 'test operation'),
+				() =>
+					handleMaxApiError.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						unknownError,
+						'test operation',
+					),
 				NodeApiError,
-				/not able to process your request/i
+				/not able to process your request/i,
 			);
 		});
 
 		it('should include retry count in error description for retryable errors', async () => {
 			const networkError = ErrorFactory.createNetworkError();
-			
+
 			try {
-				await handleMaxApiError.call(mockExecuteFunctions as IExecuteFunctions, networkError, 'test operation', 2, 3);
+				await handleMaxApiError.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					networkError,
+					'test operation',
+					2,
+					3,
+				);
 			} catch (error: any) {
 				expect(error.description).toContain('Retry attempt 3/3');
 			}
@@ -390,9 +438,13 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 		it('should preserve original error details in enhanced error', async () => {
 			const originalError = ErrorFactory.createAuthError({ error_code: 401 });
-			
+
 			try {
-				await handleMaxApiError.call(mockExecuteFunctions as IExecuteFunctions, originalError, 'test operation');
+				await handleMaxApiError.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					originalError,
+					'test operation',
+				);
 			} catch (error: any) {
 				expect(error.httpCode).toBe('401');
 				// The category is not directly attached to the thrown error, but the error is properly categorized
@@ -407,33 +459,61 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 	describe('validateInputParameters', () => {
 		it('should throw an error for non-numeric recipient ID', () => {
-			expect(() => validateInputParameters('user', 'abc' as any, 'test')).toThrow('Invalid user ID: must be a number');
-			expect(() => validateInputParameters('chat', 'xyz' as any, 'test')).toThrow('Invalid chat ID: must be a number');
-			expect(() => validateInputParameters('user', NaN, 'test')).toThrow('Invalid user ID: must be a number');
+			expect(() => validateInputParameters('user', 'abc' as any, 'test')).toThrow(
+				'Invalid user ID: must be a number',
+			);
+			expect(() => validateInputParameters('chat', 'xyz' as any, 'test')).toThrow(
+				'Invalid chat ID: must be a number',
+			);
+			expect(() => validateInputParameters('user', NaN, 'test')).toThrow(
+				'Invalid user ID: must be a number',
+			);
 		});
 
 		it('should validate message text', () => {
-			expect(() => validateInputParameters('user', 123, '')).toThrow('Message text cannot be empty');
-			expect(() => validateInputParameters('user', 123, '   ')).toThrow('Message text cannot be empty');
-			expect(() => validateInputParameters('user', 123, null as any)).toThrow('Message text is required and must be a string');
-			expect(() => validateInputParameters('user', 123, undefined as any)).toThrow('Message text is required and must be a string');
+			expect(() => validateInputParameters('user', 123, '')).toThrow(
+				'Message text cannot be empty',
+			);
+			expect(() => validateInputParameters('user', 123, '   ')).toThrow(
+				'Message text cannot be empty',
+			);
+			expect(() => validateInputParameters('user', 123, null as any)).toThrow(
+				'Message text is required and must be a string',
+			);
+			expect(() => validateInputParameters('user', 123, undefined as any)).toThrow(
+				'Message text is required and must be a string',
+			);
 		});
 
 		it('should validate HTML format', () => {
-			expect(() => validateInputParameters('user', 123, '<b>unclosed tag', 'html')).toThrow('HTML format error: unclosed tags detected');
-			expect(() => validateInputParameters('user', 123, '<b>test</b><i>unclosed', 'html')).toThrow('HTML format error: unclosed tags detected');
+			expect(() => validateInputParameters('user', 123, '<b>unclosed tag', 'html')).toThrow(
+				'HTML format error: unclosed tags detected',
+			);
+			expect(() => validateInputParameters('user', 123, '<b>test</b><i>unclosed', 'html')).toThrow(
+				'HTML format error: unclosed tags detected',
+			);
 		});
 
 		it('should validate Markdown format', () => {
-			expect(() => validateInputParameters('user', 123, '*unclosed bold', 'markdown')).toThrow('Markdown format error: unmatched bold markers');
-			expect(() => validateInputParameters('user', 123, '_unclosed italic', 'markdown')).toThrow('Markdown format error: unmatched italic markers');
-			expect(() => validateInputParameters('user', 123, '`unclosed code', 'markdown')).toThrow('Markdown format error: unmatched code markers');
+			expect(() => validateInputParameters('user', 123, '*unclosed bold', 'markdown')).toThrow(
+				'Markdown format error: unmatched bold markers',
+			);
+			expect(() => validateInputParameters('user', 123, '_unclosed italic', 'markdown')).toThrow(
+				'Markdown format error: unmatched italic markers',
+			);
+			expect(() => validateInputParameters('user', 123, '`unclosed code', 'markdown')).toThrow(
+				'Markdown format error: unmatched code markers',
+			);
 		});
 
 		it('should pass valid parameters', () => {
 			expect(() => validateInputParameters('user', 123, 'Hello world')).not.toThrow();
-			expect(() => validateInputParameters('chat', 456, '<b>Hello</b> <i>world</i>', 'html')).not.toThrow();
-			expect(() => validateInputParameters('user', 789, '*Hello* _world_ `code`', 'markdown')).not.toThrow();
+			expect(() =>
+				validateInputParameters('chat', 456, '<b>Hello</b> <i>world</i>', 'html'),
+			).not.toThrow();
+			expect(() =>
+				validateInputParameters('user', 789, '*Hello* _world_ `code`', 'markdown'),
+			).not.toThrow();
 		});
 
 		it('should allow positive, negative, and zero recipient IDs', () => {
@@ -478,7 +558,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				'user',
 				123,
 				'Hello',
-				{}
+				{},
 			);
 
 			expect(result).toEqual(expectedResponse);
@@ -509,7 +589,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				'chat',
 				456,
 				'Hello chat',
-				{ notify: false }
+				{ notify: false },
 			);
 
 			expect(result).toEqual(expectedResponse);
@@ -546,7 +626,9 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				},
 			);
 
-			expect((mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mock.calls[0]?.[0]).toMatchObject({
+			expect(
+				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mock.calls[0]?.[0],
+			).toMatchObject({
 				qs: {
 					user_id: 123,
 					disable_link_preview: true,
@@ -572,7 +654,9 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			);
 
 			expect(result).toEqual(expectedResponse);
-			expect((mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mock.calls[0]?.[0]?.qs).toEqual({
+			expect(
+				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mock.calls[0]?.[0]?.qs,
+			).toEqual({
 				user_id: -12345,
 			});
 		});
@@ -591,17 +675,51 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		});
 
 		it('should handle API errors gracefully', async () => {
-			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mockRejectedValue(new Error('API Error'));
+			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mockRejectedValue(
+				new Error('API Error'),
+			);
 			mockExecuteFunctions.getNode = jest.fn().mockReturnValue({ name: 'Max' });
 
-			await expect(sendMessage.call(
+			await expect(
+				sendMessage.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'user',
+					123,
+					'Hello',
+					{},
+				),
+			).rejects.toThrow();
+		});
+
+		it('should retry as plain text when Max rejects unsupported markdown syntax', async () => {
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			mockHttpRequest
+				.mockRejectedValueOnce(new Error('Some Markdown syntax is not supported by Max messenger'))
+				.mockResolvedValueOnce({
+					message_id: 321,
+					text: 'Hello link (https://example.com) strike',
+				});
+
+			const result = await sendMessage.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				mockBot,
 				'user',
 				123,
-				'Hello',
-				{}
-			)).rejects.toThrow();
+				'Hello [link](https://example.com) ~~strike~~',
+				{ format: 'markdown' },
+			);
+
+			expect(result).toEqual({ message_id: 321, text: 'Hello link (https://example.com) strike' });
+			expect(mockHttpRequest).toHaveBeenCalledTimes(2);
+			expect(mockHttpRequest).toHaveBeenNthCalledWith(
+				2,
+				expect.objectContaining({
+					body: {
+						text: 'Hello link (https://example.com) strike',
+					},
+				}),
+			);
 		});
 
 		it('should handle different message formats', async () => {
@@ -614,11 +732,13 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				'user',
 				123,
 				'<b>Bold</b>',
-				{ format: 'html' }
+				{ format: 'html' },
 			);
 
 			expect(result).toEqual(expectedResponse);
-			expect((mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mock.calls[0]?.[0]?.body).toEqual({
+			expect(
+				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mock.calls[0]?.[0]?.body,
+			).toEqual({
 				text: '<b>Bold</b>',
 				format: 'html',
 			});
@@ -669,14 +789,16 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const expectedResponse = { message_id: '123', text: 'Updated message' };
 			const mockHttpRequest = jest.fn().mockResolvedValue(expectedResponse);
 			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock) = mockHttpRequest;
-			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({ accessToken: 'test-token' });
+			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({
+				accessToken: 'test-token',
+			});
 
 			const result = await editMessage.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				mockBot,
 				'123',
 				'Updated message',
-				{}
+				{},
 			);
 
 			expect(result).toEqual(expectedResponse);
@@ -699,14 +821,16 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const expectedResponse = { message_id: '456', text: 'Updated <b>message</b>' };
 			const mockHttpRequest = jest.fn().mockResolvedValue(expectedResponse);
 			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock) = mockHttpRequest;
-			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({ accessToken: 'test-token' });
+			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({
+				accessToken: 'test-token',
+			});
 
 			const result = await editMessage.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				mockBot,
 				'456',
 				'Updated <b>message</b>',
-				{ format: 'html' }
+				{ format: 'html' },
 			);
 
 			expect(result).toEqual(expectedResponse);
@@ -729,7 +853,9 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const expectedResponse = { success: true };
 			const mockHttpRequest = jest.fn().mockResolvedValue(expectedResponse);
 			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock) = mockHttpRequest;
-			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({ accessToken: 'test-token' });
+			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({
+				accessToken: 'test-token',
+			});
 
 			await editMessage.call(
 				mockExecuteFunctions as IExecuteFunctions,
@@ -747,81 +873,127 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		});
 
 		it('should validate message ID', async () => {
-			await expect(editMessage.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				mockBot,
-				'', // Empty message ID
-				'Updated message',
-				{}
-			)).rejects.toThrow('Message ID is required and cannot be empty');
+			await expect(
+				editMessage.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'', // Empty message ID
+					'Updated message',
+					{},
+				),
+			).rejects.toThrow('Message ID is required and cannot be empty');
 
-			await expect(editMessage.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				mockBot,
-				'   ', // Whitespace only message ID
-				'Updated message',
-				{}
-			)).rejects.toThrow('Message ID is required and cannot be empty');
+			await expect(
+				editMessage.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'   ', // Whitespace only message ID
+					'Updated message',
+					{},
+				),
+			).rejects.toThrow('Message ID is required and cannot be empty');
 		});
 
 		it('should validate message text', async () => {
-			await expect(editMessage.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				mockBot,
-				'123',
-				'a'.repeat(4001), // Text too long
-				{}
-			)).rejects.toThrow('Message text cannot exceed 4000 characters');
+			await expect(
+				editMessage.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'123',
+					'a'.repeat(4001), // Text too long
+					{},
+				),
+			).rejects.toThrow('Message text cannot exceed 4000 characters');
 		});
 
 		it('should validate HTML format in edit message', async () => {
-			await expect(editMessage.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				mockBot,
-				'123',
-				'<b>unclosed tag',
-				{ format: 'html' }
-			)).rejects.toThrow('HTML format error: unclosed tags detected');
+			await expect(
+				editMessage.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'123',
+					'<b>unclosed tag',
+					{ format: 'html' },
+				),
+			).rejects.toThrow('HTML format error: unclosed tags detected');
 		});
 
 		it('should validate Markdown format in edit message', async () => {
-			await expect(editMessage.call(
+			await expect(
+				editMessage.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'123',
+					'*unclosed bold',
+					{ format: 'markdown' },
+				),
+			).rejects.toThrow('Markdown format error: unmatched bold markers');
+		});
+
+		it('should retry edit as plain text when Max rejects markdown syntax', async () => {
+			const mockHttpRequest = jest
+				.fn()
+				.mockRejectedValueOnce(new Error('Some Markdown syntax is not supported by Max messenger'))
+				.mockResolvedValueOnce({
+					message_id: '123',
+					text: 'Updated link (https://example.com) text',
+				});
+			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock) = mockHttpRequest;
+			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({
+				accessToken: 'test-token',
+			});
+
+			const result = await editMessage.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				mockBot,
 				'123',
-				'*unclosed bold',
-				{ format: 'markdown' }
-			)).rejects.toThrow('Markdown format error: unmatched bold markers');
+				'Updated [link](https://example.com) text',
+				{ format: 'markdown' },
+			);
+
+			expect(result).toEqual({
+				message_id: '123',
+				text: 'Updated link (https://example.com) text',
+			});
+			expect(mockHttpRequest).toHaveBeenCalledTimes(2);
+			expect(mockHttpRequest).toHaveBeenNthCalledWith(
+				2,
+				expect.objectContaining({
+					body: {
+						text: 'Updated link (https://example.com) text',
+					},
+				}),
+			);
 		});
 
 		it('should handle null text validation', async () => {
-			await expect(editMessage.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				mockBot,
-				'123',
-				null as any,
-				{}
-			)).rejects.toThrow('Message text is required and must be a string');
+			await expect(
+				editMessage.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'123',
+					null as any,
+					{},
+				),
+			).rejects.toThrow('Message text is required and must be a string');
 		});
 
 		it('should handle undefined text validation', async () => {
-			await expect(editMessage.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				mockBot,
-				'123',
-				undefined as any,
-				{}
-			)).rejects.toThrow('Message text is required and must be a string');
+			await expect(
+				editMessage.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'123',
+					undefined as any,
+					{},
+				),
+			).rejects.toThrow('Message text is required and must be a string');
 		});
 
 		it('should handle empty text validation', async () => {
-			await expect(editMessage.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				mockBot,
-				'123',
-				'   ',
-				{}
-			)).rejects.toThrow('Message text cannot be empty');
+			await expect(
+				editMessage.call(mockExecuteFunctions as IExecuteFunctions, mockBot, '123', '   ', {}),
+			).rejects.toThrow('Message text cannot be empty');
 		});
 	});
 
@@ -848,12 +1020,14 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const expectedResponse = { success: true };
 			const mockHttpRequest = jest.fn().mockResolvedValue(expectedResponse);
 			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock) = mockHttpRequest;
-			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({ accessToken: 'test-token' });
+			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({
+				accessToken: 'test-token',
+			});
 
 			const result = await deleteMessage.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				mockBot,
-				'123'
+				'123',
 			);
 
 			expect(result).toEqual(expectedResponse);
@@ -873,12 +1047,14 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		it('should handle API response without return value', async () => {
 			const mockHttpRequest = jest.fn().mockResolvedValue(null);
 			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock) = mockHttpRequest;
-			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({ accessToken: 'test-token' });
+			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({
+				accessToken: 'test-token',
+			});
 
 			const result = await deleteMessage.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				mockBot,
-				'123'
+				'123',
 			);
 
 			expect(result).toEqual({ success: true, message_id: '123' });
@@ -898,12 +1074,14 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		it('should handle API response with undefined return value', async () => {
 			const mockHttpRequest = jest.fn().mockResolvedValue(undefined);
 			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock) = mockHttpRequest;
-			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({ accessToken: 'test-token' });
+			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({
+				accessToken: 'test-token',
+			});
 
 			const result = await deleteMessage.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				mockBot,
-				'456'
+				'456',
 			);
 
 			expect(result).toEqual({ success: true, message_id: '456' });
@@ -921,17 +1099,21 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		});
 
 		it('should validate message ID', async () => {
-			await expect(deleteMessage.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				mockBot,
-				'' // Empty message ID
-			)).rejects.toThrow('Message ID is required and cannot be empty');
+			await expect(
+				deleteMessage.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'', // Empty message ID
+				),
+			).rejects.toThrow('Message ID is required and cannot be empty');
 
-			await expect(deleteMessage.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				mockBot,
-				'   ' // Whitespace only message ID
-			)).rejects.toThrow('Message ID is required and cannot be empty');
+			await expect(
+				deleteMessage.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'   ', // Whitespace only message ID
+				),
+			).rejects.toThrow('Message ID is required and cannot be empty');
 		});
 	});
 
@@ -948,7 +1130,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				.withCredentials({ accessToken: 'test-token' })
 				.withHttpResponse({ success: true })
 				.build();
-			
+
 			mockExecuteFunctions = scenario.mockExecuteFunctions;
 			mockBot = {};
 		});
@@ -962,33 +1144,37 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			);
 
 			expect(result.success).toBe(true);
-			AssertionHelpers.expectHttpRequest(
-				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock),
-				{
-					method: 'POST',
-					url: 'https://platform-api.max.ru/answers',
-					qs: {
-						callback_id: 'callback_123',
-					},
-					headers: {
-						Authorization: 'test-token',
-						'Content-Type': 'application/json',
-					},
+			AssertionHelpers.expectHttpRequest(mockExecuteFunctions.helpers!.httpRequest as jest.Mock, {
+				method: 'POST',
+				url: 'https://platform-api.max.ru/answers',
+				qs: {
+					callback_id: 'callback_123',
 				},
-			);
+				headers: {
+					Authorization: 'test-token',
+					'Content-Type': 'application/json',
+				},
+			});
 		});
 
 		it('should validate callback query ID', async () => {
 			await AssertionHelpers.expectAsyncError(
-				() => answerCallbackQuery.call(mockExecuteFunctions as IExecuteFunctions, mockBot, '', 'text'),
+				() =>
+					answerCallbackQuery.call(mockExecuteFunctions as IExecuteFunctions, mockBot, '', 'text'),
 				Error,
-				/Callback Query ID is required and cannot be empty/
+				/Callback Query ID is required and cannot be empty/,
 			);
 
 			await AssertionHelpers.expectAsyncError(
-				() => answerCallbackQuery.call(mockExecuteFunctions as IExecuteFunctions, mockBot, '   ', 'text'),
+				() =>
+					answerCallbackQuery.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						mockBot,
+						'   ',
+						'text',
+					),
 				Error,
-				/Callback Query ID is required and cannot be empty/
+				/Callback Query ID is required and cannot be empty/,
 			);
 		});
 
@@ -997,7 +1183,12 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const longText = 'A'.repeat(2000);
 
 			await expect(
-				answerCallbackQuery.call(mockExecuteFunctions as IExecuteFunctions, mockBot, 'callback_123', longText),
+				answerCallbackQuery.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'callback_123',
+					longText,
+				),
 			).resolves.toEqual({ success: true });
 		});
 
@@ -1005,7 +1196,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const result = await answerCallbackQuery.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				mockBot,
-				'callback_123'
+				'callback_123',
 			);
 
 			expect(result.success).toBe(true);
@@ -1027,7 +1218,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 		it('should add disable_link_preview field when provided', () => {
 			(mockExecuteFunctions.getNodeParameter as jest.Mock).mockReturnValue({
-				disable_link_preview: true
+				disable_link_preview: true,
 			});
 
 			const body = {};
@@ -1038,7 +1229,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 		it('should add notify field when provided', () => {
 			(mockExecuteFunctions.getNodeParameter as jest.Mock).mockReturnValue({
-				notify: false
+				notify: false,
 			});
 
 			const body = {};
@@ -1050,7 +1241,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		it('should add multiple fields when provided', () => {
 			(mockExecuteFunctions.getNodeParameter as jest.Mock).mockReturnValue({
 				disable_link_preview: true,
-				notify: false
+				notify: false,
 			});
 
 			const body = {};
@@ -1058,7 +1249,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 			expect(body).toEqual({
 				disable_link_preview: true,
-				notify: false
+				notify: false,
 			});
 		});
 
@@ -1085,81 +1276,85 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 		it('should reject unsupported attachment types', () => {
 			const invalidConfig = { type: 'unsupported' as any, inputType: 'binary' as const };
-			
+
 			AssertionHelpers.expectError(
 				() => validateAttachment(invalidConfig),
 				Error,
-				/Unsupported attachment type: unsupported/
+				/Unsupported attachment type: unsupported/,
 			);
 		});
 
 		it('should validate input types', () => {
 			const invalidConfig = AttachmentConfigFactory.createImageConfig({ inputType: 'invalid' });
-			
+
 			AssertionHelpers.expectError(
 				() => validateAttachment(invalidConfig),
 				Error,
-				/Unsupported input type: invalid/
+				/Unsupported input type: invalid/,
 			);
 		});
 
 		it('should require binary property for binary input', () => {
 			const config = AttachmentConfigFactory.createImageConfig({ binaryProperty: '' });
-			
+
 			AssertionHelpers.expectError(
 				() => validateAttachment(config),
 				Error,
-				/Binary property name is required for binary input type/
+				/Binary property name is required for binary input type/,
 			);
 		});
 
 		it('should require file URL for URL input', () => {
 			const config = AttachmentConfigFactory.createVideoConfig({ fileUrl: '' });
-			
+
 			AssertionHelpers.expectError(
 				() => validateAttachment(config),
 				Error,
-				/File URL is required for URL input type/
+				/File URL is required for URL input type/,
 			);
 		});
 
 		it('should validate URL format', () => {
 			const config = AttachmentConfigFactory.createVideoConfig({ fileUrl: 'not-a-url' });
-			
+
 			AssertionHelpers.expectError(
 				() => validateAttachment(config),
 				Error,
-				/Invalid file URL: not-a-url/
+				/Invalid file URL: not-a-url/,
 			);
 		});
 
 		it('should validate file size limits', () => {
 			const config = AttachmentConfigFactory.createImageConfig();
-			
+
 			// Test oversized image (over 10MB limit)
 			AssertionHelpers.expectError(
 				() => validateAttachment(config, TEST_CONSTANTS.FILE_SIZES.OVERSIZED_IMAGE),
 				Error,
-				/File size.*exceeds maximum allowed size for image/
+				/File size.*exceeds maximum allowed size for image/,
 			);
 		});
 
 		it('should validate file extensions', () => {
 			const config = AttachmentConfigFactory.createImageConfig();
-			
+
 			// Test unsupported extension
 			AssertionHelpers.expectError(
 				() => validateAttachment(config, TEST_CONSTANTS.FILE_SIZES.SMALL, 'test.exe'),
 				Error,
-				/Unsupported file extension "\.exe" for image/
+				/Unsupported file extension "\.exe" for image/,
 			);
 		});
 
 		it('should allow valid file extensions', () => {
 			const config = AttachmentConfigFactory.createImageConfig();
-			
-			expect(() => validateAttachment(config, TEST_CONSTANTS.FILE_SIZES.SMALL, 'test.jpg')).not.toThrow();
-			expect(() => validateAttachment(config, TEST_CONSTANTS.FILE_SIZES.SMALL, 'test.png')).not.toThrow();
+
+			expect(() =>
+				validateAttachment(config, TEST_CONSTANTS.FILE_SIZES.SMALL, 'test.jpg'),
+			).not.toThrow();
+			expect(() =>
+				validateAttachment(config, TEST_CONSTANTS.FILE_SIZES.SMALL, 'test.png'),
+			).not.toThrow();
 		});
 	});
 
@@ -1170,10 +1365,10 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const scenario = new MockScenarioBuilder()
 				.withHttpResponse({
 					statusCode: 200,
-					body: 'file content data'
+					body: 'file content data',
 				})
 				.build();
-			
+
 			mockExecuteFunctions = scenario.mockExecuteFunctions;
 		});
 
@@ -1185,7 +1380,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const result = await downloadFileFromUrl.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				TEST_CONSTANTS.URLS.VALID,
-				'custom-name.jpg'
+				'custom-name.jpg',
 			);
 
 			expect(result.fileName).toBe('custom-name.jpg');
@@ -1196,7 +1391,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		it('should generate filename when not provided', async () => {
 			const result = await downloadFileFromUrl.call(
 				mockExecuteFunctions as IExecuteFunctions,
-				'https://example.com/path/image.jpg'
+				'https://example.com/path/image.jpg',
 			);
 
 			expect(result.fileName).toBe('image.jpg');
@@ -1206,26 +1401,24 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const scenario = new MockScenarioBuilder()
 				.withHttpResponse({
 					statusCode: 404,
-					body: 'Not Found'
+					body: 'Not Found',
 				})
 				.build();
 
 			await AssertionHelpers.expectAsyncError(
 				() => downloadFileFromUrl.call(scenario.mockExecuteFunctions, TEST_CONSTANTS.URLS.VALID),
 				NodeOperationError,
-				/Failed to download file: HTTP 404/
+				/Failed to download file: HTTP 404/,
 			);
 		});
 
 		it('should handle network errors', async () => {
-			const scenario = new MockScenarioBuilder()
-				.withHttpError(new Error('Network error'))
-				.build();
+			const scenario = new MockScenarioBuilder().withHttpError(new Error('Network error')).build();
 
 			await AssertionHelpers.expectAsyncError(
 				() => downloadFileFromUrl.call(scenario.mockExecuteFunctions, TEST_CONSTANTS.URLS.VALID),
 				NodeOperationError,
-				/Failed to download file from URL/
+				/Failed to download file from URL/,
 			);
 		});
 	});
@@ -1237,7 +1430,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const scenario = new MockScenarioBuilder()
 				.withCredentials({ accessToken: 'test-token' })
 				.build();
-			
+
 			mockExecuteFunctions = scenario.mockExecuteFunctions;
 		});
 
@@ -1246,9 +1439,10 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
 			mockHttpRequest
 				.mockResolvedValueOnce({ url: 'https://upload.example.com/upload' }) // Step 1: Get upload URL
-				.mockResolvedValueOnce({ // Step 2: Upload file
+				.mockResolvedValueOnce({
+					// Step 2: Upload file
 					statusCode: 200,
-					body: JSON.stringify({ token: 'file-token-123' })
+					body: JSON.stringify({ token: 'file-token-123' }),
 				});
 
 			const uploadResult = await uploadFileToMax.call(
@@ -1256,7 +1450,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				{} as any,
 				'/tmp/test-file.jpg',
 				'test-file.jpg',
-				'image'
+				'image',
 			);
 
 			expect(uploadResult).toEqual({ token: 'file-token-123' });
@@ -1298,14 +1492,45 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(mockHttpRequest).toHaveBeenCalledTimes(1);
 		});
 
+		it('should fallback to token from uploads endpoint when upload response has no token/url', async () => {
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			mockHttpRequest
+				.mockResolvedValueOnce({
+					url: 'https://upload.example.com/upload',
+					token: 'video-token-123',
+				})
+				.mockResolvedValueOnce({
+					statusCode: 200,
+					body: JSON.stringify({ retval: '/uploaded/video.mp4' }),
+				});
+
+			const uploadResult = await uploadFileToMax.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				{} as any,
+				'/tmp/test-file.mp4',
+				'test-file.mp4',
+				'video',
+			);
+
+			expect(uploadResult).toEqual({ token: 'video-token-123' });
+			expect(mockHttpRequest).toHaveBeenCalledTimes(2);
+		});
+
 		it('should handle upload URL request failure', async () => {
 			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
 			mockHttpRequest.mockResolvedValueOnce({}); // No URL in response
 
 			await AssertionHelpers.expectAsyncError(
-				() => uploadFileToMax.call(mockExecuteFunctions as IExecuteFunctions, {} as any, '/tmp/test.jpg', 'test.jpg', 'image'),
+				() =>
+					uploadFileToMax.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						{} as any,
+						'/tmp/test.jpg',
+						'test.jpg',
+						'image',
+					),
 				NodeOperationError,
-				/Failed to get upload URL from Max API/
+				/Failed to get upload URL from Max API/,
 			);
 		});
 
@@ -1316,9 +1541,16 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				.mockResolvedValueOnce({ statusCode: 500 }); // Upload failed
 
 			await AssertionHelpers.expectAsyncError(
-				() => uploadFileToMax.call(mockExecuteFunctions as IExecuteFunctions, {} as any, '/tmp/test.jpg', 'test.jpg', 'image'),
+				() =>
+					uploadFileToMax.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						{} as any,
+						'/tmp/test.jpg',
+						'test.jpg',
+						'image',
+					),
 				NodeOperationError,
-				/Failed to upload file to Max API/
+				/Failed to upload file to Max API/,
 			);
 		});
 
@@ -1328,13 +1560,20 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				.mockResolvedValueOnce({ url: 'https://upload.example.com/upload' })
 				.mockResolvedValueOnce({
 					statusCode: 200,
-					body: JSON.stringify({}) // No token in response
+					body: JSON.stringify({}), // No token in response
 				});
 
 			await AssertionHelpers.expectAsyncError(
-				() => uploadFileToMax.call(mockExecuteFunctions as IExecuteFunctions, {} as any, '/tmp/test.jpg', 'test.jpg', 'image'),
+				() =>
+					uploadFileToMax.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						{} as any,
+						'/tmp/test.jpg',
+						'test.jpg',
+						'image',
+					),
 				NodeOperationError,
-				/Failed to upload file to Max API/
+				/Failed to upload file to Max API/,
 			);
 		});
 	});
@@ -1351,22 +1590,47 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const item = { json: {} } as INodeExecutionData;
 
 			await AssertionHelpers.expectAsyncError(
-				() => processBinaryAttachment.call(mockExecuteFunctions as IExecuteFunctions, {} as any, config, item),
+				() =>
+					processBinaryAttachment.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						{} as any,
+						config,
+						item,
+					),
 				NodeOperationError,
-				/No binary data found for property "data"/
+				/No binary data found for property "data"/,
 			);
 		});
 
-		it('should handle missing file path in binary data', async () => {
+		it('should read binary content through n8n helper and upload successfully', async () => {
 			const config = AttachmentConfigFactory.createImageConfig();
-			const binaryData = BinaryDataFactory.createImageBinary({ id: undefined as any });
+			const binaryData = BinaryDataFactory.createImageBinary();
 			const item = NodeExecutionDataFactory.createWithBinary({ data: binaryData });
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			const mockGetBinaryDataBuffer = (mockExecuteFunctions.helpers as any)
+				.getBinaryDataBuffer as jest.Mock;
 
-			await AssertionHelpers.expectAsyncError(
-				() => processBinaryAttachment.call(mockExecuteFunctions as IExecuteFunctions, {} as any, config, item),
-				NodeOperationError,
-				/Binary data does not contain file path/
+			mockGetBinaryDataBuffer.mockResolvedValueOnce(Buffer.from('image-bytes'));
+			mockHttpRequest
+				.mockResolvedValueOnce({ url: 'https://upload.example.com/upload' })
+				.mockResolvedValueOnce({
+					statusCode: 200,
+					body: JSON.stringify({ token: 'image-token-123' }),
+				});
+
+			const result = await processBinaryAttachment.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				{} as any,
+				config,
+				item,
+				7,
 			);
+
+			expect(result).toEqual({
+				type: 'image',
+				payload: { token: 'image-token-123' },
+			});
+			expect(mockGetBinaryDataBuffer).toHaveBeenCalledWith(7, 'data');
 		});
 	});
 
@@ -1386,7 +1650,11 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		});
 
 		it('should validate open_app buttons', () => {
-			const button = { text: 'Open app', type: 'open_app' as const, url: 'https://example.com/app' };
+			const button = {
+				text: 'Open app',
+				type: 'open_app' as const,
+				url: 'https://example.com/app',
+			};
 			expect(() => validateKeyboardButton(button)).not.toThrow();
 		});
 
@@ -1407,11 +1675,11 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 		it('should reject invalid button types', () => {
 			const button = { text: 'Test', type: 'invalid' as any };
-			
+
 			AssertionHelpers.expectError(
 				() => validateKeyboardButton(button),
 				Error,
-				/Invalid button type: invalid/
+				/Invalid button type: invalid/,
 			);
 		});
 
@@ -1419,51 +1687,51 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			AssertionHelpers.expectError(
 				() => validateKeyboardButton({ text: '', type: 'callback' }),
 				Error,
-				/Button text cannot be empty/
+				/Button text cannot be empty/,
 			);
 
-            AssertionHelpers.expectError(
-                () => validateKeyboardButton({ text: 'A'.repeat(129), type: 'callback', payload: 'p' }),
-                Error,
-                /Button text cannot exceed 128 characters/
-            );
+			AssertionHelpers.expectError(
+				() => validateKeyboardButton({ text: 'A'.repeat(129), type: 'callback', payload: 'p' }),
+				Error,
+				/Button text cannot exceed 128 characters/,
+			);
 		});
 
 		it('should validate callback button payload', () => {
 			AssertionHelpers.expectError(
 				() => validateKeyboardButton({ text: 'Test', type: 'callback' }),
 				Error,
-				/Callback buttons must have a payload string/
+				/Callback buttons must have a payload string/,
 			);
 
-            AssertionHelpers.expectError(
-                () => validateKeyboardButton({ text: 'Test', type: 'callback', payload: 'A'.repeat(1025) }),
-                Error,
-                /Callback payload cannot exceed 1024 characters/
-            );
+			AssertionHelpers.expectError(
+				() => validateKeyboardButton({ text: 'Test', type: 'callback', payload: 'A'.repeat(1025) }),
+				Error,
+				/Callback payload cannot exceed 1024 characters/,
+			);
 		});
 
 		it('should validate link button URL', () => {
 			AssertionHelpers.expectError(
 				() => validateKeyboardButton({ text: 'Test', type: 'link' }),
 				Error,
-				/buttons must have a URL string/
+				/buttons must have a URL string/,
 			);
 
 			AssertionHelpers.expectError(
 				() => validateKeyboardButton({ text: 'Test', type: 'link', url: 'invalid-url' }),
 				Error,
-				/Invalid URL format: invalid-url/
+				/Invalid URL format: invalid-url/,
 			);
 		});
 
 		it('should validate link button URL length', () => {
 			const longUrl = 'https://example.com/' + 'a'.repeat(2048);
-			
+
 			AssertionHelpers.expectError(
 				() => validateKeyboardButton({ text: 'Test', type: 'link', url: longUrl }),
 				Error,
-				/Button URL cannot exceed 2048 characters/
+				/Button URL cannot exceed 2048 characters/,
 			);
 		});
 
@@ -1475,22 +1743,24 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			);
 
 			AssertionHelpers.expectError(
-				() => validateKeyboardButton({
-					text: 'Chat',
-					type: 'chat',
-					chat_title: 'A'.repeat(201),
-				}),
+				() =>
+					validateKeyboardButton({
+						text: 'Chat',
+						type: 'chat',
+						chat_title: 'A'.repeat(201),
+					}),
 				Error,
 				/chat_title cannot exceed 200 characters/,
 			);
 
 			AssertionHelpers.expectError(
-				() => validateKeyboardButton({
-					text: 'Chat',
-					type: 'chat',
-					chat_title: 'Title',
-					uuid: -1,
-				}),
+				() =>
+					validateKeyboardButton({
+						text: 'Chat',
+						type: 'chat',
+						chat_title: 'Title',
+						uuid: -1,
+					}),
 				Error,
 				/uuid must be a non-negative integer/,
 			);
@@ -1498,9 +1768,15 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 		it('should validate button intent', () => {
 			AssertionHelpers.expectError(
-				() => validateKeyboardButton({ text: 'Test', type: 'callback', payload: 'test', intent: 'invalid' as any }),
+				() =>
+					validateKeyboardButton({
+						text: 'Test',
+						type: 'callback',
+						payload: 'test',
+						intent: 'invalid' as any,
+					}),
 				Error,
-				/Invalid button intent: invalid/
+				/Invalid button intent: invalid/,
 			);
 		});
 	});
@@ -1515,7 +1791,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			AssertionHelpers.expectError(
 				() => validateKeyboardLayout([]),
 				Error,
-				/Keyboard must have at least one row of buttons/
+				/Keyboard must have at least one row of buttons/,
 			);
 		});
 
@@ -1523,34 +1799,34 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			AssertionHelpers.expectError(
 				() => validateKeyboardLayout([[]]),
 				Error,
-				/Row 1 cannot be empty/
+				/Row 1 cannot be empty/,
 			);
 		});
 
 		it('should enforce maximum buttons per row', () => {
 			const tooManyButtons = Array(8).fill(KeyboardButtonFactory.createCallbackButton());
-			
+
 			AssertionHelpers.expectError(
 				() => validateKeyboardLayout([tooManyButtons]),
 				Error,
-				/Row 1 cannot have more than 7 buttons/
+				/Row 1 cannot have more than 7 buttons/,
 			);
 		});
 
 		it('should enforce maximum total buttons', () => {
 			const manyRows = Array(31).fill([KeyboardButtonFactory.createCallbackButton()]);
-			
+
 			AssertionHelpers.expectError(
 				() => validateKeyboardLayout(manyRows),
 				Error,
-				/Keyboard cannot have more than 30 rows/
+				/Keyboard cannot have more than 30 rows/,
 			);
 		});
 
 		it('should allow maximum total button count at boundary', () => {
-			const maxRows = Array(30).fill(null).map(() =>
-				Array(7).fill(KeyboardButtonFactory.createCallbackButton())
-			);
+			const maxRows = Array(30)
+				.fill(null)
+				.map(() => Array(7).fill(KeyboardButtonFactory.createCallbackButton()));
 
 			expect(() => validateKeyboardLayout(maxRows)).not.toThrow();
 		});
@@ -1572,11 +1848,11 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 		it('should validate individual buttons in layout', () => {
 			const invalidButton = { text: '', type: 'callback' as const };
-			
+
 			AssertionHelpers.expectError(
 				() => validateKeyboardLayout([[invalidButton]]),
 				Error,
-				/Row 1, Button 1: Button text cannot be empty/
+				/Row 1, Button 1: Button text cannot be empty/,
 			);
 		});
 	});
@@ -1596,7 +1872,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		it('should format multi-row keyboard correctly', () => {
 			const buttons = [
 				[KeyboardButtonFactory.createCallbackButton({ text: 'Button 1' })],
-				[KeyboardButtonFactory.createLinkButton({ text: 'Button 2' })]
+				[KeyboardButtonFactory.createLinkButton({ text: 'Button 2' })],
 			];
 			const result = formatInlineKeyboard(buttons);
 
@@ -1659,7 +1935,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				.withCredentials({ accessToken: 'test-token' })
 				.withHttpResponse({ id: 123, title: 'Test Chat' })
 				.build();
-			
+
 			mockExecuteFunctions = scenario.mockExecuteFunctions;
 		});
 
@@ -1667,38 +1943,33 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const result = await getChatInfo.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				{} as any,
-				TEST_CONSTANTS.IDS.VALID_CHAT
+				TEST_CONSTANTS.IDS.VALID_CHAT,
 			);
 
 			expect(result.id).toBe(123);
 			expect(result.title).toBe('Test Chat');
-			AssertionHelpers.expectHttpRequest(
-				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock),
-				{
-					method: 'GET',
-					url: `https://platform-api.max.ru/chats/${TEST_CONSTANTS.IDS.VALID_CHAT}`
-				}
-			);
+			AssertionHelpers.expectHttpRequest(mockExecuteFunctions.helpers!.httpRequest as jest.Mock, {
+				method: 'GET',
+				url: `https://platform-api.max.ru/chats/${TEST_CONSTANTS.IDS.VALID_CHAT}`,
+			});
 		});
 
 		it('should get chat info for a negative chat ID', async () => {
-			await getChatInfo.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				{} as any,
-				-12345,
-			);
-			AssertionHelpers.expectHttpRequest(
-				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock),
-				{
-					method: 'GET',
-					url: `https://platform-api.max.ru/chats/-12345`,
-				},
-			);
+			await getChatInfo.call(mockExecuteFunctions as IExecuteFunctions, {} as any, -12345);
+			AssertionHelpers.expectHttpRequest(mockExecuteFunctions.helpers!.httpRequest as jest.Mock, {
+				method: 'GET',
+				url: `https://platform-api.max.ru/chats/-12345`,
+			});
 		});
 
 		it('should throw an error for non-numeric chat ID', async () => {
 			await AssertionHelpers.expectAsyncError(
-				() => getChatInfo.call(mockExecuteFunctions as IExecuteFunctions, {} as any, 'not-a-number' as any),
+				() =>
+					getChatInfo.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						{} as any,
+						'not-a-number' as any,
+					),
 				Error,
 				/Chat ID is required and must be a number/,
 			);
@@ -1711,9 +1982,10 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				.build();
 
 			await AssertionHelpers.expectAsyncError(
-				() => getChatInfo.call(scenario.mockExecuteFunctions, {} as any, TEST_CONSTANTS.IDS.VALID_CHAT),
+				() =>
+					getChatInfo.call(scenario.mockExecuteFunctions, {} as any, TEST_CONSTANTS.IDS.VALID_CHAT),
 				NodeApiError,
-				/not able to process your request/i
+				/not able to process your request/i,
 			);
 		});
 	});
@@ -1726,7 +1998,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				.withCredentials({ accessToken: 'test-token' })
 				.withHttpResponse({ success: true })
 				.build();
-			
+
 			mockExecuteFunctions = scenario.mockExecuteFunctions;
 		});
 
@@ -1734,17 +2006,14 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const result = await leaveChat.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				{} as any,
-				TEST_CONSTANTS.IDS.VALID_CHAT
+				TEST_CONSTANTS.IDS.VALID_CHAT,
 			);
 
 			expect(result.success).toBe(true);
-            AssertionHelpers.expectHttpRequest(
-                (mockExecuteFunctions.helpers!.httpRequest as jest.Mock),
-                {
-                    method: 'DELETE',
-                    url: `https://platform-api.max.ru/chats/${TEST_CONSTANTS.IDS.VALID_CHAT}/members/me`
-                }
-            );
+			AssertionHelpers.expectHttpRequest(mockExecuteFunctions.helpers!.httpRequest as jest.Mock, {
+				method: 'DELETE',
+				url: `https://platform-api.max.ru/chats/${TEST_CONSTANTS.IDS.VALID_CHAT}/members/me`,
+			});
 		});
 
 		it('should handle null response with default success message', async () => {
@@ -1756,7 +2025,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const result = await leaveChat.call(
 				scenario.mockExecuteFunctions,
 				{} as any,
-				TEST_CONSTANTS.IDS.VALID_CHAT
+				TEST_CONSTANTS.IDS.VALID_CHAT,
 			);
 
 			expect(result.success).toBe(true);
@@ -1765,23 +2034,21 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		});
 
 		it('should leave chat for a negative chat ID', async () => {
-			await leaveChat.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				{} as any,
-				-12345,
-			);
-            AssertionHelpers.expectHttpRequest(
-                (mockExecuteFunctions.helpers!.httpRequest as jest.Mock),
-                {
-                    method: 'DELETE',
-                    url: `https://platform-api.max.ru/chats/-12345/members/me`,
-                },
-            );
+			await leaveChat.call(mockExecuteFunctions as IExecuteFunctions, {} as any, -12345);
+			AssertionHelpers.expectHttpRequest(mockExecuteFunctions.helpers!.httpRequest as jest.Mock, {
+				method: 'DELETE',
+				url: `https://platform-api.max.ru/chats/-12345/members/me`,
+			});
 		});
 
 		it('should throw an error for non-numeric chat ID', async () => {
 			await AssertionHelpers.expectAsyncError(
-				() => leaveChat.call(mockExecuteFunctions as IExecuteFunctions, {} as any, 'not-a-number' as any),
+				() =>
+					leaveChat.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						{} as any,
+						'not-a-number' as any,
+					),
 				Error,
 				/Chat ID is required and must be a number/,
 			);
@@ -1794,9 +2061,10 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				.build();
 
 			await AssertionHelpers.expectAsyncError(
-				() => leaveChat.call(scenario.mockExecuteFunctions, {} as any, TEST_CONSTANTS.IDS.VALID_CHAT),
+				() =>
+					leaveChat.call(scenario.mockExecuteFunctions, {} as any, TEST_CONSTANTS.IDS.VALID_CHAT),
 				NodeApiError,
-				/not able to process your request/i
+				/not able to process your request/i,
 			);
 		});
 	});
@@ -1813,19 +2081,17 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				buttons: [
 					{
 						row: {
-							button: [
-								{ text: 'Button 1', type: 'callback', payload: 'btn1' }
-							]
-						}
-					}
-				]
+							button: [{ text: 'Button 1', type: 'callback', payload: 'btn1' }],
+						},
+					},
+				],
 			};
 
 			(mockExecuteFunctions.getNodeParameter as jest.Mock).mockReturnValue(keyboardData);
 
 			const result = processKeyboardFromParameters.call(
 				mockExecuteFunctions as IExecuteFunctions,
-				0
+				0,
 			);
 
 			expect(result).not.toBeNull();
@@ -1875,7 +2141,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 			const result = processKeyboardFromParameters.call(
 				mockExecuteFunctions as IExecuteFunctions,
-				0
+				0,
 			);
 
 			expect(result).toBeNull();
@@ -1883,12 +2149,12 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 		it('should return null for invalid keyboard structure', () => {
 			(mockExecuteFunctions.getNodeParameter as jest.Mock).mockReturnValue({
-				buttons: []
+				buttons: [],
 			});
 
 			const result = processKeyboardFromParameters.call(
 				mockExecuteFunctions as IExecuteFunctions,
-				0
+				0,
 			);
 
 			expect(result).toBeNull();
@@ -1899,15 +2165,15 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				buttons: [
 					{
 						row: {
-							button: [] // Empty button array
-						}
-					}
-				]
+							button: [], // Empty button array
+						},
+					},
+				],
 			});
 
 			const result = processKeyboardFromParameters.call(
 				mockExecuteFunctions as IExecuteFunctions,
-				0
+				0,
 			);
 
 			expect(result).toBeNull();
@@ -1919,11 +2185,11 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					{
 						row: {
 							button: [
-								{ text: '', type: 'callback' } // Invalid button
-							]
-						}
-					}
-				]
+								{ text: '', type: 'callback' }, // Invalid button
+							],
+						},
+					},
+				],
 			};
 
 			(mockExecuteFunctions.getNodeParameter as jest.Mock).mockReturnValue(invalidKeyboardData);
@@ -1931,7 +2197,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			AssertionHelpers.expectError(
 				() => processKeyboardFromParameters.call(mockExecuteFunctions as IExecuteFunctions, 0),
 				NodeOperationError,
-				/Failed to process inline keyboard/
+				/Failed to process inline keyboard/,
 			);
 		});
 	});
@@ -1944,24 +2210,26 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		it('should handle complete file upload workflow', async () => {
 			const mockExecuteFunctions = createMockExecuteFunctions();
 			const config = AttachmentConfigFactory.createVideoConfig();
-			
+
 			// Mock successful download
 			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
 			mockHttpRequest
-				.mockResolvedValueOnce({ // Download file
+				.mockResolvedValueOnce({
+					// Download file
 					statusCode: 200,
-					body: 'video content'
+					body: 'video content',
 				})
 				.mockResolvedValueOnce({ url: 'https://upload.example.com' }) // Get upload URL
-				.mockResolvedValueOnce({ // Upload file
+				.mockResolvedValueOnce({
+					// Upload file
 					statusCode: 200,
-					body: JSON.stringify({ token: 'video-token-123' })
+					body: JSON.stringify({ token: 'video-token-123' }),
 				});
 
 			const result = await processUrlAttachment.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				{} as any,
-				config
+				config,
 			);
 
 			expect(result.type).toBe('video');
@@ -1974,9 +2242,15 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const item = { json: {} } as INodeExecutionData; // Missing binary data
 
 			await AssertionHelpers.expectAsyncError(
-				() => processBinaryAttachment.call(mockExecuteFunctions as IExecuteFunctions, {} as any, config, item),
+				() =>
+					processBinaryAttachment.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						{} as any,
+						config,
+						item,
+					),
 				NodeOperationError,
-				/No binary data found/
+				/No binary data found/,
 			);
 		});
 

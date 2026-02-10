@@ -18,7 +18,7 @@ function toPunycodeUrl(urlString: string): string {
 
 /**
  * Max webhook manager
- * 
+ *
  * Handles webhook subscription lifecycle with the Max API.
  * Provides methods to check, create, and delete webhook subscriptions.
  */
@@ -27,16 +27,16 @@ export class MaxWebhookManager {
 
 	/**
 	 * Check if webhook subscription already exists
-	 * 
+	 *
 	 * Queries the Max API to determine if a webhook subscription
 	 * for this node's webhook URL is already registered.
-	 * 
+	 *
 	 * @param this - Hook function context providing access to credentials and helpers
 	 * @returns Promise resolving to true if webhook exists, false otherwise
 	 */
 	async checkExists(this: IHookFunctions): Promise<boolean> {
 		const manager = new MaxWebhookManager();
-		
+
 		try {
 			const { baseUrl, webhookUrl } = await manager.getWebhookConfig(this);
 
@@ -46,16 +46,16 @@ export class MaxWebhookManager {
 
 			if (response && Array.isArray(response.subscriptions)) {
 				const existingSubscription = response.subscriptions.find(
-					(sub: any) => sub.url === webhookUrl
+					(sub: any) => sub.url === webhookUrl,
 				);
-				
+
 				if (existingSubscription) {
 					console.log('Max Trigger - checkExists: Found existing webhook, returning true');
 					return true;
 				}
-				
+
 				console.log(
-					`Max Trigger - checkExists: No matching webhook found among ${response.subscriptions.length} subscriptions`
+					`Max Trigger - checkExists: No matching webhook found among ${response.subscriptions.length} subscriptions`,
 				);
 			}
 
@@ -68,19 +68,20 @@ export class MaxWebhookManager {
 
 	/**
 	 * Create webhook subscription with Max API
-	 * 
+	 *
 	 * Creates a webhook subscription only if one doesn't already exist.
 	 * This prevents the constant recreation cycle that was causing issues.
-	 * 
+	 *
 	 * @param this - Hook function context providing access to credentials and parameters
 	 * @returns Promise resolving to true if webhook creation succeeds
 	 * @throws {Error} When webhook creation fails or API request is rejected
 	 */
 	async create(this: IHookFunctions): Promise<boolean> {
 		const manager = new MaxWebhookManager();
-		
+
 		try {
-			const { baseUrl, webhookUrl, events, credentials, additionalFields } = await manager.getWebhookConfig(this);
+			const { baseUrl, webhookUrl, events, credentials, additionalFields } =
+				await manager.getWebhookConfig(this);
 
 			console.log('Max Trigger - create: Creating webhook for:', webhookUrl);
 
@@ -89,21 +90,28 @@ export class MaxWebhookManager {
 
 			if (existingResponse && Array.isArray(existingResponse.subscriptions)) {
 				const existingSubscription = existingResponse.subscriptions.find(
-					(sub: any) => sub.url === webhookUrl
+					(sub: any) => sub.url === webhookUrl,
 				);
-				
+
 				if (existingSubscription) {
 					console.log('Max Trigger - create: Webhook already exists, skipping creation');
 					return true;
 				}
 
 				console.log(
-					`Max Trigger - create: Found ${existingResponse.subscriptions.length} existing subscriptions, but none match our URL`
+					`Max Trigger - create: Found ${existingResponse.subscriptions.length} existing subscriptions, but none match our URL`,
 				);
 			}
 
 			// Create new webhook subscription
-			await manager.createSubscription(this, baseUrl, webhookUrl, events, credentials, additionalFields);
+			await manager.createSubscription(
+				this,
+				baseUrl,
+				webhookUrl,
+				events,
+				credentials,
+				additionalFields,
+			);
 
 			console.log('Max Trigger - create: Webhook subscription created successfully');
 			return true;
@@ -115,15 +123,15 @@ export class MaxWebhookManager {
 
 	/**
 	 * Delete webhook subscription from Max API
-	 * 
+	 *
 	 * Called when workflow is deactivated. Cleans up webhook subscriptions.
-	 * 
+	 *
 	 * @param this - Hook function context providing access to credentials and helpers
 	 * @returns Promise resolving to true if deletion succeeds
 	 */
 	async delete(this: IHookFunctions): Promise<boolean> {
 		const manager = new MaxWebhookManager();
-		
+
 		try {
 			const { baseUrl, webhookUrl, credentials } = await manager.getWebhookConfig(this);
 
@@ -135,9 +143,9 @@ export class MaxWebhookManager {
 			if (existingResponse && Array.isArray(existingResponse.subscriptions)) {
 				// Only delete our specific webhook
 				const targetSubscription = existingResponse.subscriptions.find(
-					(sub: any) => sub.url === webhookUrl
+					(sub: any) => sub.url === webhookUrl,
 				);
-				
+
 				if (targetSubscription) {
 					await manager.deleteSubscription(this, baseUrl, targetSubscription.url, credentials);
 					console.log('Max Trigger - delete: Webhook subscription deleted successfully');
@@ -178,10 +186,10 @@ export class MaxWebhookManager {
 	 */
 	public async getSubscriptions(
 		context: IHookFunctions,
-		baseUrl: string
+		baseUrl: string,
 	): Promise<MaxSubscriptionsResponse> {
 		const credentials = await context.getCredentials('maxApi');
-		
+
 		return context.helpers.httpRequest({
 			method: 'GET',
 			url: `${baseUrl}/subscriptions`,
@@ -237,7 +245,7 @@ export class MaxWebhookManager {
 		context: IHookFunctions,
 		baseUrl: string,
 		webhookUrl: string,
-		credentials: any
+		credentials: any,
 	): Promise<void> {
 		await context.helpers.httpRequest({
 			method: 'DELETE',
