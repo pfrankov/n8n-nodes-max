@@ -722,6 +722,94 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			);
 		});
 
+		it('should retry send with attachment when Max reports temporary not-ready state', async () => {
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			mockHttpRequest
+				.mockRejectedValueOnce({
+					message: 'attachment.not.ready',
+					response: {
+						body: {
+							error: 'errors.process.attachment.file.not.processed',
+						},
+					},
+				})
+				.mockResolvedValueOnce({
+					message_id: 654,
+					text: 'Photo',
+				});
+
+			const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation((callback: any) => {
+				if (typeof callback === 'function') {
+					callback();
+				}
+				return {} as NodeJS.Timeout;
+			});
+
+			const result = await sendMessage.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				mockBot,
+				'user',
+				123,
+				'Photo',
+				{
+					attachments: [{ type: 'image', payload: { token: 'image-token-123' } }],
+				},
+			);
+
+			expect(result).toEqual({ message_id: 654, text: 'Photo' });
+			expect(mockHttpRequest).toHaveBeenCalledTimes(2);
+			expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 700);
+			setTimeoutSpy.mockRestore();
+		});
+
+		it('should stop retrying attachment send after documented delay sequence is exhausted', async () => {
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			mockHttpRequest.mockRejectedValue({
+				message: 'errors.process.attachment.file.not.processed',
+			});
+
+			const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation((callback: any) => {
+				if (typeof callback === 'function') {
+					callback();
+				}
+				return {} as NodeJS.Timeout;
+			});
+
+			await expect(
+				sendMessage.call(mockExecuteFunctions as IExecuteFunctions, mockBot, 'user', 123, 'Photo', {
+					attachments: [{ type: 'image', payload: { token: 'image-token-123' } }],
+				}),
+			).rejects.toThrow(NodeApiError);
+
+			expect(mockHttpRequest).toHaveBeenCalledTimes(4);
+			expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), 700);
+			expect(setTimeoutSpy).toHaveBeenNthCalledWith(2, expect.any(Function), 1500);
+			expect(setTimeoutSpy).toHaveBeenNthCalledWith(3, expect.any(Function), 3000);
+			setTimeoutSpy.mockRestore();
+		});
+
+		it('should not retry attachment-not-ready errors when no media attachments are provided', async () => {
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			mockHttpRequest.mockRejectedValue(new Error('attachment.not.ready'));
+
+			const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+
+			await expect(
+				sendMessage.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'user',
+					123,
+					'Hello',
+					{},
+				),
+			).rejects.toThrow(NodeApiError);
+
+			expect(mockHttpRequest).toHaveBeenCalledTimes(1);
+			expect(setTimeoutSpy).not.toHaveBeenCalled();
+			setTimeoutSpy.mockRestore();
+		});
+
 		it('should handle different message formats', async () => {
 			const expectedResponse = { message_id: 789, text: '<b>Bold</b>' };
 			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mockResolvedValue(expectedResponse);
@@ -1154,6 +1242,9 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					Authorization: 'test-token',
 					'Content-Type': 'application/json',
 				},
+				body: {
+					notification: 'Button clicked!',
+				},
 			});
 		});
 
@@ -1178,30 +1269,21 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			);
 		});
 
-		it('should allow long response text values', async () => {
-			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mockResolvedValue({ success: true });
-			const longText = 'A'.repeat(2000);
-
-			await expect(
-				answerCallbackQuery.call(
-					mockExecuteFunctions as IExecuteFunctions,
-					mockBot,
-					'callback_123',
-					longText,
-				),
-			).resolves.toEqual({ success: true });
-		});
-
-		it('should handle optional parameters correctly', async () => {
-			const result = await answerCallbackQuery.call(
+		it('should send empty request body when notification text is not provided', async () => {
+			await answerCallbackQuery.call(
 				mockExecuteFunctions as IExecuteFunctions,
 				mockBot,
 				'callback_123',
 			);
 
-			expect(result.success).toBe(true);
-			// The function returns the default response structure when no specific response is provided
-			expect(result).toHaveProperty('success', true);
+			AssertionHelpers.expectHttpRequest(mockExecuteFunctions.helpers!.httpRequest as jest.Mock, {
+				method: 'POST',
+				url: 'https://platform-api.max.ru/answers',
+				qs: {
+					callback_id: 'callback_123',
+				},
+				body: {},
+			});
 		});
 	});
 
@@ -1469,7 +1551,10 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				expect.objectContaining({
 					method: 'POST',
 					url: 'https://upload.example.com/upload',
-					headers: expect.objectContaining({ Authorization: 'test-token' }),
+					headers: expect.objectContaining({
+						'content-type': expect.any(String),
+						Authorization: 'test-token',
+					}),
 					body: expect.anything(),
 					returnFullResponse: true,
 				}),
@@ -1514,6 +1599,86 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 			expect(uploadResult).toEqual({ token: 'video-token-123' });
 			expect(mockHttpRequest).toHaveBeenCalledTimes(2);
+		});
+
+		it('should return non-token upload payload object for image attachments', async () => {
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			mockHttpRequest
+				.mockResolvedValueOnce({
+					url: 'https://upload.example.com/upload',
+				})
+				.mockResolvedValueOnce({
+					statusCode: 200,
+					body: JSON.stringify({
+						photos: {
+							'640x480': { token: 'image-token-640' },
+						},
+					}),
+				});
+
+			const uploadResult = await uploadFileToMax.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				{} as any,
+				'/tmp/test-image.jpg',
+				'test-image.jpg',
+				'image',
+			);
+
+			expect(uploadResult).toEqual({
+				photos: {
+					'640x480': { token: 'image-token-640' },
+				},
+			});
+			expect(mockHttpRequest).toHaveBeenCalledTimes(2);
+		});
+
+		it('should return url payload for file attachments when upload response contains url', async () => {
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			mockHttpRequest
+				.mockResolvedValueOnce({
+					url: 'https://upload.example.com/upload',
+				})
+				.mockResolvedValueOnce({
+					statusCode: 200,
+					body: JSON.stringify({
+						url: 'https://cdn.example.com/files/report.pdf',
+					}),
+				});
+
+			const uploadResult = await uploadFileToMax.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				{} as any,
+				'/tmp/report.pdf',
+				'report.pdf',
+				'file',
+			);
+
+			expect(uploadResult).toEqual({
+				url: 'https://cdn.example.com/files/report.pdf',
+			});
+		});
+
+		it('should fallback to upload-step token for video when upload response is not JSON', async () => {
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			mockHttpRequest
+				.mockResolvedValueOnce({
+					url: 'https://upload.example.com/upload',
+					token: 'video-token-123',
+				})
+				.mockResolvedValueOnce({
+					statusCode: 200,
+					body: 'not-json-response',
+				});
+
+			const uploadResult = await uploadFileToMax.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				{} as any,
+				'/tmp/video.mp4',
+				'video.mp4',
+				'video',
+			);
+
+			expect(uploadResult).toEqual({ token: 'video-token-123' });
 		});
 
 		it('should handle upload URL request failure', async () => {
@@ -1631,6 +1796,44 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				payload: { token: 'image-token-123' },
 			});
 			expect(mockGetBinaryDataBuffer).toHaveBeenCalledWith(7, 'data');
+		});
+
+		it('should keep upload payload object when response contains photos map', async () => {
+			const config = AttachmentConfigFactory.createImageConfig();
+			const binaryData = BinaryDataFactory.createImageBinary();
+			const item = NodeExecutionDataFactory.createWithBinary({ data: binaryData });
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			const mockGetBinaryDataBuffer = (mockExecuteFunctions.helpers as any)
+				.getBinaryDataBuffer as jest.Mock;
+
+			mockGetBinaryDataBuffer.mockResolvedValueOnce(Buffer.from('image-bytes'));
+			mockHttpRequest
+				.mockResolvedValueOnce({ url: 'https://upload.example.com/upload' })
+				.mockResolvedValueOnce({
+					statusCode: 200,
+					body: JSON.stringify({
+						photos: {
+							'640x480': { token: 'image-token-640' },
+						},
+					}),
+				});
+
+			const result = await processBinaryAttachment.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				{} as any,
+				config,
+				item,
+				7,
+			);
+
+			expect(result).toEqual({
+				type: 'image',
+				payload: {
+					photos: {
+						'640x480': { token: 'image-token-640' },
+					},
+				},
+			});
 		});
 	});
 
@@ -1918,8 +2121,20 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const buttons = [[KeyboardButtonFactory.createCallbackButton()]];
 			const result = createInlineKeyboardAttachment(buttons);
 
-			expect(result.type).toBe('inline_keyboard');
-			expect(result.payload.buttons).toBeDefined();
+			expect(result).toEqual({
+				type: 'inline_keyboard',
+				payload: {
+					buttons: [
+						[
+							{
+								text: 'Click Me',
+								type: 'callback',
+								payload: 'button_clicked',
+							},
+						],
+					],
+				},
+			});
 		});
 	});
 
@@ -2255,8 +2470,57 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		});
 
 		it('should handle multiple attachments processing', async () => {
-			// Test that the function exists and can be called
-			expect(handleAttachments).toBeDefined();
+			const mockExecuteFunctions = createMockExecuteFunctions();
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			const attachmentConfigs = [
+				AttachmentConfigFactory.createImageConfig({
+					inputType: 'binary',
+					binaryProperty: 'data',
+					fileName: 'local-image.jpg',
+				}),
+				AttachmentConfigFactory.createImageConfig({
+					inputType: 'url',
+					fileUrl: 'https://example.com/remote-image.jpg',
+					fileName: 'remote-image.jpg',
+				}),
+			];
+			const item = NodeExecutionDataFactory.createWithImageBinary();
+
+			mockHttpRequest
+				.mockResolvedValueOnce({ url: 'https://upload.example.com/local' })
+				.mockResolvedValueOnce({
+					statusCode: 200,
+					body: JSON.stringify({ token: 'local-image-token' }),
+				})
+				.mockResolvedValueOnce({
+					statusCode: 200,
+					body: 'remote image content',
+				})
+				.mockResolvedValueOnce({ url: 'https://upload.example.com/remote' })
+				.mockResolvedValueOnce({
+					statusCode: 200,
+					body: JSON.stringify({ token: 'remote-image-token' }),
+				});
+
+			const attachments = await handleAttachments.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				{} as any,
+				attachmentConfigs,
+				item,
+				0,
+			);
+
+			expect(attachments).toEqual([
+				{
+					type: 'image',
+					payload: { token: 'local-image-token' },
+				},
+				{
+					type: 'image',
+					payload: { token: 'remote-image-token' },
+				},
+			]);
+			expect(mockHttpRequest).toHaveBeenCalledTimes(5);
 		});
 	});
 });

@@ -48,8 +48,10 @@
 - Message and webhook operations use direct HTTP requests for strict API-shape control.
 - Webhook processing is fail-soft: invalid events or filter issues should not crash trigger execution.
 - Webhook subscription URLs are normalized to ASCII/Punycode hostnames before registration to avoid TLS issues on IDN domains.
-- Upload flow is two-step (`POST /uploads` then multipart upload to returned URL), with support for token usage whether it is returned at upload URL stage or upload result stage.
+- Upload flow is two-step (`POST /uploads` then multipart upload to returned URL). Attachment payload is normalized from upload-step JSON response (`token`, `url`, `photos`), with token fallback from `POST /uploads` for video/audio when provided there.
+- Message sending with media attachments retries on documented temporary processing errors (`attachment.not.ready` / `errors.process.attachment.file.not.processed`) before failing.
 - Message send/edit in `markdown` format retries once as plain text if Max API rejects unsupported Markdown syntax.
+- Recipient ID validation rejects `0` for `sendMessage` and returns guidance for Max Trigger field mapping (`message.sender.user_id` for user, `message.recipient.chat_id` for chat).
 - Keyboard validation enforces documented limits (rows/buttons/text/payload/url and limited-type per-row constraints).
 
 ## Project Structure & Module Organization

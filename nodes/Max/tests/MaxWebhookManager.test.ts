@@ -193,7 +193,11 @@ describe('MaxWebhookManager', () => {
 
 			(mockHookFunctions.getCredentials as jest.Mock).mockResolvedValue(mockCredentials);
 			(mockHookFunctions.getNodeWebhookUrl as jest.Mock).mockReturnValue(mockWebhookUrl);
-			(mockHookFunctions.getNodeParameter as jest.Mock).mockReturnValue(mockEvents);
+			(mockHookFunctions.getNodeParameter as jest.Mock).mockImplementation((name: string) => {
+				if (name === 'events') return mockEvents;
+				if (name === 'additionalFields') return {};
+				return undefined;
+			});
 			(mockHookFunctions.helpers!.httpRequest as jest.Mock)
 				.mockResolvedValueOnce(mockResponse) // GET subscriptions
 				.mockResolvedValueOnce({}); // POST subscription
@@ -217,7 +221,7 @@ describe('MaxWebhookManager', () => {
 			});
 		});
 
-		it('should include secret and version when provided', async () => {
+		it('should include trimmed secret when provided', async () => {
 			const mockCredentials = {
 				accessToken: 'test-token',
 				baseUrl: 'https://platform-api.max.ru',
@@ -226,8 +230,7 @@ describe('MaxWebhookManager', () => {
 			const mockEvents = ['message_created', 'message_edited'];
 			const mockResponse = { subscriptions: [] };
 			const additionalFields = {
-				secret: 'my_secret_123',
-				version: '0.0.1',
+				secret: '   my_secret_123   ',
 			};
 
 			(mockHookFunctions.getCredentials as jest.Mock).mockResolvedValue(mockCredentials);
@@ -255,7 +258,6 @@ describe('MaxWebhookManager', () => {
 					url: mockWebhookUrl,
 					update_types: mockEvents,
 					secret: 'my_secret_123',
-					version: '0.0.1',
 				},
 				json: true,
 			});

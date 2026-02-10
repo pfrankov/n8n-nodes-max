@@ -206,6 +206,22 @@ describe('Max Node', () => {
 					'Invalid User ID: "xyz". Must be a number.',
 				);
 			});
+
+			it('should throw NodeOperationError for zero user_id', async () => {
+				const params = {
+					resource: 'message',
+					operation: 'sendMessage',
+					sendTo: 'user',
+					userId: '0',
+					text: 'This should fail',
+					format: 'plain',
+					additionalFields: {},
+				};
+				const executeFunctions = getExecuteFunctionsMock(params);
+				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow(
+					'User ID cannot be 0. For Max Trigger workflows use message.sender.user_id when sending to a user.',
+				);
+			});
 		});
 
 		describe('sendMessage with chatId validation', () => {
@@ -264,6 +280,22 @@ describe('Max Node', () => {
 				const executeFunctions = getExecuteFunctionsMock(params);
 				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow(
 					'Invalid Chat ID: "abc". Must be a number.',
+				);
+			});
+
+			it('should throw NodeOperationError for zero chat_id', async () => {
+				const params = {
+					resource: 'message',
+					operation: 'sendMessage',
+					sendTo: 'chat',
+					chatId: '0',
+					text: 'This should fail',
+					format: 'plain',
+					additionalFields: {},
+				};
+				const executeFunctions = getExecuteFunctionsMock(params);
+				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow(
+					'Chat ID cannot be 0. For Max Trigger workflows use message.recipient.chat_id when sending to a chat.',
 				);
 			});
 		});

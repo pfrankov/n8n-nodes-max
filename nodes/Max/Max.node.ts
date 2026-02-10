@@ -923,6 +923,13 @@ export class Max implements INodeType {
 									{ itemIndex: i },
 								);
 							}
+							if (recipientId === 0) {
+								throw new NodeOperationError(
+									this.getNode(),
+									'User ID cannot be 0. For Max Trigger workflows use message.sender.user_id when sending to a user.',
+									{ itemIndex: i },
+								);
+							}
 						} else {
 							const chatId = this.getNodeParameter('chatId', i);
 							// Handle both string and number inputs
@@ -939,6 +946,13 @@ export class Max implements INodeType {
 								throw new NodeOperationError(
 									this.getNode(),
 									`Invalid Chat ID: "${chatIdStr}". Must be a number.`,
+									{ itemIndex: i },
+								);
+							}
+							if (recipientId === 0) {
+								throw new NodeOperationError(
+									this.getNode(),
+									'Chat ID cannot be 0. For Max Trigger workflows use message.recipient.chat_id when sending to a chat.',
 									{ itemIndex: i },
 								);
 							}

@@ -13,11 +13,16 @@ import { basename, join } from 'path';
 import FormData from 'form-data';
 
 const DEFAULT_MAX_BASE_URL = 'https://platform-api.max.ru';
+const ATTACHMENT_READY_RETRY_DELAYS_MS = [700, 1500, 3000];
 
 function getAuthHeaders(accessToken: string): IDataObject {
 	return {
 		Authorization: accessToken,
 	};
+}
+
+async function sleep(ms: number): Promise<void> {
+	await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function extractMaxErrorText(error: unknown): string {
@@ -66,6 +71,92 @@ function isUnsupportedMarkdownSyntaxError(error: unknown): boolean {
 		(errorText.includes('markdown syntax') && errorText.includes('not supported')) ||
 		errorText.includes('use basic formatting')
 	);
+}
+
+function isAttachmentNotReadyError(error: unknown): boolean {
+	const errorText = extractMaxErrorText(error);
+	return (
+		errorText.includes('attachment.not.ready') ||
+		errorText.includes('errors.process.attachment.file.not.processed') ||
+		errorText.includes('file.not.processed')
+	);
+}
+
+function hasMediaAttachments(body: IDataObject): boolean {
+	const attachments = body['attachments'];
+	if (!Array.isArray(attachments)) {
+		return false;
+	}
+
+	return attachments.some((attachment) => {
+		if (!attachment || typeof attachment !== 'object') {
+			return false;
+		}
+
+		const type = (attachment as IDataObject)['type'];
+		return typeof type === 'string' && ['image', 'video', 'audio', 'file'].includes(type);
+	});
+}
+
+function isNonEmptyObject(value: unknown): value is Record<string, unknown> {
+	return (
+		value !== null &&
+		typeof value === 'object' &&
+		!Array.isArray(value) &&
+		Object.keys(value).length > 0
+	);
+}
+
+function getNonEmptyString(value: unknown): string | undefined {
+	return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function hasKnownUploadPayloadFields(payload: IMaxUploadResponse): boolean {
+	return (
+		getNonEmptyString(payload.token) !== undefined ||
+		getNonEmptyString(payload.url) !== undefined ||
+		isNonEmptyObject(payload.photos)
+	);
+}
+
+function resolveUploadPayload(
+	uploadResult: IMaxUploadResponse,
+	attachmentType: IAttachmentConfig['type'],
+	tokenFromUploadsEndpoint?: string,
+): IMaxUploadResponse | null {
+	const token = getNonEmptyString(uploadResult.token);
+	const url = getNonEmptyString(uploadResult.url);
+	const photos = isNonEmptyObject(uploadResult.photos) ? uploadResult.photos : undefined;
+
+	if (attachmentType === 'image') {
+		if (token) {
+			return { token };
+		}
+		if (photos) {
+			return { photos };
+		}
+		if (url) {
+			return { url };
+		}
+		return null;
+	}
+
+	if (attachmentType === 'video' || attachmentType === 'audio') {
+		if (token) {
+			return { token };
+		}
+		const fallbackToken = getNonEmptyString(tokenFromUploadsEndpoint);
+		return fallbackToken ? { token: fallbackToken } : null;
+	}
+
+	// file
+	if (token) {
+		return { token };
+	}
+	if (url) {
+		return { url };
+	}
+	return null;
 }
 
 function stripMarkdownFormatting(text: string): string {
@@ -208,26 +299,47 @@ export async function sendMessage(
 			body,
 			json: true,
 		};
+		const hasAttachments = hasMediaAttachments(body);
+		let requestBody = body;
+		let markdownFallbackApplied = false;
+		let attachmentRetryAttempt = 0;
 
-		try {
-			return await this.helpers.httpRequest(requestOptions);
-		} catch (error) {
-			const format = options['format'] as string | undefined;
-			if (format === 'markdown' && isUnsupportedMarkdownSyntaxError(error)) {
-				const plainText = stripMarkdownFormatting(text);
-				const fallbackBody: IDataObject = {
-					...body,
-					text: plainText.trim().length > 0 ? plainText : text,
-				};
-				delete fallbackBody['format'];
-
+		while (true) {
+			try {
 				return await this.helpers.httpRequest({
 					...requestOptions,
-					body: fallbackBody,
+					body: requestBody,
 				});
-			}
+			} catch (error) {
+				const format = options['format'] as string | undefined;
+				if (
+					!markdownFallbackApplied &&
+					format === 'markdown' &&
+					isUnsupportedMarkdownSyntaxError(error)
+				) {
+					const plainText = stripMarkdownFormatting(text);
+					requestBody = {
+						...requestBody,
+						text: plainText.trim().length > 0 ? plainText : text,
+					};
+					delete requestBody['format'];
+					markdownFallbackApplied = true;
+					continue;
+				}
 
-			throw error;
+				if (
+					hasAttachments &&
+					isAttachmentNotReadyError(error) &&
+					attachmentRetryAttempt < ATTACHMENT_READY_RETRY_DELAYS_MS.length
+				) {
+					const retryDelay = ATTACHMENT_READY_RETRY_DELAYS_MS[attachmentRetryAttempt] as number;
+					attachmentRetryAttempt += 1;
+					await sleep(retryDelay);
+					continue;
+				}
+
+				throw error;
+			}
 		}
 	} catch (error) {
 		// Use enhanced error handling
@@ -890,6 +1002,7 @@ export interface IMaxKeyboard {
 export interface IMaxUploadResponse {
 	url?: string;
 	token?: string;
+	photos?: Record<string, unknown>;
 }
 
 /**
@@ -1057,19 +1170,19 @@ export async function downloadFileFromUrl(
 }
 
 /**
- * Upload file to Max API and get token
+ * Upload file to Max API and get attachment payload
  *
  * Uploads a file to the Max API using the two-step upload process:
  * 1. Get upload URL from Max API
  * 2. Upload file to the provided URL
- * 3. Receive file token for use in messages
+ * 3. Receive attachment payload JSON for use in messages
  *
  * @param this - The execution context providing access to credentials and helpers
  * @param bot - Configured Max Bot API instance
  * @param filePath - Local file path of the file to upload
  * @param fileName - Name of the file for upload
  * @param attachmentType - Type of attachment ('image', 'video', 'audio', 'file')
- * @returns Promise resolving to the file token for use in attachments
+ * @returns Promise resolving to attachment payload for use in message attachments
  * @throws {NodeOperationError} When upload fails or API responses are invalid
  */
 export async function uploadFileToMax(
@@ -1077,7 +1190,7 @@ export async function uploadFileToMax(
 	_bot: Bot,
 	filePath: string,
 	fileName: string,
-	attachmentType: string,
+	attachmentType: IAttachmentConfig['type'],
 ): Promise<IMaxUploadResponse> {
 	try {
 		// Get credentials for API calls
@@ -1139,28 +1252,32 @@ export async function uploadFileToMax(
 			uploadResponse.body !== ''
 		) {
 			try {
-				uploadResult =
+				const parsedBody =
 					typeof uploadResponse.body === 'string'
 						? JSON.parse(uploadResponse.body)
 						: uploadResponse.body;
+				if (!isNonEmptyObject(parsedBody)) {
+					throw new Error('Upload response is not a JSON object');
+				}
+				uploadResult = parsedBody as IMaxUploadResponse;
 			} catch {
+				if (tokenFromUploadsEndpoint) {
+					return { token: tokenFromUploadsEndpoint };
+				}
 				throw new Error('Invalid response format from file upload');
 			}
 		}
 
-		if (uploadResult.token) {
-			return { token: uploadResult.token };
+		const supportedPayload = resolveUploadPayload(
+			uploadResult,
+			attachmentType,
+			tokenFromUploadsEndpoint,
+		);
+		if (supportedPayload) {
+			return supportedPayload;
 		}
 
-		if (uploadResult.url) {
-			return { url: uploadResult.url };
-		}
-
-		if (tokenFromUploadsEndpoint) {
-			return { token: tokenFromUploadsEndpoint };
-		}
-
-		throw new Error('No upload token or URL received from upload response');
+		throw new Error('No supported attachment payload received from Max API');
 	} catch (error) {
 		throw new NodeOperationError(
 			this.getNode(),
@@ -1179,7 +1296,7 @@ export async function uploadFileToMax(
  * @param bot - Configured Max Bot API instance
  * @param config - Attachment configuration specifying type and binary property
  * @param item - Node execution data containing binary data
- * @returns Promise resolving to Max attachment object with file token
+ * @returns Promise resolving to Max attachment object with upload payload
  * @throws {NodeOperationError} When binary data is missing or upload fails
  */
 export async function processBinaryAttachment(
@@ -1221,18 +1338,16 @@ export async function processBinaryAttachment(
 
 		// Upload file and get token/url
 		const uploadResult = await uploadFileToMax.call(this, bot, tempFilePath, fileName, config.type);
-		if (!uploadResult.token && !uploadResult.url) {
+		if (!hasKnownUploadPayloadFields(uploadResult)) {
 			throw new NodeOperationError(
 				this.getNode(),
-				'Upload completed but no token or URL was returned',
+				'Upload completed but no attachment payload was returned',
 			);
 		}
 
 		return {
 			type: config.type,
-			payload: uploadResult.token
-				? { token: uploadResult.token }
-				: { url: uploadResult.url as string },
+			payload: uploadResult,
 		};
 	} finally {
 		if (tempFilePath) {
@@ -1255,7 +1370,7 @@ export async function processBinaryAttachment(
  * @param this - The execution context providing access to credentials and helpers
  * @param bot - Configured Max Bot API instance
  * @param config - Attachment configuration specifying type and URL
- * @returns Promise resolving to Max attachment object with file token
+ * @returns Promise resolving to Max attachment object with upload payload
  * @throws {NodeOperationError} When download or upload fails
  */
 export async function processUrlAttachment(
@@ -1276,18 +1391,16 @@ export async function processUrlAttachment(
 
 		// Upload file and get token/url
 		const uploadResult = await uploadFileToMax.call(this, bot, filePath, fileName, config.type);
-		if (!uploadResult.token && !uploadResult.url) {
+		if (!hasKnownUploadPayloadFields(uploadResult)) {
 			throw new NodeOperationError(
 				this.getNode(),
-				'Upload completed but no token or URL was returned',
+				'Upload completed but no attachment payload was returned',
 			);
 		}
 
 		return {
 			type: config.type,
-			payload: uploadResult.token
-				? { token: uploadResult.token }
-				: { url: uploadResult.url as string },
+			payload: uploadResult,
 		};
 	} finally {
 		// Clean up temporary file

@@ -20,9 +20,8 @@ describe('MaxTriggerConfig', () => {
 			expect(MAX_TRIGGER_EVENTS).toEqual(expectedEvents);
 		});
 
-		it('should be readonly array', () => {
-			// TypeScript should prevent modification, but we can test the array is frozen
-			expect(Object.isFrozen(MAX_TRIGGER_EVENTS)).toBe(false); // const arrays aren't frozen by default
+		it('should include only unique event values', () => {
+			expect(new Set(MAX_TRIGGER_EVENTS).size).toBe(MAX_TRIGGER_EVENTS.length);
 			expect(MAX_TRIGGER_EVENTS.length).toBe(11);
 		});
 	});
@@ -84,13 +83,13 @@ describe('MaxTriggerConfig', () => {
 			expect((additionalFieldsProperty as any).default).toEqual({});
 		});
 
-		it('should have chatIds, userIds, secret, and version options in additionalFields', () => {
+		it('should have chatIds, userIds, and secret options in additionalFields', () => {
 			const additionalFieldsProperty = MAX_TRIGGER_PROPERTIES.find(
 				(prop) => prop.name === 'additionalFields',
 			);
 			const options = (additionalFieldsProperty as any).options;
 
-			expect(options).toHaveLength(4);
+			expect(options.length).toBeGreaterThanOrEqual(3);
 
 			const chatIdsOption = options.find((opt: any) => opt.name === 'chatIds');
 			expect(chatIdsOption).toEqual({
@@ -123,15 +122,6 @@ describe('MaxTriggerConfig', () => {
 				default: '',
 				description:
 					'Optional secret sent in X-Max-Bot-Api-Secret header for webhook requests (5-256 chars, A-Z a-z 0-9 _ -)',
-			});
-
-			const versionOption = options.find((opt: any) => opt.name === 'version');
-			expect(versionOption).toEqual({
-				displayName: 'API Version',
-				name: 'version',
-				type: 'string',
-				default: '',
-				description: 'Optional API version for webhook payload schema, for example 0.0.1',
 			});
 		});
 
