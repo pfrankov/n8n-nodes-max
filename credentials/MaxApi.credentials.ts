@@ -32,14 +32,14 @@ export class MaxApi implements ICredentialType {
 			type: 'string',
 			typeOptions: { password: true },
 			default: '',
-			description: 'Bot access token obtained from @PrimeBot in Max messenger.',
+			description: 'The bot access token. Get it from @PrimeBot in Max messenger.',
 		},
 		{
 			displayName: 'Base URL',
 			name: 'baseUrl',
 			type: 'string',
 			default: 'https://platform-api.max.ru',
-			description: 'Base URL for Max messenger Bot API',
+			description: 'The API URL. Use the default value unless you use a custom server.',
 		},
 	];
 

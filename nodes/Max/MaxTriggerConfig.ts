@@ -32,66 +32,62 @@ export const MAX_TRIGGER_PROPERTIES: INodeProperties[] = [
 			{
 				name: 'Bot Added To Chat',
 				value: 'bot_added',
-				description: 'Trigger when the bot is added to a chat (update_type: bot_added)',
+				description: 'Trigger when added to a chat (update_type: bot_added)',
 			},
 			{
 				name: 'Bot Removed From Chat',
 				value: 'bot_removed',
-				description: 'Trigger when the bot is removed from a chat (update_type: bot_removed)',
+				description: 'Trigger when removed from a chat (update_type: bot_removed)',
 			},
 			{
 				name: 'Bot Started',
 				value: 'bot_started',
-				description:
-					'Trigger when a user starts interaction with the bot (update_type: bot_started)',
+				description: 'Trigger when a user starts the bot (update_type: bot_started)',
 			},
 			{
 				name: 'Button Clicked',
 				value: 'message_callback',
-				description:
-					'Trigger when a user clicks an inline keyboard button (update_type: message_callback)',
+				description: 'Trigger on button click (update_type: message_callback)',
 			},
 			{
 				name: 'Chat Title Changed',
 				value: 'chat_title_changed',
-				description: 'Trigger when a chat title is changed (update_type: chat_title_changed)',
+				description: 'Trigger on chat title change (update_type: chat_title_changed)',
 			},
 			{
 				name: 'Message Deleted',
 				value: 'message_removed',
-				description: 'Trigger when a message is deleted (update_type: message_removed)',
+				description: 'Trigger on message delete (update_type: message_removed)',
 			},
 			{
 				name: 'Message Edited',
 				value: 'message_edited',
-				description: 'Trigger when a message is edited (update_type: message_edited)',
+				description: 'Trigger on message edit (update_type: message_edited)',
 			},
 			{
 				name: 'Message Received (Chat)',
 				value: 'message_chat_created',
-				description:
-					'Trigger when a new message is received in group chats (update_type: message_chat_created)',
+				description: 'Trigger on new group message (update_type: message_chat_created)',
 			},
 			{
 				name: 'Message Received (Direct)',
 				value: 'message_created',
-				description:
-					'Trigger when a new message is received in direct conversation (update_type: message_created)',
+				description: 'Trigger on new direct message (update_type: message_created)',
 			},
 			{
 				name: 'User Joined Chat',
 				value: 'user_added',
-				description: 'Trigger when a user is added to a chat (update_type: user_added)',
+				description: 'Trigger when user added (update_type: user_added)',
 			},
 			{
 				name: 'User Left Chat',
 				value: 'user_removed',
-				description: 'Trigger when a user is removed from a chat (update_type: user_removed)',
+				description: 'Trigger when user removed (update_type: user_removed)',
 			},
 		],
 		required: true,
 		default: ['message_created'],
-		description: 'The events that should trigger the workflow',
+		description: 'The trigger events',
 	},
 	{
 		displayName: 'Additional Fields',
@@ -105,16 +101,14 @@ export const MAX_TRIGGER_PROPERTIES: INodeProperties[] = [
 				name: 'chatIds',
 				type: 'string',
 				default: '',
-				description:
-					'The chat IDs to restrict the trigger to. Multiple can be defined separated by comma.',
+				description: 'Only trigger for these chat IDs. Comma-separated.',
 			},
 			{
 				displayName: 'Restrict to User IDs',
 				name: 'userIds',
 				type: 'string',
 				default: '',
-				description:
-					'The user IDs to restrict the trigger to. Multiple can be defined separated by comma.',
+				description: 'Only trigger for these user IDs. Comma-separated.',
 			},
 			{
 				displayName: 'Webhook Secret',
@@ -124,15 +118,14 @@ export const MAX_TRIGGER_PROPERTIES: INodeProperties[] = [
 					password: true,
 				},
 				default: '',
-				description:
-					'Optional secret sent in X-Max-Bot-Api-Secret header for webhook requests (5-256 chars, A-Z a-z 0-9 _ -)',
+				description: 'A secret for the X-Max-Bot-Api-Secret header. Optional. 5-256 chars.',
 			},
 			{
 				displayName: 'API Version',
 				name: 'version',
 				type: 'string',
 				default: '',
-				description: 'Optional API version for webhook payload schema, for example 0.0.1',
+				description: 'The API version for webhooks. Optional. Example: 0.0.1',
 			},
 		],
 	},

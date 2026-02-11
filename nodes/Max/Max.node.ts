@@ -92,7 +92,7 @@ export class Max implements INodeType {
 					{
 						name: 'Send Message',
 						value: 'sendMessage',
-						description: 'Send a message to a user or chat',
+						description: 'Send a message',
 						action: 'Send a message',
 					},
 					{
@@ -154,7 +154,7 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The ID of the user to send the message to',
+				description: 'The user ID',
 			},
 			{
 				displayName: 'Chat ID',
@@ -169,7 +169,7 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The ID of the chat to send the message to',
+				description: 'The chat ID',
 			},
 			{
 				displayName: 'Message Text',
@@ -186,7 +186,7 @@ export class Max implements INodeType {
 				},
 				default: '',
 				description:
-					'The text content of the message (max 4000 characters). Leave empty to send attachments only.',
+					'The message text. Max 4000 characters. You can leave this empty if you send a file.',
 			},
 			{
 				displayName: 'Text Format',
@@ -202,21 +202,21 @@ export class Max implements INodeType {
 					{
 						name: 'Plain Text',
 						value: 'plain',
-						description: 'Send message as plain text',
+						description: 'Plain text',
 					},
 					{
 						name: 'HTML',
 						value: 'html',
-						description: 'Send message with HTML formatting',
+						description: 'HTML formatting',
 					},
 					{
 						name: 'Markdown',
 						value: 'markdown',
-						description: 'Send message with Markdown formatting',
+						description: 'Markdown formatting',
 					},
 				],
 				default: 'plain',
-				description: 'The format of the message text',
+				description: 'The message format',
 			},
 
 			{
@@ -251,22 +251,21 @@ export class Max implements INodeType {
 										name: 'binaryProperty',
 										type: 'string',
 										default: 'data',
-										description: 'Name of the binary property containing the file data',
+										description: 'The name of the binary input data field',
 									},
 									{
 										displayName: 'File Name',
 										name: 'fileName',
 										type: 'string',
 										default: '',
-										description:
-											'Name of the file (optional, will be auto-detected if not provided)',
+										description: 'The file name. Optional.',
 									},
 									{
 										displayName: 'File URL',
 										name: 'fileUrl',
 										type: 'string',
 										default: '',
-										description: 'URL of the file to upload',
+										description: 'The file URL',
 									},
 									{
 										displayName: 'Input Type',
@@ -276,16 +275,16 @@ export class Max implements INodeType {
 											{
 												name: 'Binary Data',
 												value: 'binary',
-												description: 'Use binary data from previous node',
+												description: 'Binary data',
 											},
 											{
 												name: 'URL',
 												value: 'url',
-												description: 'Upload from URL',
+												description: 'URL',
 											},
 										],
 										default: 'binary',
-										description: 'How to provide the file',
+										description: 'The input method',
 									},
 									{
 										displayName: 'Type',
@@ -310,7 +309,7 @@ export class Max implements INodeType {
 											},
 										],
 										default: 'image',
-										description: 'Type of attachment to send',
+										description: 'The file type',
 									},
 								],
 							},
@@ -321,7 +320,7 @@ export class Max implements INodeType {
 						name: 'disable_link_preview',
 						type: 'boolean',
 						default: false,
-						description: 'Whether to disable link previews for URLs in the message',
+						description: 'Whether to disable link previews',
 					},
 					{
 						displayName: 'Inline Keyboard',
@@ -359,21 +358,21 @@ export class Max implements INodeType {
 															{
 																name: 'Default',
 																value: 'default',
-																description: 'Standard button appearance',
+																description: 'The standard button style',
 															},
 															{
 																name: 'Positive',
 																value: 'positive',
-																description: 'Green/positive button appearance',
+																description: 'A positive action button (green)',
 															},
 															{
 																name: 'Negative',
 																value: 'negative',
-																description: 'Red/negative button appearance',
+																description: 'A negative action button (red)',
 															},
 														],
 														default: 'default',
-														description: 'Visual style of the button',
+														description: 'The button style',
 													},
 													{
 														displayName: 'Button Text',
@@ -381,7 +380,7 @@ export class Max implements INodeType {
 														type: 'string',
 														required: true,
 														default: '',
-														description: 'Text displayed on the button (max 128 characters)',
+														description: 'The button text. Max 128 characters.',
 													},
 													{
 														displayName: 'Button Type',
@@ -391,36 +390,36 @@ export class Max implements INodeType {
 															{
 																name: 'Callback',
 																value: 'callback',
-																description: 'Button that sends callback data when pressed',
+																description: 'Sends data back to the bot',
 															},
 															{
 																name: 'Create Chat',
 																value: 'chat',
-																description: 'Button that creates a new chat when clicked',
+																description: 'Creates a new chat',
 															},
 															{
 																name: 'Link',
 																value: 'link',
-																description: 'Button that opens a URL when pressed',
+																description: 'Opens a URL',
 															},
 															{
 																name: 'Open App',
 																value: 'open_app',
-																description: 'Button that opens a MAX Mini App URL',
+																description: 'Opens a Mini App',
 															},
 															{
 																name: 'Request Contact',
 																value: 'request_contact',
-																description: 'Button that requests user contact information',
+																description: "Asks for the user's contact info",
 															},
 															{
 																name: 'Request Location',
 																value: 'request_geo_location',
-																description: 'Button that requests user location',
+																description: "Asks for the user's location",
 															},
 														],
 														default: 'callback',
-														description: 'Type of button action',
+														description: 'The button type',
 													},
 													{
 														displayName: 'Callback Data',
@@ -433,8 +432,7 @@ export class Max implements INodeType {
 															},
 														},
 														default: '',
-														description:
-															'Data sent back when button is pressed (max 1024 characters)',
+														description: 'The data returned on click. Max 1024 characters.',
 													},
 													{
 														displayName: 'Chat Description',
@@ -446,7 +444,8 @@ export class Max implements INodeType {
 															},
 														},
 														default: '',
-														description: 'Optional description of the chat (max 400 characters)',
+														description:
+															'A description for the chat. Optional. Max 400 characters.',
 													},
 													{
 														displayName: 'Chat Title',
@@ -459,7 +458,7 @@ export class Max implements INodeType {
 															},
 														},
 														default: '',
-														description: 'Title of the chat to be created (max 200 characters)',
+														description: 'The chat title. Max 200 characters.',
 													},
 													{
 														displayName: 'Start Payload',
@@ -472,7 +471,7 @@ export class Max implements INodeType {
 														},
 														default: '',
 														description:
-															'Optional payload sent to the bot when the chat is created (max 512 characters)',
+															'Data sent when the chat starts. Optional. Max 512 characters.',
 													},
 													{
 														displayName: 'URL',
@@ -485,7 +484,7 @@ export class Max implements INodeType {
 															},
 														},
 														default: '',
-														description: 'URL to open when button is pressed',
+														description: 'The URL',
 													},
 													{
 														displayName: 'UUID',
@@ -497,8 +496,7 @@ export class Max implements INodeType {
 															},
 														},
 														default: '',
-														description:
-															'Optional chat button identifier reused when editing the keyboard',
+														description: 'A unique ID for reusing or editing this button',
 													},
 												],
 											},
@@ -513,14 +511,14 @@ export class Max implements INodeType {
 						name: 'notify',
 						type: 'boolean',
 						default: true,
-						description: 'Whether to notify chat participants about the message',
+						description: 'Whether to send a notification',
 					},
 					{
 						displayName: 'Reply to Message ID',
 						name: 'replyToMessageId',
 						type: 'string',
 						default: '',
-						description: 'ID of the message to reply to (optional)',
+						description: 'The message ID to reply to. Optional.',
 					},
 				],
 			},
@@ -537,7 +535,7 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The ID of the message to edit',
+				description: 'The message ID',
 			},
 			{
 				displayName: 'New Message Text',
@@ -554,7 +552,7 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The new text content of the message (max 4000 characters)',
+				description: 'The new message text. Max 4000 characters.',
 			},
 			{
 				displayName: 'Text Format',
@@ -570,21 +568,21 @@ export class Max implements INodeType {
 					{
 						name: 'Plain Text',
 						value: 'plain',
-						description: 'Edit message as plain text',
+						description: 'Plain text',
 					},
 					{
 						name: 'HTML',
 						value: 'html',
-						description: 'Edit message with HTML formatting',
+						description: 'HTML formatting',
 					},
 					{
 						name: 'Markdown',
 						value: 'markdown',
-						description: 'Edit message with Markdown formatting',
+						description: 'Markdown formatting',
 					},
 				],
 				default: 'plain',
-				description: 'The format of the message text',
+				description: 'The message format',
 			},
 			{
 				displayName: 'Inline Keyboard',
@@ -789,7 +787,7 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The ID of the message to delete',
+				description: 'The message ID',
 			},
 			// Answer Callback Query Operation
 			{
@@ -804,7 +802,7 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The ID of the callback query to answer',
+				description: 'The callback query ID',
 			},
 			{
 				displayName: 'Response Text',
@@ -817,7 +815,7 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'Optional one-time notification text to show to the user',
+				description: 'Notification text. Optional.',
 			},
 			// Chat Resource
 			{
@@ -834,13 +832,13 @@ export class Max implements INodeType {
 					{
 						name: 'Get Chat Info',
 						value: 'getChatInfo',
-						description: 'Get information about a chat',
+						description: 'Get chat info',
 						action: 'Get chat information',
 					},
 					{
 						name: 'Leave Chat',
 						value: 'leaveChat',
-						description: 'Leave a chat/group',
+						description: 'Leave chat',
 						action: 'Leave a chat',
 					},
 				],
@@ -859,7 +857,7 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The ID of the chat',
+				description: 'The chat ID',
 			},
 		],
 	};

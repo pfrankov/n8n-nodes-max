@@ -232,7 +232,7 @@ export async function createMaxBotInstance(this: IExecuteFunctions): Promise<Bot
 
 	if (!credentials['accessToken']) {
 		throw new NodeApiError(this.getNode(), {
-			message: 'Max API access token is required',
+			message: 'Access token is required',
 		} as JsonObject);
 	}
 
@@ -388,12 +388,12 @@ export async function editMessage(
 ): Promise<any> {
 	// Validate message ID
 	if (!messageId || messageId.trim() === '') {
-		throw new Error('Message ID is required and cannot be empty');
+		throw new Error('Message ID is required');
 	}
 
 	// Validate text content with comprehensive checks
 	if (text === null || text === undefined || typeof text !== 'string') {
-		throw new Error('Message text is required and must be a string');
+		throw new Error('Message text is required');
 	}
 
 	if (text.trim().length === 0) {
@@ -410,9 +410,7 @@ export async function editMessage(
 		const openTags = (text.match(/<[^\/][^>]*>/g) || []).length;
 		const closeTags = (text.match(/<\/[^>]*>/g) || []).length;
 		if (openTags !== closeTags) {
-			throw new Error(
-				'HTML format error: unclosed tags detected. Make sure all HTML tags are properly closed.',
-			);
+			throw new Error('HTML error: Unclosed tags.');
 		}
 	}
 
@@ -423,19 +421,13 @@ export async function editMessage(
 		const codeCount = (text.match(/`/g) || []).length;
 
 		if (boldCount % 2 !== 0) {
-			throw new Error(
-				'Markdown format error: unmatched bold markers (*). Make sure all bold text is properly closed.',
-			);
+			throw new Error('Markdown error: Unmatched bold markers (*).');
 		}
 		if (italicCount % 2 !== 0) {
-			throw new Error(
-				'Markdown format error: unmatched italic markers (_). Make sure all italic text is properly closed.',
-			);
+			throw new Error('Markdown error: Unmatched italic markers (_).');
 		}
 		if (codeCount % 2 !== 0) {
-			throw new Error(
-				'Markdown format error: unmatched code markers (`). Make sure all code blocks are properly closed.',
-			);
+			throw new Error('Markdown error: Unmatched code markers (`).');
 		}
 	}
 
@@ -783,35 +775,35 @@ export function createUserFriendlyErrorMessage(
 
 	switch (category) {
 		case MaxErrorCategory.AUTHENTICATION:
-			return `Authorization failed - please check your credentials: ${baseMessage}. Please check your Max API access token in the credentials. Make sure the token is valid and has not expired. You can get a new token from @PrimeBot in Max messenger.`;
+			return `Authorization failed: ${baseMessage}. Check your access token. You can get a new one from @PrimeBot.`;
 
 		case MaxErrorCategory.RATE_LIMIT:
 			const retryAfter = error.parameters?.retry_after;
 			const retryMessage = retryAfter
 				? ` Please wait ${retryAfter} seconds before retrying.`
 				: ' Please wait before retrying.';
-			return `The service is receiving too many requests from you: ${baseMessage}.${retryMessage} Consider reducing the frequency of your requests or implementing delays between operations.`;
+			return `Too many requests: ${baseMessage}.${retryMessage} Slow down your requests.`;
 
 		case MaxErrorCategory.VALIDATION:
-			return `Invalid request parameters: ${baseMessage}. Please check your input data. Common issues include: invalid user/chat IDs, message text too long (max 4000 characters), unsupported formatting, or missing required fields.`;
+			return `Invalid input: ${baseMessage}. Check your data (IDs, text length, format).`;
 
 		case MaxErrorCategory.BUSINESS_LOGIC:
 			if (baseMessage.toLowerCase().includes('chat not found')) {
-				return `Chat not found: ${baseMessage}. The specified chat ID may be incorrect, or the bot may not have access to this chat. Make sure the bot has been added to the chat and has appropriate permissions.`;
+				return `Chat not found: ${baseMessage}. Check the Chat ID. Make sure the bot is a member.`;
 			}
 			if (
 				baseMessage.toLowerCase().includes('user blocked') ||
 				baseMessage.toLowerCase().includes('forbidden')
 			) {
-				return `Access denied: ${baseMessage}. The user may have blocked the bot, or the bot lacks necessary permissions. Check that the bot has been properly configured and authorized.`;
+				return `Access denied: ${baseMessage}. The user might have blocked the bot.`;
 			}
-			return `Operation failed: ${baseMessage}. This may be due to insufficient permissions, missing resources, or business rule violations. Please verify your bot's access rights and the validity of the target resources.`;
+			return `Operation failed: ${baseMessage}. Check permissions and resources.`;
 
 		case MaxErrorCategory.NETWORK:
-			return `Network error: ${baseMessage}. Please check your internet connection and the Max API service status. If the problem persists, try again later or verify the base URL in your credentials.`;
+			return `Network error: ${baseMessage}. Check your connection and the Base URL.`;
 
 		default:
-			return `The service was not able to process your request: ${baseMessage}. If this error persists, please check the Max API documentation or contact support with the error details.`;
+			return `Request failed: ${baseMessage}. Check the Max API docs if this persists.`;
 	}
 }
 
@@ -916,12 +908,12 @@ export function validateInputParameters(
 ): void {
 	// Validate recipient ID
 	if (recipientId === undefined || recipientId === null || isNaN(recipientId)) {
-		throw new Error(`Invalid ${recipientType} ID: must be a number`);
+		throw new Error(`Invalid ID: Must be a number`);
 	}
 
 	// Validate text content
 	if (text === null || text === undefined || typeof text !== 'string') {
-		throw new Error('Message text is required and must be a string');
+		throw new Error('Message text is required');
 	}
 
 	if (text.trim().length === 0) {
@@ -941,9 +933,7 @@ export function validateInputParameters(
 		const openTags = (text.match(/<[^\/][^>]*>/g) || []).length;
 		const closeTags = (text.match(/<\/[^>]*>/g) || []).length;
 		if (openTags !== closeTags) {
-			throw new Error(
-				'HTML format error: unclosed tags detected. Make sure all HTML tags are properly closed.',
-			);
+			throw new Error('HTML error: Unclosed tags.');
 		}
 	}
 
@@ -954,19 +944,13 @@ export function validateInputParameters(
 		const codeCount = (text.match(/`/g) || []).length;
 
 		if (boldCount % 2 !== 0) {
-			throw new Error(
-				'Markdown format error: unmatched bold markers (*). Make sure all bold text is properly closed.',
-			);
+			throw new Error('Markdown error: Unmatched bold markers (*).');
 		}
 		if (italicCount % 2 !== 0) {
-			throw new Error(
-				'Markdown format error: unmatched italic markers (_). Make sure all italic text is properly closed.',
-			);
+			throw new Error('Markdown error: Unmatched italic markers (_).');
 		}
 		if (codeCount % 2 !== 0) {
-			throw new Error(
-				'Markdown format error: unmatched code markers (`). Make sure all code blocks are properly closed.',
-			);
+			throw new Error('Markdown error: Unmatched code markers (`).');
 		}
 	}
 }
