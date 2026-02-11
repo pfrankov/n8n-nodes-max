@@ -154,7 +154,6 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The user ID',
 			},
 			{
 				displayName: 'Chat ID',
@@ -169,7 +168,6 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The chat ID',
 			},
 			{
 				displayName: 'Message Text',
@@ -202,7 +200,6 @@ export class Max implements INodeType {
 					{
 						name: 'Plain Text',
 						value: 'plain',
-						description: 'Plain text',
 					},
 					{
 						name: 'HTML',
@@ -265,7 +262,6 @@ export class Max implements INodeType {
 										name: 'fileUrl',
 										type: 'string',
 										default: '',
-										description: 'The file URL',
 									},
 									{
 										displayName: 'Input Type',
@@ -275,12 +271,10 @@ export class Max implements INodeType {
 											{
 												name: 'Binary Data',
 												value: 'binary',
-												description: 'Binary data',
 											},
 											{
 												name: 'URL',
 												value: 'url',
-												description: 'URL',
 											},
 										],
 										default: 'binary',
@@ -419,7 +413,6 @@ export class Max implements INodeType {
 															},
 														],
 														default: 'callback',
-														description: 'The button type',
 													},
 													{
 														displayName: 'Callback Data',
@@ -484,7 +477,6 @@ export class Max implements INodeType {
 															},
 														},
 														default: '',
-														description: 'The URL',
 													},
 													{
 														displayName: 'UUID',
@@ -535,7 +527,6 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The message ID',
 			},
 			{
 				displayName: 'New Message Text',
@@ -568,7 +559,6 @@ export class Max implements INodeType {
 					{
 						name: 'Plain Text',
 						value: 'plain',
-						description: 'Plain text',
 					},
 					{
 						name: 'HTML',
@@ -787,7 +777,6 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The message ID',
 			},
 			// Answer Callback Query Operation
 			{
@@ -802,7 +791,6 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The callback query ID',
 			},
 			{
 				displayName: 'Response Text',
@@ -832,13 +820,11 @@ export class Max implements INodeType {
 					{
 						name: 'Get Chat Info',
 						value: 'getChatInfo',
-						description: 'Get chat info',
 						action: 'Get chat information',
 					},
 					{
 						name: 'Leave Chat',
 						value: 'leaveChat',
-						description: 'Leave chat',
 						action: 'Leave a chat',
 					},
 				],
@@ -857,7 +843,6 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The chat ID',
 			},
 		],
 	};
