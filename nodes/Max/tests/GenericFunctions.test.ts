@@ -485,6 +485,15 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			);
 		});
 
+		it('should allow empty message text when attachment-only send is enabled', () => {
+			expect(() =>
+				validateInputParameters('user', 123, '', undefined, { allowEmptyText: true }),
+			).not.toThrow();
+			expect(() =>
+				validateInputParameters('chat', 456, '   ', undefined, { allowEmptyText: true }),
+			).not.toThrow();
+		});
+
 		it('should validate HTML format', () => {
 			expect(() => validateInputParameters('user', 123, '<b>unclosed tag', 'html')).toThrow(
 				'HTML format error: unclosed tags detected',
@@ -672,6 +681,51 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					{},
 				),
 			).rejects.toThrow('Invalid user ID: must be a number');
+		});
+
+		it('should send attachment-only message without text field in request body', async () => {
+			const expectedResponse = { message_id: 777 };
+			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mockResolvedValue(expectedResponse);
+
+			const result = await sendMessage.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				mockBot,
+				'user',
+				123,
+				'',
+				{
+					attachments: [{ type: 'image', payload: { token: 'image-token-123' } }],
+					format: 'markdown',
+				},
+			);
+
+			expect(result).toEqual(expectedResponse);
+			expect(
+				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mock.calls[0]?.[0],
+			).toMatchObject({
+				body: {
+					attachments: [{ type: 'image', payload: { token: 'image-token-123' } }],
+				},
+			});
+			expect(
+				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mock.calls[0]?.[0]?.body,
+			).not.toHaveProperty('text');
+			expect(
+				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mock.calls[0]?.[0]?.body,
+			).not.toHaveProperty('format');
+		});
+
+		it('should reject empty message text when no attachments are provided', async () => {
+			await expect(
+				sendMessage.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					mockBot,
+					'user',
+					123,
+					'   ',
+					{},
+				),
+			).rejects.toThrow('Message text cannot be empty');
 		});
 
 		it('should handle API errors gracefully', async () => {

@@ -178,7 +178,6 @@ export class Max implements INodeType {
 				typeOptions: {
 					rows: 4,
 				},
-				required: true,
 				displayOptions: {
 					show: {
 						resource: ['message'],
@@ -186,7 +185,8 @@ export class Max implements INodeType {
 					},
 				},
 				default: '',
-				description: 'The text content of the message (max 4000 characters)',
+				description:
+					'The text content of the message (max 4000 characters). Leave empty to send attachments only.',
 			},
 			{
 				displayName: 'Text Format',
@@ -888,7 +888,7 @@ export class Max implements INodeType {
 					if (operation === 'sendMessage') {
 						// Get parameters
 						const sendTo = this.getNodeParameter('sendTo', i) as string;
-						const text = this.getNodeParameter('text', i) as string;
+						const text = this.getNodeParameter('text', i, '') as string;
 						const format = this.getNodeParameter('format', i) as string;
 
 						// Get additional fields
@@ -960,9 +960,10 @@ export class Max implements INodeType {
 
 						// Build options object
 						const options: IDataObject = {};
+						const hasText = text.trim().length > 0;
 
 						// Add format if not plain text
-						if (format !== 'plain') {
+						if (hasText && format !== 'plain') {
 							options['format'] = format;
 						}
 

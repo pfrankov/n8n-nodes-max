@@ -414,6 +414,47 @@ describe('Max Node', () => {
 					expect.any(Object),
 				);
 			});
+
+			it('should call sendMessage with attachment-only payload when text is empty', async () => {
+				const executeFunctions = getExecuteFunctionsMock({});
+				(executeFunctions.getNodeParameter as jest.Mock).mockImplementation((name: string) => {
+					if (name === 'resource') return 'message';
+					if (name === 'operation') return 'sendMessage';
+					if (name === 'sendTo') return 'chat';
+					if (name === 'chatId') return '12345';
+					if (name === 'text') return '';
+					if (name === 'format') return 'markdown';
+					if (name === 'additionalFields') {
+						return {
+							attachments: {
+								attachment: [
+									{
+										inputType: 'url',
+										fileUrl: 'https://example.com/file.pdf',
+										type: 'file',
+									},
+								],
+							},
+						};
+					}
+					return null;
+				});
+
+				await maxNode.execute.call(executeFunctions);
+
+				expect(sendMessage).toHaveBeenCalledWith(
+					expect.anything(),
+					'chat',
+					12345,
+					'',
+					expect.objectContaining({
+						attachments: expect.any(Array),
+					}),
+				);
+
+				const options = (sendMessage as jest.Mock).mock.calls[0]?.[4];
+				expect(options).not.toHaveProperty('format');
+			});
 		});
 
 		describe('sendMessage with reply functionality', () => {

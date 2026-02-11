@@ -98,6 +98,11 @@ function hasMediaAttachments(body: IDataObject): boolean {
 	});
 }
 
+function hasAnyAttachments(options: IDataObject): boolean {
+	const attachments = options['attachments'];
+	return Array.isArray(attachments) && attachments.length > 0;
+}
+
 function isNonEmptyObject(value: unknown): value is Record<string, unknown> {
 	return (
 		value !== null &&
@@ -251,7 +256,7 @@ export async function createMaxBotInstance(this: IExecuteFunctions): Promise<Bot
  * @param bot - Configured Max Bot API instance
  * @param recipientType - Type of recipient ('user' or 'chat')
  * @param recipientId - Numeric ID of the recipient user or chat
- * @param text - Message text content (max 4000 characters)
+ * @param text - Message text content (max 4000 characters). May be empty when attachments are provided
  * @param options - Additional message options (format, attachments, etc.)
  * @returns Promise resolving to the API response with message details
  * @throws {NodeOperationError} When validation fails or parameters are invalid
@@ -265,8 +270,14 @@ export async function sendMessage(
 	text: string,
 	options: IDataObject = {},
 ): Promise<any> {
+	const hasAttachments = hasAnyAttachments(options);
+	const hasText = text.trim().length > 0;
+	const format = hasText ? (options['format'] as string | undefined) : undefined;
+
 	// Validate input parameters before making API call
-	validateInputParameters(recipientType, recipientId, text, options['format'] as string);
+	validateInputParameters(recipientType, recipientId, text, format, {
+		allowEmptyText: hasAttachments,
+	});
 
 	try {
 		const credentials = await this.getCredentials('maxApi');
@@ -277,10 +288,17 @@ export async function sendMessage(
 		const bodyOptions = { ...options };
 		delete bodyOptions['disable_link_preview'];
 
+		if (!hasText) {
+			delete bodyOptions['format'];
+		}
+
 		const body: IDataObject = {
-			text,
 			...bodyOptions,
 		};
+
+		if (hasText) {
+			body['text'] = text;
+		}
 
 		const qs: IDataObject =
 			recipientType === 'user' ? { user_id: recipientId } : { chat_id: recipientId };
@@ -299,7 +317,7 @@ export async function sendMessage(
 			body,
 			json: true,
 		};
-		const hasAttachments = hasMediaAttachments(body);
+		const hasMediaAttachmentPayload = hasMediaAttachments(body);
 		let requestBody = body;
 		let markdownFallbackApplied = false;
 		let attachmentRetryAttempt = 0;
@@ -311,7 +329,6 @@ export async function sendMessage(
 					body: requestBody,
 				});
 			} catch (error) {
-				const format = options['format'] as string | undefined;
 				if (
 					!markdownFallbackApplied &&
 					format === 'markdown' &&
@@ -328,7 +345,7 @@ export async function sendMessage(
 				}
 
 				if (
-					hasAttachments &&
+					hasMediaAttachmentPayload &&
 					isAttachmentNotReadyError(error) &&
 					attachmentRetryAttempt < ATTACHMENT_READY_RETRY_DELAYS_MS.length
 				) {
@@ -885,6 +902,7 @@ export async function handleMaxApiError(
  * @param recipientId - Numeric ID of the recipient user or chat
  * @param text - Message text content to validate
  * @param format - Optional text format ('html', 'markdown', or undefined)
+ * @param validationOptions - Optional validation flags
  * @throws {Error} When any parameter validation fails
  */
 export function validateInputParameters(
@@ -892,6 +910,9 @@ export function validateInputParameters(
 	recipientId: number,
 	text: string,
 	format?: string,
+	validationOptions: {
+		allowEmptyText?: boolean;
+	} = {},
 ): void {
 	// Validate recipient ID
 	if (recipientId === undefined || recipientId === null || isNaN(recipientId)) {
@@ -904,6 +925,10 @@ export function validateInputParameters(
 	}
 
 	if (text.trim().length === 0) {
+		if (validationOptions.allowEmptyText) {
+			return;
+		}
+
 		throw new Error('Message text cannot be empty');
 	}
 
