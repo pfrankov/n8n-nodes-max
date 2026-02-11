@@ -31,17 +31,24 @@ function extractMaxErrorText(error: unknown): string {
 	const append = (value: unknown) => {
 		if (typeof value === 'string' && value.trim().length > 0) {
 			parts.push(value.toLowerCase());
+			return;
+		}
+
+		if (typeof value === 'number' && Number.isFinite(value)) {
+			parts.push(String(value).toLowerCase());
 		}
 	};
 
 	append((error as { message?: string })?.message);
 	append((error as { description?: string })?.description);
+	append((error as { code?: string | number })?.code);
 
 	const responseBody = (error as { response?: { body?: unknown } })?.response?.body;
+	const responseData = (error as { response?: { data?: unknown } })?.response?.data;
 	const directBody = (error as { body?: unknown })?.body;
 	const nestedError = (error as { error?: unknown })?.error;
 
-	for (const bodyCandidate of [responseBody, directBody, nestedError]) {
+	for (const bodyCandidate of [responseBody, responseData, directBody, nestedError]) {
 		if (typeof bodyCandidate === 'string') {
 			append(bodyCandidate);
 			continue;
@@ -53,11 +60,13 @@ function extractMaxErrorText(error: unknown): string {
 				description?: string;
 				error?: string;
 				error_description?: string;
+				code?: string | number;
 			};
 			append(typedBody.message);
 			append(typedBody.description);
 			append(typedBody.error);
 			append(typedBody.error_description);
+			append(typedBody.code);
 		}
 	}
 
@@ -127,7 +136,6 @@ function hasKnownUploadPayloadFields(payload: IMaxUploadResponse): boolean {
 function resolveUploadPayload(
 	uploadResult: IMaxUploadResponse,
 	attachmentType: IAttachmentConfig['type'],
-	tokenFromUploadsEndpoint?: string,
 ): IMaxUploadResponse | null {
 	const token = getNonEmptyString(uploadResult.token);
 	const url = getNonEmptyString(uploadResult.url);
@@ -146,21 +154,13 @@ function resolveUploadPayload(
 		return null;
 	}
 
-	if (attachmentType === 'video' || attachmentType === 'audio') {
+	if (attachmentType === 'video' || attachmentType === 'audio' || attachmentType === 'file') {
 		if (token) {
 			return { token };
 		}
-		const fallbackToken = getNonEmptyString(tokenFromUploadsEndpoint);
-		return fallbackToken ? { token: fallbackToken } : null;
+		return null;
 	}
 
-	// file
-	if (token) {
-		return { token };
-	}
-	if (url) {
-		return { url };
-	}
 	return null;
 }
 
@@ -908,7 +908,7 @@ export function validateInputParameters(
 ): void {
 	// Validate recipient ID
 	if (recipientId === undefined || recipientId === null || isNaN(recipientId)) {
-		throw new Error(`Invalid ID: Must be a number`);
+		throw new Error(`Invalid ${recipientType} ID: must be a number`);
 	}
 
 	// Validate text content
@@ -1217,12 +1217,6 @@ export async function uploadFileToMax(
 			headers: getAuthHeaders(accessToken),
 			json: true,
 		})) as IMaxUploadResponse;
-		const tokenFromUploadsEndpoint = uploadUrlResponse.token;
-
-		// For some media types API can return token immediately.
-		if (uploadUrlResponse.token && !uploadUrlResponse.url) {
-			return { token: uploadUrlResponse.token };
-		}
 
 		if (!uploadUrlResponse.url || typeof uploadUrlResponse.url !== 'string') {
 			throw new Error('Failed to get upload URL from Max API');
@@ -1260,28 +1254,17 @@ export async function uploadFileToMax(
 			uploadResponse.body !== null &&
 			uploadResponse.body !== ''
 		) {
-			try {
-				const parsedBody =
-					typeof uploadResponse.body === 'string'
-						? JSON.parse(uploadResponse.body)
-						: uploadResponse.body;
-				if (!isNonEmptyObject(parsedBody)) {
-					throw new Error('Upload response is not a JSON object');
-				}
-				uploadResult = parsedBody as IMaxUploadResponse;
-			} catch {
-				if (tokenFromUploadsEndpoint) {
-					return { token: tokenFromUploadsEndpoint };
-				}
-				throw new Error('Invalid response format from file upload');
+			const parsedBody =
+				typeof uploadResponse.body === 'string'
+					? JSON.parse(uploadResponse.body)
+					: uploadResponse.body;
+			if (!isNonEmptyObject(parsedBody)) {
+				throw new Error('Upload response is not a JSON object');
 			}
+			uploadResult = parsedBody as IMaxUploadResponse;
 		}
 
-		const supportedPayload = resolveUploadPayload(
-			uploadResult,
-			attachmentType,
-			tokenFromUploadsEndpoint,
-		);
+		const supportedPayload = resolveUploadPayload(uploadResult, attachmentType);
 		if (supportedPayload) {
 			return supportedPayload;
 		}

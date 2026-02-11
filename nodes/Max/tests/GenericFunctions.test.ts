@@ -715,6 +715,31 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			).not.toHaveProperty('format');
 		});
 
+		it('should send attachment-only file message when file is the only attachment', async () => {
+			const expectedResponse = { message_id: 778 };
+			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mockResolvedValue(expectedResponse);
+
+			const result = await sendMessage.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				mockBot,
+				'user',
+				123,
+				'',
+				{
+					attachments: [{ type: 'file', payload: { token: 'file-token-123' } }],
+				},
+			);
+
+			expect(result).toEqual(expectedResponse);
+			expect(
+				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mock.calls[0]?.[0],
+			).toMatchObject({
+				body: {
+					attachments: [{ type: 'file', payload: { token: 'file-token-123' } }],
+				},
+			});
+		});
+
 		it('should reject empty message text when no attachments are provided', async () => {
 			await expect(
 				sendMessage.call(
@@ -776,20 +801,20 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			);
 		});
 
-		it('should retry send with attachment when Max reports temporary not-ready state', async () => {
+		it('should retry send with file attachment when Max returns attachment.not.ready in response.data.code', async () => {
 			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
 			mockHttpRequest
 				.mockRejectedValueOnce({
-					message: 'attachment.not.ready',
+					message: 'Request failed with status code 400',
 					response: {
-						body: {
-							error: 'errors.process.attachment.file.not.processed',
+						data: {
+							code: 'attachment.not.ready',
 						},
 					},
 				})
 				.mockResolvedValueOnce({
 					message_id: 654,
-					text: 'Photo',
+					text: 'Document',
 				});
 
 			const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation((callback: any) => {
@@ -804,13 +829,53 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				mockBot,
 				'user',
 				123,
-				'Photo',
+				'Document',
 				{
-					attachments: [{ type: 'image', payload: { token: 'image-token-123' } }],
+					attachments: [{ type: 'file', payload: { token: 'file-token-123' } }],
 				},
 			);
 
-			expect(result).toEqual({ message_id: 654, text: 'Photo' });
+			expect(result).toEqual({ message_id: 654, text: 'Document' });
+			expect(mockHttpRequest).toHaveBeenCalledTimes(2);
+			expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 700);
+			setTimeoutSpy.mockRestore();
+		});
+
+		it('should retry send with file attachment when Max returns file.not.processed in response.data.error', async () => {
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			mockHttpRequest
+				.mockRejectedValueOnce({
+					message: 'Request failed with status code 400',
+					response: {
+						data: {
+							error: 'errors.process.attachment.file.not.processed',
+						},
+					},
+				})
+				.mockResolvedValueOnce({
+					message_id: 655,
+					text: 'Document',
+				});
+
+			const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation((callback: any) => {
+				if (typeof callback === 'function') {
+					callback();
+				}
+				return {} as NodeJS.Timeout;
+			});
+
+			const result = await sendMessage.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				mockBot,
+				'user',
+				123,
+				'Document',
+				{
+					attachments: [{ type: 'file', payload: { token: 'file-token-456' } }],
+				},
+			);
+
+			expect(result).toEqual({ message_id: 655, text: 'Document' });
 			expect(mockHttpRequest).toHaveBeenCalledTimes(2);
 			expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 700);
 			setTimeoutSpy.mockRestore();
@@ -1615,44 +1680,89 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			);
 		});
 
-		it('should return token when uploads endpoint provides it immediately', async () => {
+		it('should reject uploads response without upload URL', async () => {
 			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
 			mockHttpRequest.mockResolvedValueOnce({ token: 'video-token-123' });
 
-			const uploadResult = await uploadFileToMax.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				{} as any,
-				'/tmp/test-file.mp4',
-				'test-file.mp4',
-				'video',
-			);
-
-			expect(uploadResult).toEqual({ token: 'video-token-123' });
+			await expect(
+				uploadFileToMax.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					{} as any,
+					'/tmp/test-file.mp4',
+					'test-file.mp4',
+					'video',
+				),
+			).rejects.toThrow(/Failed to get upload URL from Max API/);
 			expect(mockHttpRequest).toHaveBeenCalledTimes(1);
 		});
 
-		it('should fallback to token from uploads endpoint when upload response has no token/url', async () => {
+		it('should reject upload response without supported payload fields', async () => {
 			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
 			mockHttpRequest
 				.mockResolvedValueOnce({
 					url: 'https://upload.example.com/upload',
-					token: 'video-token-123',
 				})
 				.mockResolvedValueOnce({
 					statusCode: 200,
 					body: JSON.stringify({ retval: '/uploaded/video.mp4' }),
 				});
 
-			const uploadResult = await uploadFileToMax.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				{} as any,
-				'/tmp/test-file.mp4',
-				'test-file.mp4',
-				'video',
-			);
-
-			expect(uploadResult).toEqual({ token: 'video-token-123' });
+			await expect(
+				uploadFileToMax.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					{} as any,
+					'/tmp/test-file.mp4',
+					'test-file.mp4',
+					'video',
+				),
+			).rejects.toThrow(/No supported attachment payload received from Max API/);
 			expect(mockHttpRequest).toHaveBeenCalledTimes(2);
+		});
+
+		it('should reject file upload response with url-only payload', async () => {
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			mockHttpRequest
+				.mockResolvedValueOnce({
+					url: 'https://upload.example.com/upload',
+				})
+				.mockResolvedValueOnce({
+					statusCode: 200,
+					body: JSON.stringify({
+						url: 'https://cdn.example.com/files/report.pdf',
+					}),
+				});
+
+			await expect(
+				uploadFileToMax.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					{} as any,
+					'/tmp/report.pdf',
+					'report.pdf',
+					'file',
+				),
+			).rejects.toThrow(/No supported attachment payload received from Max API/);
+		});
+
+		it('should reject non-json upload response', async () => {
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			mockHttpRequest
+				.mockResolvedValueOnce({
+					url: 'https://upload.example.com/upload',
+				})
+				.mockResolvedValueOnce({
+					statusCode: 200,
+					body: 'not-json-response',
+				});
+
+			await expect(
+				uploadFileToMax.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					{} as any,
+					'/tmp/video.mp4',
+					'video.mp4',
+					'video',
+				),
+			).rejects.toThrow(/Failed to upload file to Max API/);
 		});
 
 		it('should return non-token upload payload object for image attachments', async () => {
@@ -1684,55 +1794,6 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				},
 			});
 			expect(mockHttpRequest).toHaveBeenCalledTimes(2);
-		});
-
-		it('should return url payload for file attachments when upload response contains url', async () => {
-			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
-			mockHttpRequest
-				.mockResolvedValueOnce({
-					url: 'https://upload.example.com/upload',
-				})
-				.mockResolvedValueOnce({
-					statusCode: 200,
-					body: JSON.stringify({
-						url: 'https://cdn.example.com/files/report.pdf',
-					}),
-				});
-
-			const uploadResult = await uploadFileToMax.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				{} as any,
-				'/tmp/report.pdf',
-				'report.pdf',
-				'file',
-			);
-
-			expect(uploadResult).toEqual({
-				url: 'https://cdn.example.com/files/report.pdf',
-			});
-		});
-
-		it('should fallback to upload-step token for video when upload response is not JSON', async () => {
-			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
-			mockHttpRequest
-				.mockResolvedValueOnce({
-					url: 'https://upload.example.com/upload',
-					token: 'video-token-123',
-				})
-				.mockResolvedValueOnce({
-					statusCode: 200,
-					body: 'not-json-response',
-				});
-
-			const uploadResult = await uploadFileToMax.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				{} as any,
-				'/tmp/video.mp4',
-				'video.mp4',
-				'video',
-			);
-
-			expect(uploadResult).toEqual({ token: 'video-token-123' });
 		});
 
 		it('should handle upload URL request failure', async () => {

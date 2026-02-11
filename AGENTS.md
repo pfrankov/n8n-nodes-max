@@ -18,7 +18,6 @@
 - Avoid file-level/internal implementation notes in changelog unless they directly affect user-facing behavior.
 - If an item maps to a single commit, append only a short commit hash (no URL).
 - Treat `https://dev.max.ru/docs-api` as the source of truth for request/response contracts.
-- `openapi_schema.yaml` is a deprecated local reference and may lag behind current API behavior.
 - Before merging API-facing changes, verify alignment in three places: implementation, tests, and user-facing descriptions in node parameters.
 - Prefer explicit, user-readable error messages. This project is used by non-native English speakers, so avoid vague wording.
 
@@ -48,7 +47,7 @@
 - Message and webhook operations use direct HTTP requests for strict API-shape control.
 - Webhook processing is fail-soft: invalid events or filter issues should not crash trigger execution.
 - Webhook subscription URLs are normalized to ASCII/Punycode hostnames before registration to avoid TLS issues on IDN domains.
-- Upload flow is two-step (`POST /uploads` then multipart upload to returned URL). Attachment payload is normalized from upload-step JSON response (`token`, `url`, `photos`), with token fallback from `POST /uploads` for video/audio when provided there.
+- Upload flow is two-step (`POST /uploads` then multipart upload to returned URL). Attachment payload is normalized from upload-step JSON response (`token`, `url`, `photos`); `video`/`audio`/`file` payloads use `token` only.
 - Message sending with media attachments retries on documented temporary processing errors (`attachment.not.ready` / `errors.process.attachment.file.not.processed`) before failing.
 - Message send/edit in `markdown` format retries once as plain text if Max API rejects unsupported Markdown syntax.
 - `Send Message` allows attachment-only requests: `text` may be empty when at least one attachment is present.
@@ -66,7 +65,6 @@
 - `nodes/Max/MaxEventProcessor.ts`: incoming webhook normalization/filtering and output shaping.
 - `nodes/Max/MaxTriggerConfig.ts`: trigger events and additional trigger fields.
 - `nodes/Max/tests/`: behavior and regression tests for node, trigger, webhook manager, error handling, and utility functions.
-- `openapi_schema.yaml`: deprecated local schema snapshot (use official docs for final decisions).
 
 ## Build, Test, and Development Commands
 
@@ -139,7 +137,6 @@
 - Do not treat API contracts in this file as authoritative snapshots.
 - Before implementing or changing API behavior, verify details in `https://dev.max.ru/docs-api`.
 - If docs and existing code differ, update code and tests to match docs, then update `README.md`/`AGENTS.md` with high-level behavior notes only.
-- Use `openapi_schema.yaml` only as a deprecated local hint for navigation, not as the final source of truth.
 - Keep request-building logic, node parameter descriptions, and tests consistent with each other.
 
 ## Maintainability Checklist
