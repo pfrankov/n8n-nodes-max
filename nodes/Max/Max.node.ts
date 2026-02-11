@@ -303,7 +303,8 @@ export class Max implements INodeType {
 											},
 										],
 										default: 'image',
-										description: 'The file type',
+										description:
+											'Attachment category for Max API. File extensions are not validated by the node.',
 									},
 								],
 							},

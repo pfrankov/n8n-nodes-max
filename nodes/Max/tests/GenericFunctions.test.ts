@@ -1536,26 +1536,10 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			);
 		});
 
-		it('should validate file extensions', () => {
+		it('should allow files within size limits', () => {
 			const config = AttachmentConfigFactory.createImageConfig();
 
-			// Test unsupported extension
-			AssertionHelpers.expectError(
-				() => validateAttachment(config, TEST_CONSTANTS.FILE_SIZES.SMALL, 'test.exe'),
-				Error,
-				/Unsupported file extension "\.exe" for image/,
-			);
-		});
-
-		it('should allow valid file extensions', () => {
-			const config = AttachmentConfigFactory.createImageConfig();
-
-			expect(() =>
-				validateAttachment(config, TEST_CONSTANTS.FILE_SIZES.SMALL, 'test.jpg'),
-			).not.toThrow();
-			expect(() =>
-				validateAttachment(config, TEST_CONSTANTS.FILE_SIZES.SMALL, 'test.png'),
-			).not.toThrow();
+			expect(() => validateAttachment(config, TEST_CONSTANTS.FILE_SIZES.SMALL)).not.toThrow();
 		});
 	});
 
@@ -1911,6 +1895,41 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				payload: { token: 'image-token-123' },
 			});
 			expect(mockGetBinaryDataBuffer).toHaveBeenCalledWith(7, 'data');
+		});
+
+		it('should upload attachment with non-standard file extension', async () => {
+			const config = AttachmentConfigFactory.createFileConfig({ binaryProperty: 'data' });
+			const binaryData = BinaryDataFactory.createDocumentBinary({
+				fileName: 'payload.custom',
+				fileExtension: 'custom',
+				mimeType: 'application/octet-stream',
+			});
+			const item = NodeExecutionDataFactory.createWithBinary({ data: binaryData });
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			const mockGetBinaryDataBuffer = (mockExecuteFunctions.helpers as any)
+				.getBinaryDataBuffer as jest.Mock;
+
+			mockGetBinaryDataBuffer.mockResolvedValueOnce(Buffer.from('custom-bytes'));
+			mockHttpRequest
+				.mockResolvedValueOnce({ url: 'https://upload.example.com/upload' })
+				.mockResolvedValueOnce({
+					statusCode: 200,
+					body: JSON.stringify({ token: 'file-token-custom' }),
+				});
+
+			const result = await processBinaryAttachment.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				{} as any,
+				config,
+				item,
+				3,
+			);
+
+			expect(result).toEqual({
+				type: 'file',
+				payload: { token: 'file-token-custom' },
+			});
+			expect(mockGetBinaryDataBuffer).toHaveBeenCalledWith(3, 'data');
 		});
 
 		it('should keep upload payload object when response contains photos map', async () => {

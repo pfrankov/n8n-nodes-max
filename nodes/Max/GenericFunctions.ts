@@ -1039,31 +1039,16 @@ const FILE_SIZE_LIMITS = {
 };
 
 /**
- * Supported file extensions for different attachment types
- */
-const SUPPORTED_EXTENSIONS = {
-	image: ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'],
-	video: ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv'],
-	audio: ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'],
-	file: ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.zip', '.rar'],
-};
-
-/**
  * Validate attachment configuration and file properties
  *
- * Validates attachment configuration including type, input method, file size,
- * and file extension against Max messenger constraints and supported formats.
+ * Validates attachment configuration including type, input method, and file size
+ * against Max messenger constraints.
  *
  * @param config - Attachment configuration object with type and input details
  * @param fileSize - Optional file size in bytes for validation
- * @param fileName - Optional file name for extension validation
  * @throws {Error} When attachment configuration or file properties are invalid
  */
-export function validateAttachment(
-	config: IAttachmentConfig,
-	fileSize?: number,
-	fileName?: string,
-): void {
+export function validateAttachment(config: IAttachmentConfig, fileSize?: number): void {
 	// Validate attachment type
 	if (!['image', 'video', 'audio', 'file'].includes(config.type)) {
 		throw new Error(`Unsupported attachment type: ${config.type}`);
@@ -1102,18 +1087,6 @@ export function validateAttachment(
 		if (fileSize > maxSize) {
 			throw new Error(
 				`File size (${Math.round((fileSize / 1024 / 1024) * 100) / 100}MB) exceeds maximum allowed size for ${config.type} (${Math.round(maxSize / 1024 / 1024)}MB)`,
-			);
-		}
-	}
-
-	// Validate file extension if fileName is provided
-	if (fileName) {
-		const extension = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
-		const supportedExts = SUPPORTED_EXTENSIONS[config.type];
-
-		if (extension && !supportedExts.includes(extension)) {
-			throw new Error(
-				`Unsupported file extension "${extension}" for ${config.type}. Supported extensions: ${supportedExts.join(', ')}`,
 			);
 		}
 	}
@@ -1314,7 +1287,7 @@ export async function processBinaryAttachment(
 		typeof binaryData.fileSize === 'string'
 			? parseInt(binaryData.fileSize, 10)
 			: binaryData.fileSize;
-	validateAttachment(config, fileSize, fileName);
+	validateAttachment(config, fileSize);
 
 	let tempFilePath = '';
 	try {
@@ -1379,7 +1352,7 @@ export async function processUrlAttachment(
 
 	try {
 		// Validate downloaded file
-		validateAttachment(config, fileSize, fileName);
+		validateAttachment(config, fileSize);
 
 		// Upload file and get token/url
 		const uploadResult = await uploadFileToMax.call(this, bot, filePath, fileName, config.type);

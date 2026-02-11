@@ -48,6 +48,7 @@
 - Webhook processing is fail-soft: invalid events or filter issues should not crash trigger execution.
 - Webhook subscription URLs are normalized to ASCII/Punycode hostnames before registration to avoid TLS issues on IDN domains.
 - Upload flow is two-step (`POST /uploads` then multipart upload to returned URL). Attachment payload is normalized from upload-step JSON response (`token`, `url`, `photos`); `video`/`audio`/`file` payloads use `token` only.
+- Attachment validation on node side does not restrict file extension/MIME type; format acceptance is determined by Max API.
 - Message sending with media attachments retries on documented temporary processing errors (`attachment.not.ready` / `errors.process.attachment.file.not.processed`) before failing.
 - Message send/edit in `markdown` format retries once as plain text if Max API rejects unsupported Markdown syntax.
 - `Send Message` allows attachment-only requests: `text` may be empty when at least one attachment is present.
