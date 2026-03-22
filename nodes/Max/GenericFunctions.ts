@@ -164,6 +164,32 @@ function resolveUploadPayload(
 	return null;
 }
 
+function canUseUploadsTokenFallback(
+	attachmentType: IAttachmentConfig['type'],
+	tokenFromUploadsEndpoint: string | undefined,
+	uploadBody: unknown,
+): boolean {
+	if (!tokenFromUploadsEndpoint || !['video', 'audio'].includes(attachmentType)) {
+		return false;
+	}
+
+	if (uploadBody === undefined || uploadBody === null || uploadBody === '') {
+		return true;
+	}
+
+	if (isNonEmptyObject(uploadBody)) {
+		const retval = uploadBody['retval'];
+		return (typeof retval === 'string' && retval.trim().length > 0) || typeof retval === 'number';
+	}
+
+	if (typeof uploadBody === 'string') {
+		const trimmedBody = uploadBody.trim();
+		return /^<retval>[\s\S]*<\/retval>$/.test(trimmedBody);
+	}
+
+	return false;
+}
+
 function stripMarkdownFormatting(text: string): string {
 	let sanitizedText = text;
 
@@ -1157,7 +1183,7 @@ export async function downloadFileFromUrl(
  * Uploads a file to the Max API using the two-step upload process:
  * 1. Get upload URL from Max API
  * 2. Upload file to the provided URL
- * 3. Receive attachment payload JSON for use in messages
+ * 3. Receive attachment payload for use in messages
  *
  * @param this - The execution context providing access to credentials and helpers
  * @param bot - Configured Max Bot API instance
@@ -1190,6 +1216,10 @@ export async function uploadFileToMax(
 			headers: getAuthHeaders(accessToken),
 			json: true,
 		})) as IMaxUploadResponse;
+		const tokenFromUploadsEndpoint = getNonEmptyString(uploadUrlResponse.token);
+		const uploadsTokenPayload = tokenFromUploadsEndpoint
+			? { token: tokenFromUploadsEndpoint }
+			: null;
 
 		if (!uploadUrlResponse.url || typeof uploadUrlResponse.url !== 'string') {
 			throw new Error('Failed to get upload URL from Max API');
@@ -1220,18 +1250,39 @@ export async function uploadFileToMax(
 			throw new Error(`File upload failed: HTTP ${uploadResponse.statusCode}`);
 		}
 
-		// Step 4: Get file token from upload response
+		// Step 4: Resolve attachment payload from the upload responses
 		let uploadResult: IMaxUploadResponse = {};
 		if (
 			uploadResponse.body !== undefined &&
 			uploadResponse.body !== null &&
 			uploadResponse.body !== ''
 		) {
-			const parsedBody =
-				typeof uploadResponse.body === 'string'
-					? JSON.parse(uploadResponse.body)
-					: uploadResponse.body;
+			let parsedBody: unknown;
+			if (typeof uploadResponse.body === 'string') {
+				try {
+					parsedBody = JSON.parse(uploadResponse.body);
+				} catch (error) {
+					if (
+						canUseUploadsTokenFallback(
+							attachmentType,
+							tokenFromUploadsEndpoint,
+							uploadResponse.body,
+						)
+					) {
+						return uploadsTokenPayload!;
+					}
+
+					throw error;
+				}
+			} else {
+				parsedBody = uploadResponse.body;
+			}
+
 			if (!isNonEmptyObject(parsedBody)) {
+				if (canUseUploadsTokenFallback(attachmentType, tokenFromUploadsEndpoint, parsedBody)) {
+					return uploadsTokenPayload!;
+				}
+
 				throw new Error('Upload response is not a JSON object');
 			}
 			uploadResult = parsedBody as IMaxUploadResponse;
@@ -1240,6 +1291,10 @@ export async function uploadFileToMax(
 		const supportedPayload = resolveUploadPayload(uploadResult, attachmentType);
 		if (supportedPayload) {
 			return supportedPayload;
+		}
+
+		if (canUseUploadsTokenFallback(attachmentType, tokenFromUploadsEndpoint, uploadResult)) {
+			return uploadsTokenPayload!;
 		}
 
 		throw new Error('No supported attachment payload received from Max API');

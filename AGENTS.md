@@ -47,7 +47,7 @@
 - Message and webhook operations use direct HTTP requests for strict API-shape control.
 - Webhook processing is fail-soft: invalid events or filter issues should not crash trigger execution.
 - Webhook subscription URLs are normalized to ASCII/Punycode hostnames before registration to avoid TLS issues on IDN domains.
-- Upload flow is two-step (`POST /uploads` then multipart upload to returned URL). Attachment payload is normalized from upload-step JSON response (`token`, `url`, `photos`); `video`/`audio`/`file` payloads use `token` only.
+- Upload flow is two-step (`POST /uploads` then multipart upload to returned URL). For `image`, attachment payload is normalized from upload-step JSON response (`token`, `url`, `photos`). For `file`, the node uses `token` from the upload response. For `video`/`audio`, the node also supports the documented flow where `POST /uploads` returns `token` and the multipart upload responds with `retval`.
 - Attachment validation on node side does not restrict file extension/MIME type; format acceptance is determined by Max API.
 - Message sending with media attachments retries on documented temporary processing errors (`attachment.not.ready` / `errors.process.attachment.file.not.processed`) before failing.
 - Message send/edit in `markdown` format retries once as plain text if Max API rejects unsupported Markdown syntax.
@@ -117,6 +117,12 @@
 ## Commit & Pull Request Guidelines
 
 - Use short, imperative commit messages (for example: `fix: align uploads with multipart contract`).
+- Release flow:
+  - Commit functional/documentation changes first with a regular short English commit message.
+  - Create the release commit and semver tag only via `npm version patch|minor|major`. Do not edit package versions manually for releases.
+  - Push branch and tags with `git push origin master --follow-tags` unless a different release branch/remote was explicitly requested.
+  - npm publication is handled by GitHub Actions on push of tags matching `v*.*.*`.
+  - Repository secret `NPM_TOKEN` must be configured for the publish workflow. Never store tokens in the repo, workflow files, docs, or terminal history.
 - In PRs, clearly list:
   - which Max API behaviors changed,
   - which official docs pages were used to validate the change,

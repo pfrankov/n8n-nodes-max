@@ -1680,11 +1680,12 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(mockHttpRequest).toHaveBeenCalledTimes(1);
 		});
 
-		it('should reject upload response without supported payload fields', async () => {
+		it('should reuse token from /uploads when video upload returns retval JSON', async () => {
 			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
 			mockHttpRequest
 				.mockResolvedValueOnce({
 					url: 'https://upload.example.com/upload',
+					token: 'video-token-from-uploads',
 				})
 				.mockResolvedValueOnce({
 					statusCode: 200,
@@ -1699,8 +1700,31 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					'test-file.mp4',
 					'video',
 				),
-			).rejects.toThrow(/No supported attachment payload received from Max API/);
+			).resolves.toEqual({ token: 'video-token-from-uploads' });
 			expect(mockHttpRequest).toHaveBeenCalledTimes(2);
+		});
+
+		it('should reuse token from /uploads when video upload returns retval XML', async () => {
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			mockHttpRequest
+				.mockResolvedValueOnce({
+					url: 'https://upload.example.com/upload',
+					token: 'video-token-from-uploads',
+				})
+				.mockResolvedValueOnce({
+					statusCode: 200,
+					body: '<retval>1</retval>',
+				});
+
+			await expect(
+				uploadFileToMax.call(
+					mockExecuteFunctions as IExecuteFunctions,
+					{} as any,
+					'/tmp/test-file.mp4',
+					'test-file.mp4',
+					'video',
+				),
+			).resolves.toEqual({ token: 'video-token-from-uploads' });
 		});
 
 		it('should reject file upload response with url-only payload', async () => {

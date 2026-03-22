@@ -40,6 +40,15 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 - После `npm install` автоматически устанавливается Husky pre-commit hook.
 - Перед коммитом запускается Prettier для staged исходников (`*.{ts,js,mjs,cjs,json,md,yml,yaml}`).
 
+## Релиз
+
+1. Подготовьте изменения и закоммитьте их обычным git-коммитом.
+2. Выберите semver-тип релиза и создайте commit+tag командой `npm version patch`, `npm version minor` или `npm version major`.
+3. Запушьте ветку и теги командой `git push origin master --follow-tags`.
+4. GitHub Actions опубликует пакет в npm по пушу тега `v*.*.*`.
+
+Для автопубликации в репозитории должен быть настроен секрет `NPM_TOKEN`.
+
 ## Возможности
 
 ### Сообщения
@@ -50,7 +59,7 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 - Отправка файлов (изображения, видео, аудио, документы)
 - В `Send Message` текст не обязателен, если отправляются вложения
 - Нода не ограничивает вложения по расширению файла: формат проверяется на стороне Max API
-- Payload вложения формируется из JSON-ответа upload-шага: для `image` поддерживаются `token`/`photos`/`url`, для `video`/`audio`/`file` используется `token`
+- Payload вложения зависит от типа файла: для `image` используются поля из JSON-ответа upload-шага (`token`/`photos`/`url`), для `file` используется `token` из upload-ответа, а для `video`/`audio` нода также поддерживает токен из `POST /uploads`, если upload endpoint возвращает `retval`
 - Автоматический ретрай отправки с медиа-вложением при временной ошибке `attachment.not.ready`
 - Явная валидация ID получателя: `0` отклоняется с подсказкой по полям из `Max Trigger`
 - Интерактивные клавиатуры с кнопками
