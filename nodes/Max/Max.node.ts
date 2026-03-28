@@ -244,27 +244,7 @@ export class Max implements INodeType {
 								displayName: 'Attachment',
 								values: [
 									{
-										displayName: 'Binary Property',
-										name: 'binaryProperty',
-										type: 'string',
-										default: 'data',
-										description: 'The name of the binary input data field',
-									},
-									{
-										displayName: 'File Name',
-										name: 'fileName',
-										type: 'string',
-										default: '',
-										description: 'The file name. Optional.',
-									},
-									{
-										displayName: 'File URL',
-										name: 'fileUrl',
-										type: 'string',
-										default: '',
-									},
-									{
-										displayName: 'Input Type',
+										displayName: 'Attachment Source',
 										name: 'inputType',
 										type: 'options',
 										options: [
@@ -276,9 +256,65 @@ export class Max implements INodeType {
 												name: 'URL',
 												value: 'url',
 											},
+											{
+												name: 'Token',
+												value: 'token',
+											},
 										],
 										default: 'binary',
-										description: 'The input method',
+										description: 'How to provide the attachment to Max',
+									},
+									{
+										displayName: 'Binary Property',
+										name: 'binaryProperty',
+										type: 'string',
+										default: 'data',
+										description: 'Binary property that contains the file to upload',
+										displayOptions: {
+											show: {
+												inputType: ['binary'],
+											},
+										},
+									},
+									{
+										displayName: 'File Name',
+										name: 'fileName',
+										type: 'string',
+										default: '',
+										description: 'Optional file name override for binary data or URL upload',
+										displayOptions: {
+											show: {
+												inputType: ['binary', 'url'],
+											},
+										},
+									},
+									{
+										displayName: 'File Token',
+										name: 'token',
+										type: 'string',
+										default: '',
+										typeOptions: {
+											password: true,
+										},
+										description:
+											'Existing Max attachment token to send without downloading or uploading the file again',
+										displayOptions: {
+											show: {
+												inputType: ['token'],
+											},
+										},
+									},
+									{
+										displayName: 'File URL',
+										name: 'fileUrl',
+										type: 'string',
+										default: '',
+										description: 'Direct URL of the file to download and upload to Max',
+										displayOptions: {
+											show: {
+												inputType: ['url'],
+											},
+										},
 									},
 									{
 										displayName: 'Type',

@@ -25,6 +25,7 @@ import {
 	answerCallbackQuery,
 	getChatInfo,
 	leaveChat,
+	handleAttachments,
 } from '../GenericFunctions';
 
 /**
@@ -76,6 +77,38 @@ describe('Max Node', () => {
 				(p) => p.name === 'operation' && p.displayOptions?.show?.['resource']?.includes('chat'),
 			);
 			expect(chatOps?.options).toHaveLength(2);
+		});
+
+		it('should expose token-based attachment input in the UI schema', () => {
+			const additionalFields = maxNode.description.properties.find(
+				(p) => p.name === 'additionalFields',
+			) as any;
+			const attachmentsField = additionalFields.options.find(
+				(option: { name: string }) => option.name === 'attachments',
+			);
+			const attachmentValues = attachmentsField.options[0].values;
+			const firstField = attachmentValues[0];
+			const inputTypeField = attachmentValues.find(
+				(field: { name: string }) => field.name === 'inputType',
+			);
+			const tokenField = attachmentValues.find((field: { name: string }) => field.name === 'token');
+
+			expect(firstField).toMatchObject({
+				displayName: 'Attachment Source',
+				name: 'inputType',
+			});
+			expect(inputTypeField?.options).toContainEqual({
+				name: 'Token',
+				value: 'token',
+			});
+			expect(tokenField).toMatchObject({
+				displayName: 'File Token',
+				name: 'token',
+				type: 'string',
+				typeOptions: {
+					password: true,
+				},
+			});
 		});
 	});
 
@@ -454,6 +487,67 @@ describe('Max Node', () => {
 
 				const options = (sendMessage as jest.Mock).mock.calls[0]?.[4];
 				expect(options).not.toHaveProperty('format');
+			});
+
+			it('should pass token-based attachments through without requiring upload input', async () => {
+				const executeFunctions = getExecuteFunctionsMock({});
+				(handleAttachments as jest.Mock).mockResolvedValueOnce([
+					{
+						type: 'file',
+						payload: { token: 'existing-max-file-token' },
+					},
+				]);
+				(executeFunctions.getNodeParameter as jest.Mock).mockImplementation((name: string) => {
+					if (name === 'resource') return 'message';
+					if (name === 'operation') return 'sendMessage';
+					if (name === 'sendTo') return 'chat';
+					if (name === 'chatId') return '12345';
+					if (name === 'text') return 'Test message with token attachment';
+					if (name === 'format') return 'plain';
+					if (name === 'additionalFields') {
+						return {
+							attachments: {
+								attachment: [
+									{
+										inputType: 'token',
+										token: 'existing-max-file-token',
+										type: 'file',
+									},
+								],
+							},
+						};
+					}
+					return null;
+				});
+
+				await maxNode.execute.call(executeFunctions);
+
+				expect(handleAttachments).toHaveBeenCalledWith(
+					expect.anything(),
+					[
+						{
+							inputType: 'token',
+							token: 'existing-max-file-token',
+							type: 'file',
+						},
+					],
+					expect.anything(),
+					0,
+				);
+				expect(sendMessage).toHaveBeenCalledWith(
+					expect.anything(),
+					'chat',
+					12345,
+					'Test message with token attachment',
+					expect.objectContaining({
+						attachments: [
+							{
+								type: 'file',
+								payload: { token: 'existing-max-file-token' },
+							},
+						],
+					}),
+				);
 			});
 		});
 

@@ -1495,6 +1495,15 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			);
 		});
 
+		it('should accept token input when token is provided', () => {
+			const config = AttachmentConfigFactory.createFileConfig({
+				inputType: 'token',
+				token: 'existing-max-file-token',
+			});
+
+			expect(() => validateAttachment(config)).not.toThrow();
+		});
+
 		it('should require binary property for binary input', () => {
 			const config = AttachmentConfigFactory.createImageConfig({ binaryProperty: '' });
 
@@ -1512,6 +1521,19 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				() => validateAttachment(config),
 				Error,
 				/File URL is required for URL input type/,
+			);
+		});
+
+		it('should require token for token input', () => {
+			const config = AttachmentConfigFactory.createFileConfig({
+				inputType: 'token',
+				token: '',
+			});
+
+			AssertionHelpers.expectError(
+				() => validateAttachment(config),
+				Error,
+				/Attachment token is required for token input type/,
 			);
 		});
 
@@ -2679,6 +2701,34 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				},
 			]);
 			expect(mockHttpRequest).toHaveBeenCalledTimes(5);
+		});
+
+		it('should reuse an existing Max token without upload', async () => {
+			const mockExecuteFunctions = createMockExecuteFunctions();
+			const mockHttpRequest = mockExecuteFunctions.helpers!.httpRequest as jest.Mock;
+			const attachmentConfigs = [
+				AttachmentConfigFactory.createFileConfig({
+					inputType: 'token',
+					token: 'existing-max-file-token',
+				}),
+			];
+			const item = { json: {} } as INodeExecutionData;
+
+			const attachments = await handleAttachments.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				{} as any,
+				attachmentConfigs,
+				item,
+				0,
+			);
+
+			expect(attachments).toEqual([
+				{
+					type: 'file',
+					payload: { token: 'existing-max-file-token' },
+				},
+			]);
+			expect(mockHttpRequest).not.toHaveBeenCalled();
 		});
 	});
 });

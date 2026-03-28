@@ -57,9 +57,11 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 - Автоматический fallback в plain text при ошибке Max API о неподдерживаемом Markdown
 - Редактирование и удаление сообщений
 - Отправка файлов (изображения, видео, аудио, документы)
+- Для вложений в `Send Message` доступны три источника: `Binary Data`, `URL` и готовый `Token` MAX
 - В `Send Message` текст не обязателен, если отправляются вложения
 - Нода не ограничивает вложения по расширению файла: формат проверяется на стороне Max API
 - Payload вложения зависит от типа файла: для `image` используются поля из JSON-ответа upload-шага (`token`/`photos`/`url`), для `file` используется `token` из upload-ответа, а для `video`/`audio` нода также поддерживает токен из `POST /uploads`, если upload endpoint возвращает `retval`
+- Если у вас уже есть `payload.token` из Max API, выберите `Attachment Source = Token`: нода отправит вложение без повторного скачивания и upload
 - Автоматический ретрай отправки с медиа-вложением при временной ошибке `attachment.not.ready`
 - Явная валидация ID получателя: `0` отклоняется с подсказкой по полям из `Max Trigger`
 - Интерактивные клавиатуры с кнопками
@@ -91,7 +93,8 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 2. Выберите операцию "Send Message"
 3. Укажите ID получателя; при необходимости добавьте текст
 4. Чтобы отправить только файл/медиа, оставьте `Message Text` пустым и добавьте вложение в `Additional Fields → Attachments`
-5. Запустите workflow
+5. Чтобы переиспользовать уже загруженный файл, выберите `Additional Fields → Attachments → Attachment Source = Token` и вставьте `File Token`
+6. Запустите workflow
 
 ### Получение сообщений
 

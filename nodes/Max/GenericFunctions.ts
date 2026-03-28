@@ -1048,10 +1048,11 @@ export interface IMaxUploadResponse {
  */
 export interface IAttachmentConfig {
 	type: 'image' | 'video' | 'audio' | 'file';
-	inputType: 'binary' | 'url';
+	inputType: 'binary' | 'url' | 'token';
 	binaryProperty?: string;
 	fileUrl?: string;
 	fileName?: string;
+	token?: string;
 }
 
 /**
@@ -1081,7 +1082,7 @@ export function validateAttachment(config: IAttachmentConfig, fileSize?: number)
 	}
 
 	// Validate input type
-	if (!['binary', 'url'].includes(config.inputType)) {
+	if (!['binary', 'url', 'token'].includes(config.inputType)) {
 		throw new Error(`Unsupported input type: ${config.inputType}`);
 	}
 
@@ -1105,6 +1106,10 @@ export function validateAttachment(config: IAttachmentConfig, fileSize?: number)
 		} catch {
 			throw new Error(`Invalid file URL: ${config.fileUrl}`);
 		}
+	}
+
+	if (config.inputType === 'token' && (!config.token || config.token.trim() === '')) {
+		throw new Error('Attachment token is required for token input type');
 	}
 
 	// Validate file size if provided
@@ -1434,10 +1439,30 @@ export async function processUrlAttachment(
 }
 
 /**
+ * Process token-based attachment without upload
+ *
+ * Reuses an existing Max attachment token and sends it as-is in the message payload.
+ *
+ * @param config - Attachment configuration specifying type and token
+ * @returns Max attachment object with token payload
+ * @throws {Error} When token input is invalid
+ */
+export function processTokenAttachment(config: IAttachmentConfig): IMaxAttachment {
+	validateAttachment(config);
+
+	return {
+		type: config.type,
+		payload: {
+			token: config.token!.trim(),
+		},
+	};
+}
+
+/**
  * Handle multiple attachments for a message
  *
- * Processes multiple file attachments for a Max message, handling both binary data
- * and URL-based attachments with validation and upload to Max API.
+ * Processes multiple file attachments for a Max message, handling binary data,
+ * URL uploads, and direct token reuse.
  *
  * @param this - The execution context providing access to credentials and helpers
  * @param bot - Configured Max Bot API instance
@@ -1461,6 +1486,8 @@ export async function handleAttachments(
 
 			if (config.inputType === 'binary') {
 				attachment = await processBinaryAttachment.call(this, bot, config, item, itemIndex);
+			} else if (config.inputType === 'token') {
+				attachment = processTokenAttachment(config);
 			} else {
 				attachment = await processUrlAttachment.call(this, bot, config);
 			}

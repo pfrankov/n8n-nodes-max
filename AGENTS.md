@@ -48,6 +48,8 @@
 - Webhook processing is fail-soft: invalid events or filter issues should not crash trigger execution.
 - Webhook subscription URLs are normalized to ASCII/Punycode hostnames before registration to avoid TLS issues on IDN domains.
 - Upload flow is two-step (`POST /uploads` then multipart upload to returned URL). For `image`, attachment payload is normalized from upload-step JSON response (`token`, `url`, `photos`). For `file`, the node uses `token` from the upload response. For `video`/`audio`, the node also supports the documented flow where `POST /uploads` returns `token` and the multipart upload responds with `retval`.
+- `Send Message` attachments support three input modes: `Binary Data`, `URL`, and `Token`. In `Token` mode, the node reuses an existing Max attachment token and sends `{ payload: { token } }` without a new upload.
+- In the attachment UI, the source selector (`Attachment Source`) is shown before source-specific fields because it controls which fields become available.
 - Attachment validation on node side does not restrict file extension/MIME type; format acceptance is determined by Max API.
 - Message sending with media attachments retries on documented temporary processing errors (`attachment.not.ready` / `errors.process.attachment.file.not.processed`) before failing.
 - Message send/edit in `markdown` format retries once as plain text if Max API rejects unsupported Markdown syntax.
@@ -116,9 +118,9 @@
 
 ## Commit & Pull Request Guidelines
 
-- Use short, imperative commit messages (for example: `fix: align uploads with multipart contract`).
+- Use short, clear commit messages in Russian that explain the essence of the change (for example: `Исправить загрузку вложений по multipart-контракту`).
 - Release flow:
-  - Commit functional/documentation changes first with a regular short English commit message.
+  - Commit functional/documentation changes first with a regular short Russian commit message that explains the essence of the change.
   - Create the release commit and semver tag only via `npm version patch|minor|major`. Do not edit package versions manually for releases.
   - Push branch and tags with `git push origin master --follow-tags` unless a different release branch/remote was explicitly requested.
   - npm publication is handled by GitHub Actions on push of tags matching `v*.*.*`.
