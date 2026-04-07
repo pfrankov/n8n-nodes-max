@@ -52,7 +52,7 @@
 		"@eslint/eslintrc": "^3.3.1",
 		"@types/jest": "^30.0.0",
 		"@typescript-eslint/parser": "^8.58.0",
-		"eslint": "^10.2.0",
+		"eslint": "^9.39.4",
 		"eslint-plugin-n8n-nodes-base": "^1.16.6",
 		"gulp": "^5.0.0",
 		"husky": "^9.1.7",
