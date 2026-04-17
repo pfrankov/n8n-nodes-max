@@ -375,6 +375,30 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			);
 		});
 
+		it('should surface nested API validation message from response body', async () => {
+			const validationError = {
+				message: 'Request failed with status code 400',
+				status: 400,
+				response: {
+					data: {
+						code: 'proto.payload',
+						message: 'Missing required parameter: message_id',
+					},
+				},
+			};
+
+			await AssertionHelpers.expectAsyncError(
+				() =>
+					handleMaxApiError.call(
+						mockExecuteFunctions as IExecuteFunctions,
+						validationError,
+						'edit message',
+					),
+				NodeOperationError,
+				/Missing required parameter: message_id/,
+			);
+		});
+
 		it('should handle business logic errors with specific guidance', async () => {
 			const businessError = ErrorFactory.createBusinessLogicError();
 
@@ -1012,11 +1036,14 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(mockHttpRequest).toHaveBeenCalledWith({
 				method: 'PUT',
 				url: 'https://platform-api.max.ru/messages',
+				qs: {
+					message_id: '123',
+				},
 				headers: {
 					Authorization: 'test-token',
 					'Content-Type': 'application/json',
 				},
-				body: { message_id: '123', text: 'Updated message' },
+				body: { text: 'Updated message' },
 				json: true,
 			});
 		});
@@ -1041,11 +1068,14 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(mockHttpRequest).toHaveBeenCalledWith({
 				method: 'PUT',
 				url: 'https://platform-api.max.ru/messages',
+				qs: {
+					message_id: '456',
+				},
 				headers: {
 					Authorization: 'test-token',
 					'Content-Type': 'application/json',
 				},
-				body: { message_id: '456', text: 'Updated <b>message</b>', format: 'html' },
+				body: { text: 'Updated <b>message</b>', format: 'html' },
 				json: true,
 			});
 		});
@@ -1068,7 +1098,8 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 			expect(mockHttpRequest).toHaveBeenCalledWith(
 				expect.objectContaining({
-					body: { message_id: '456', text: 'Updated message', notify: false },
+					qs: { message_id: '456' },
+					body: { text: 'Updated message', notify: false },
 				}),
 			);
 		});
@@ -1160,8 +1191,10 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(mockHttpRequest).toHaveBeenNthCalledWith(
 				2,
 				expect.objectContaining({
-					body: {
+					qs: {
 						message_id: '123',
+					},
+					body: {
 						text: 'Updated link (https://example.com) text',
 					},
 				}),

@@ -194,7 +194,7 @@ describe('Max Error Handling', () => {
 				);
 			} catch (error) {
 				expect(error).toBeInstanceOf(NodeApiError);
-				expect(error.message).toContain('Request failed');
+				expect(error.message).toContain('could not be found');
 			}
 		});
 

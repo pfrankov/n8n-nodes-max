@@ -53,7 +53,7 @@
 - Attachment validation on node side does not restrict file extension/MIME type; format acceptance is determined by Max API.
 - Message sending with media attachments retries on documented temporary processing errors (`attachment.not.ready` / `errors.process.attachment.file.not.processed`) before failing.
 - Message send/edit in `markdown` format retries once as plain text if Max API rejects unsupported Markdown syntax.
-- `Edit Message` sends `message_id` in JSON body for `PUT /messages` to match observed API behavior in production workflows.
+- `Edit Message` sends `message_id` in query params for `PUT /messages`; live verification against Max API returns `200` for `PUT /messages?message_id=...` and `400 proto.payload` when `message_id` is only in JSON body.
 - `Send Message` allows attachment-only requests: `text` may be empty when at least one attachment is present.
 - Recipient ID validation rejects `0` for `sendMessage` and returns guidance for Max Trigger field mapping (`message.sender.user_id` for user, `message.recipient.chat_id` for chat).
 - Keyboard validation enforces documented limits (rows/buttons/text/payload/url and limited-type per-row constraints).

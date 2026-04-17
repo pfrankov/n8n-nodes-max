@@ -56,7 +56,7 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 - Отправка текстовых сообщений с форматированием
 - Автоматический fallback в plain text при ошибке Max API о неподдерживаемом Markdown
 - Редактирование и удаление сообщений
-- Для `Edit Message` нода отправляет `message_id` в JSON body запроса `PUT /messages`
+- Для `Edit Message` нода отправляет `message_id` в query-параметре запроса `PUT /messages?message_id=...`
 - Отправка файлов (изображения, видео, аудио, документы)
 - Для вложений в `Send Message` доступны три источника: `Binary Data`, `URL` и готовый `Token` MAX
 - В `Send Message` текст не обязателен, если отправляются вложения

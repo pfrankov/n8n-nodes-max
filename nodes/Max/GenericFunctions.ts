@@ -73,6 +73,58 @@ function extractMaxErrorText(error: unknown): string {
 	return parts.join(' ');
 }
 
+function extractMaxErrorDetails(error: unknown): Partial<IMaxError> {
+	const nestedCandidates = [
+		(error as { response?: { body?: unknown } })?.response?.body,
+		(error as { response?: { data?: unknown } })?.response?.data,
+		(error as { body?: unknown })?.body,
+		(error as { error?: unknown })?.error,
+	].filter((candidate) => candidate && typeof candidate === 'object');
+
+	const details: Partial<IMaxError> = {};
+
+	for (const candidate of nestedCandidates) {
+		const typedCandidate = candidate as {
+			error_code?: number;
+			status?: number;
+			message?: string;
+			description?: string;
+			code?: string | number;
+			parameters?: IMaxError['parameters'];
+		};
+
+		if (details.error_code === undefined && typedCandidate.error_code !== undefined) {
+			details.error_code = typedCandidate.error_code;
+		}
+
+		if (details.status === undefined && typedCandidate.status !== undefined) {
+			details.status = typedCandidate.status;
+		}
+
+		if (!details.description && typeof typedCandidate.description === 'string') {
+			details.description = typedCandidate.description;
+		}
+
+		if (!details.description && typeof typedCandidate.message === 'string') {
+			details.description = typedCandidate.message;
+		}
+
+		if (!details.message && typeof typedCandidate.message === 'string') {
+			details.message = typedCandidate.message;
+		}
+
+		if (details.code === undefined && typedCandidate.code !== undefined) {
+			details.code = typedCandidate.code;
+		}
+
+		if (!details.parameters && typedCandidate.parameters) {
+			details.parameters = typedCandidate.parameters;
+		}
+	}
+
+	return details;
+}
+
 function isUnsupportedMarkdownSyntaxError(error: unknown): boolean {
 	const errorText = extractMaxErrorText(error);
 	return (
@@ -466,7 +518,6 @@ export async function editMessage(
 
 		// Build request body. `disable_link_preview` is supported only for POST /messages.
 		const requestBody: IDataObject = {
-			message_id: trimmedMessageId,
 			text,
 			...options,
 		};
@@ -494,10 +545,13 @@ export async function editMessage(
 			}
 		};
 
-		// Edit message contract: message_id is sent in request body.
+		// Edit message contract: message_id is sent in query params.
 		const requestOptions: IHttpRequestOptions = {
 			method: 'PUT',
 			url: `${baseUrl}/messages`,
+			qs: {
+				message_id: trimmedMessageId,
+			},
 			headers: {
 				...getAuthHeaders(accessToken),
 				'Content-Type': 'application/json',
@@ -856,13 +910,14 @@ export async function handleMaxApiError(
 	retryCount: number = 0,
 	maxRetries: number = 3,
 ): Promise<never> {
+	const nestedErrorDetails = extractMaxErrorDetails(error);
 	const maxError: IMaxError = {
-		error_code: error.error_code || error.status,
-		description: error.description || error.message,
-		parameters: error.parameters,
-		message: error.message,
-		code: error.code,
-		status: error.status,
+		error_code: error.error_code || nestedErrorDetails.error_code || error.status,
+		description: error.description || nestedErrorDetails.description || error.message,
+		parameters: error.parameters || nestedErrorDetails.parameters,
+		message: nestedErrorDetails.message || error.message,
+		code: error.code || nestedErrorDetails.code,
+		status: error.status || nestedErrorDetails.status,
 	};
 
 	const category = categorizeMaxError(maxError);
