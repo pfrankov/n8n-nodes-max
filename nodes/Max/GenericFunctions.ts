@@ -91,51 +91,6 @@ function isAttachmentNotReadyError(error: unknown): boolean {
 	);
 }
 
-function parseHttpStatusCode(value: unknown): number | undefined {
-	if (typeof value === 'number' && Number.isInteger(value)) {
-		return value;
-	}
-
-	if (typeof value === 'string') {
-		const trimmed = value.trim();
-		if (/^\d{3}$/.test(trimmed)) {
-			return Number.parseInt(trimmed, 10);
-		}
-	}
-
-	return undefined;
-}
-
-function getHttpStatusCode(error: unknown): number | undefined {
-	const candidates: unknown[] = [
-		(error as { status?: unknown })?.status,
-		(error as { statusCode?: unknown })?.statusCode,
-		(error as { response?: { status?: unknown; statusCode?: unknown } })?.response?.status,
-		(error as { response?: { status?: unknown; statusCode?: unknown } })?.response?.statusCode,
-		(error as { response?: { body?: { status?: unknown; statusCode?: unknown } } })?.response?.body
-			?.status,
-		(error as { response?: { body?: { status?: unknown; statusCode?: unknown } } })?.response?.body
-			?.statusCode,
-		(error as { response?: { data?: { status?: unknown; statusCode?: unknown } } })?.response?.data
-			?.status,
-		(error as { response?: { data?: { status?: unknown; statusCode?: unknown } } })?.response?.data
-			?.statusCode,
-	];
-
-	for (const candidate of candidates) {
-		const parsed = parseHttpStatusCode(candidate);
-		if (parsed !== undefined) {
-			return parsed;
-		}
-	}
-
-	return undefined;
-}
-
-function isNotFoundError(error: unknown): boolean {
-	return getHttpStatusCode(error) === 404;
-}
-
 function hasMediaAttachments(body: IDataObject): boolean {
 	const attachments = body['attachments'];
 	if (!Array.isArray(attachments)) {
@@ -511,6 +466,7 @@ export async function editMessage(
 
 		// Build request body. `disable_link_preview` is supported only for POST /messages.
 		const requestBody: IDataObject = {
+			message_id: trimmedMessageId,
 			text,
 			...options,
 		};
@@ -538,13 +494,10 @@ export async function editMessage(
 			}
 		};
 
-		// Primary contract: message_id in query (`PUT /messages?message_id=...`).
+		// Edit message contract: message_id is sent in request body.
 		const requestOptions: IHttpRequestOptions = {
 			method: 'PUT',
 			url: `${baseUrl}/messages`,
-			qs: {
-				message_id: trimmedMessageId,
-			},
 			headers: {
 				...getAuthHeaders(accessToken),
 				'Content-Type': 'application/json',
@@ -553,30 +506,7 @@ export async function editMessage(
 			json: true,
 		};
 
-		try {
-			return await executeEditRequest(requestOptions);
-		} catch (error) {
-			if (!isNotFoundError(error)) {
-				throw error;
-			}
-
-			// Compatibility fallback: some API surfaces expect message_id in request body.
-			const fallbackRequestOptions: IHttpRequestOptions = {
-				method: 'PUT',
-				url: `${baseUrl}/messages`,
-				headers: {
-					...getAuthHeaders(accessToken),
-					'Content-Type': 'application/json',
-				},
-				body: {
-					...requestBody,
-					message_id: trimmedMessageId,
-				},
-				json: true,
-			};
-
-			return await executeEditRequest(fallbackRequestOptions);
-		}
+		return await executeEditRequest(requestOptions);
 	} catch (error) {
 		// Use enhanced error handling
 		return await handleMaxApiError.call(this, error, 'edit message');

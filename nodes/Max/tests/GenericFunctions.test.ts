@@ -1012,14 +1012,11 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(mockHttpRequest).toHaveBeenCalledWith({
 				method: 'PUT',
 				url: 'https://platform-api.max.ru/messages',
-				qs: {
-					message_id: '123',
-				},
 				headers: {
 					Authorization: 'test-token',
 					'Content-Type': 'application/json',
 				},
-				body: { text: 'Updated message' },
+				body: { message_id: '123', text: 'Updated message' },
 				json: true,
 			});
 		});
@@ -1044,62 +1041,13 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(mockHttpRequest).toHaveBeenCalledWith({
 				method: 'PUT',
 				url: 'https://platform-api.max.ru/messages',
-				qs: {
-					message_id: '456',
-				},
 				headers: {
 					Authorization: 'test-token',
 					'Content-Type': 'application/json',
 				},
-				body: { text: 'Updated <b>message</b>', format: 'html' },
+				body: { message_id: '456', text: 'Updated <b>message</b>', format: 'html' },
 				json: true,
 			});
-		});
-
-		it('should retry with message_id in body when API returns 404 for query contract', async () => {
-			const expectedResponse = { success: true };
-			const mockHttpRequest = jest
-				.fn()
-				.mockRejectedValueOnce({ statusCode: 404, message: 'Not Found' })
-				.mockResolvedValueOnce(expectedResponse);
-			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock) = mockHttpRequest;
-			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({
-				accessToken: 'test-token',
-			});
-
-			const result = await editMessage.call(
-				mockExecuteFunctions as IExecuteFunctions,
-				mockBot,
-				'456',
-				'Updated message',
-				{},
-			);
-
-			expect(result).toEqual(expectedResponse);
-			expect(mockHttpRequest).toHaveBeenCalledTimes(2);
-			expect(mockHttpRequest).toHaveBeenNthCalledWith(
-				1,
-				expect.objectContaining({
-					method: 'PUT',
-					url: 'https://platform-api.max.ru/messages',
-					qs: {
-						message_id: '456',
-					},
-					body: { text: 'Updated message' },
-				}),
-			);
-			expect(mockHttpRequest).toHaveBeenNthCalledWith(
-				2,
-				expect.objectContaining({
-					method: 'PUT',
-					url: 'https://platform-api.max.ru/messages',
-					body: {
-						text: 'Updated message',
-						message_id: '456',
-					},
-				}),
-			);
-			expect(mockHttpRequest.mock.calls[1]?.[0]?.qs).toBeUndefined();
 		});
 
 		it('should ignore disable_link_preview for editMessage body', async () => {
@@ -1120,7 +1068,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 			expect(mockHttpRequest).toHaveBeenCalledWith(
 				expect.objectContaining({
-					body: { text: 'Updated message', notify: false },
+					body: { message_id: '456', text: 'Updated message', notify: false },
 				}),
 			);
 		});
@@ -1213,6 +1161,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				2,
 				expect.objectContaining({
 					body: {
+						message_id: '123',
 						text: 'Updated link (https://example.com) text',
 					},
 				}),
