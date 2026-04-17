@@ -58,16 +58,14 @@ describe('MaxTriggerConfig', () => {
 			expect(messageCreatedOption).toEqual({
 				name: 'Message Received (Direct)',
 				value: 'message_created',
-				description:
-					'Trigger when a new message is received in direct conversation (update_type: message_created)',
+				description: 'Trigger on new direct message (update_type: message_created)',
 			});
 
 			const botStartedOption = options.find((opt: any) => opt.value === 'bot_started');
 			expect(botStartedOption).toEqual({
 				name: 'Bot Started',
 				value: 'bot_started',
-				description:
-					'Trigger when a user starts interaction with the bot (update_type: bot_started)',
+				description: 'Trigger when a user starts the bot (update_type: bot_started)',
 			});
 		});
 
@@ -97,8 +95,7 @@ describe('MaxTriggerConfig', () => {
 				name: 'chatIds',
 				type: 'string',
 				default: '',
-				description:
-					'The chat IDs to restrict the trigger to. Multiple can be defined separated by comma.',
+				description: 'Only trigger for these chat IDs. Comma-separated.',
 			});
 
 			const userIdsOption = options.find((opt: any) => opt.name === 'userIds');
@@ -107,8 +104,7 @@ describe('MaxTriggerConfig', () => {
 				name: 'userIds',
 				type: 'string',
 				default: '',
-				description:
-					'The user IDs to restrict the trigger to. Multiple can be defined separated by comma.',
+				description: 'Only trigger for these user IDs. Comma-separated.',
 			});
 
 			const secretOption = options.find((opt: any) => opt.name === 'secret');
@@ -120,8 +116,7 @@ describe('MaxTriggerConfig', () => {
 					password: true,
 				},
 				default: '',
-				description:
-					'Optional secret sent in X-Max-Bot-Api-Secret header for webhook requests (5-256 chars, A-Z a-z 0-9 _ -)',
+				description: 'A secret for the X-Max-Bot-Api-Secret header. Optional. 5-256 chars.',
 			});
 		});
 

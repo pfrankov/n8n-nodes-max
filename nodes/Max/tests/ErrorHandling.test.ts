@@ -45,14 +45,14 @@ describe('Max Error Handling', () => {
 		it('should handle errors without descriptions', () => {
 			const error = { error_code: 401 };
 			const message = createUserFriendlyErrorMessage(error, MaxErrorCategory.AUTHENTICATION);
-			expect(message).toContain('Authorization failed - please check your credentials');
+			expect(message).toContain('Authorization failed');
 			expect(message).toContain('An unknown error occurred');
 		});
 
 		it('should handle rate limit errors without retry_after', () => {
 			const error = { description: 'Rate limit exceeded' };
 			const message = createUserFriendlyErrorMessage(error, MaxErrorCategory.RATE_LIMIT);
-			expect(message).toContain('The service is receiving too many requests from you');
+			expect(message).toContain('Too many requests');
 			expect(message).toContain('Please wait before retrying');
 		});
 
@@ -132,7 +132,7 @@ describe('Max Error Handling', () => {
 				);
 			} catch (error) {
 				expect(error).toBeInstanceOf(NodeOperationError);
-				expect(error.message).toContain('Invalid request parameters');
+				expect(error.message).toContain('Invalid input');
 			}
 		});
 
@@ -150,7 +150,7 @@ describe('Max Error Handling', () => {
 				);
 			} catch (error) {
 				expect(error).toBeInstanceOf(NodeApiError);
-				expect(error.message).toContain('Authorization failed - please check your credentials');
+				expect(error.message).toContain('Authorization failed');
 				expect(error.httpCode).toBe('401');
 			}
 		});
@@ -172,7 +172,7 @@ describe('Max Error Handling', () => {
 				);
 			} catch (error) {
 				expect(error).toBeInstanceOf(NodeOperationError);
-				expect(error.message).toContain('Invalid request parameters');
+				expect(error.message).toContain('Invalid input');
 			}
 		});
 
@@ -194,7 +194,7 @@ describe('Max Error Handling', () => {
 				);
 			} catch (error) {
 				expect(error).toBeInstanceOf(NodeApiError);
-				expect(error.message).toContain('The service was not able to process your request');
+				expect(error.message).toContain('Request failed');
 			}
 		});
 
@@ -265,8 +265,8 @@ describe('Max Error Handling', () => {
 				chatNotFoundError,
 				MaxErrorCategory.BUSINESS_LOGIC,
 			);
-			expect(chatMessage).toContain('bot has been added to the chat');
-			expect(chatMessage).toContain('appropriate permissions');
+			expect(chatMessage).toContain('bot is a member');
+			expect(chatMessage).toContain('Check the Chat ID');
 
 			// Test user blocked error
 			const userBlockedError = { description: 'User blocked bot' };
@@ -274,21 +274,21 @@ describe('Max Error Handling', () => {
 				userBlockedError,
 				MaxErrorCategory.BUSINESS_LOGIC,
 			);
-			expect(userMessage).toContain('user may have blocked the bot');
-			expect(userMessage).toContain('properly configured and authorized');
+			expect(userMessage).toContain('might have blocked the bot');
+			expect(userMessage).toContain('Access denied');
 
 			// Test network error
 			const networkError = { message: 'Connection failed' };
 			const networkMessage = createUserFriendlyErrorMessage(networkError, MaxErrorCategory.NETWORK);
-			expect(networkMessage).toContain('check your internet connection');
-			expect(networkMessage).toContain('Max API service status');
+			expect(networkMessage).toContain('Check your connection');
+			expect(networkMessage).toContain('Base URL');
 		});
 
 		it('should provide token refresh guidance for auth errors', () => {
 			const tokenError = { description: 'Token expired' };
 			const message = createUserFriendlyErrorMessage(tokenError, MaxErrorCategory.AUTHENTICATION);
-			expect(message).toContain('@PrimeBot in Max messenger');
-			expect(message).toContain('token is valid and has not expired');
+			expect(message).toContain('@PrimeBot');
+			expect(message).toContain('Check your access token');
 		});
 	});
 });

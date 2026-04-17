@@ -38,7 +38,7 @@ describe('MaxApi Credentials', () => {
 			expect(accessTokenProperty?.type).toBe('string');
 			expect(accessTokenProperty?.typeOptions?.password).toBe(true);
 			expect(accessTokenProperty?.default).toBe('');
-			expect(accessTokenProperty?.description).toContain('Bot access token');
+			expect(accessTokenProperty?.description).toContain('bot access token');
 		});
 
 		it('should have base URL property with default value', () => {
@@ -48,7 +48,7 @@ describe('MaxApi Credentials', () => {
 			expect(baseUrlProperty?.displayName).toBe('Base URL');
 			expect(baseUrlProperty?.type).toBe('string');
 			expect(baseUrlProperty?.default).toBe('https://platform-api.max.ru');
-			expect(baseUrlProperty?.description).toContain('Base URL for Max messenger Bot API');
+			expect(baseUrlProperty?.description).toContain('API URL');
 		});
 	});
 
@@ -88,9 +88,9 @@ describe('MaxApi Credentials', () => {
 			);
 			const baseUrlProperty = maxApiCredentials.properties.find((prop) => prop.name === 'baseUrl');
 
-			expect(accessTokenProperty?.description).toContain('Bot access token');
+			expect(accessTokenProperty?.description).toContain('bot access token');
 			expect(accessTokenProperty?.description).toContain('@PrimeBot');
-			expect(baseUrlProperty?.description).toContain('Base URL for Max messenger Bot API');
+			expect(baseUrlProperty?.description).toContain('API URL');
 		});
 
 		it('should have all required properties for n8n credential interface', () => {

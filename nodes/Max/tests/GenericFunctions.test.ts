@@ -259,23 +259,23 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 		it('should create authentication error messages', () => {
 			const error = { description: 'Invalid token' };
 			const message = createUserFriendlyErrorMessage(error, MaxErrorCategory.AUTHENTICATION);
-			expect(message).toContain('Authorization failed - please check your credentials');
-			expect(message).toContain('check your Max API access token');
+			expect(message).toContain('Authorization failed');
+			expect(message).toContain('Check your access token');
 			expect(message).toContain('@PrimeBot');
 		});
 
 		it('should create rate limit error messages', () => {
 			const error = { description: 'Too many requests', parameters: { retry_after: 60 } };
 			const message = createUserFriendlyErrorMessage(error, MaxErrorCategory.RATE_LIMIT);
-			expect(message).toContain('The service is receiving too many requests from you');
+			expect(message).toContain('Too many requests');
 			expect(message).toContain('wait 60 seconds');
 		});
 
 		it('should create validation error messages', () => {
 			const error = { description: 'Invalid parameters' };
 			const message = createUserFriendlyErrorMessage(error, MaxErrorCategory.VALIDATION);
-			expect(message).toContain('Invalid request parameters');
-			expect(message).toContain('max 4000 characters');
+			expect(message).toContain('Invalid input');
+			expect(message).toContain('text length');
 		});
 
 		it('should create business logic error messages', () => {
@@ -285,7 +285,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				MaxErrorCategory.BUSINESS_LOGIC,
 			);
 			expect(chatMessage).toContain('Chat not found');
-			expect(chatMessage).toContain('bot has been added to the chat');
+			expect(chatMessage).toContain('bot is a member');
 
 			const blockedError = { description: 'User blocked bot' };
 			const blockedMessage = createUserFriendlyErrorMessage(
@@ -293,21 +293,21 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				MaxErrorCategory.BUSINESS_LOGIC,
 			);
 			expect(blockedMessage).toContain('Access denied');
-			expect(blockedMessage).toContain('user may have blocked the bot');
+			expect(blockedMessage).toContain('might have blocked the bot');
 		});
 
 		it('should create network error messages', () => {
 			const error = { message: 'Connection timeout' };
 			const message = createUserFriendlyErrorMessage(error, MaxErrorCategory.NETWORK);
 			expect(message).toContain('Network error');
-			expect(message).toContain('check your internet connection');
+			expect(message).toContain('Check your connection');
 		});
 
 		it('should create unknown error messages', () => {
 			const error = { message: 'Unexpected error' };
 			const message = createUserFriendlyErrorMessage(error, MaxErrorCategory.UNKNOWN);
 			expect(message).toContain('Unexpected error');
-			expect(message).toContain('Max API documentation');
+			expect(message).toContain('Max API docs');
 		});
 
 		it('should handle errors without retry_after parameter', () => {
@@ -341,7 +341,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 						'test operation',
 					),
 				NodeApiError,
-				/Authorization failed - please check your credentials/,
+				/Authorization failed/i,
 			);
 		});
 
@@ -371,7 +371,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 						'test operation',
 					),
 				NodeOperationError,
-				/Invalid request parameters/,
+				/Invalid input/i,
 			);
 		});
 
@@ -401,7 +401,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 						'test operation',
 					),
 				NodeApiError,
-				/Network error.*check your internet connection/i,
+				/Network error.*connection/i,
 			);
 		});
 
@@ -416,7 +416,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 						'test operation',
 					),
 				NodeApiError,
-				/not able to process your request/i,
+				/Request failed/i,
 			);
 		});
 
@@ -478,10 +478,10 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				'Message text cannot be empty',
 			);
 			expect(() => validateInputParameters('user', 123, null as any)).toThrow(
-				'Message text is required and must be a string',
+				'Message text is required',
 			);
 			expect(() => validateInputParameters('user', 123, undefined as any)).toThrow(
-				'Message text is required and must be a string',
+				'Message text is required',
 			);
 		});
 
@@ -496,22 +496,22 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 		it('should validate HTML format', () => {
 			expect(() => validateInputParameters('user', 123, '<b>unclosed tag', 'html')).toThrow(
-				'HTML format error: unclosed tags detected',
+				'HTML error: Unclosed tags.',
 			);
 			expect(() => validateInputParameters('user', 123, '<b>test</b><i>unclosed', 'html')).toThrow(
-				'HTML format error: unclosed tags detected',
+				'HTML error: Unclosed tags.',
 			);
 		});
 
 		it('should validate Markdown format', () => {
 			expect(() => validateInputParameters('user', 123, '*unclosed bold', 'markdown')).toThrow(
-				'Markdown format error: unmatched bold markers',
+				'Markdown error: Unmatched bold markers (*).',
 			);
 			expect(() => validateInputParameters('user', 123, '_unclosed italic', 'markdown')).toThrow(
-				'Markdown format error: unmatched italic markers',
+				'Markdown error: Unmatched italic markers (_).',
 			);
 			expect(() => validateInputParameters('user', 123, '`unclosed code', 'markdown')).toThrow(
-				'Markdown format error: unmatched code markers',
+				'Markdown error: Unmatched code markers (`).',
 			);
 		});
 
@@ -1056,6 +1056,52 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			});
 		});
 
+		it('should retry with message_id in body when API returns 404 for query contract', async () => {
+			const expectedResponse = { success: true };
+			const mockHttpRequest = jest
+				.fn()
+				.mockRejectedValueOnce({ statusCode: 404, message: 'Not Found' })
+				.mockResolvedValueOnce(expectedResponse);
+			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock) = mockHttpRequest;
+			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({
+				accessToken: 'test-token',
+			});
+
+			const result = await editMessage.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				mockBot,
+				'456',
+				'Updated message',
+				{},
+			);
+
+			expect(result).toEqual(expectedResponse);
+			expect(mockHttpRequest).toHaveBeenCalledTimes(2);
+			expect(mockHttpRequest).toHaveBeenNthCalledWith(
+				1,
+				expect.objectContaining({
+					method: 'PUT',
+					url: 'https://platform-api.max.ru/messages',
+					qs: {
+						message_id: '456',
+					},
+					body: { text: 'Updated message' },
+				}),
+			);
+			expect(mockHttpRequest).toHaveBeenNthCalledWith(
+				2,
+				expect.objectContaining({
+					method: 'PUT',
+					url: 'https://platform-api.max.ru/messages',
+					body: {
+						text: 'Updated message',
+						message_id: '456',
+					},
+				}),
+			);
+			expect(mockHttpRequest.mock.calls[1]?.[0]?.qs).toBeUndefined();
+		});
+
 		it('should ignore disable_link_preview for editMessage body', async () => {
 			const expectedResponse = { success: true };
 			const mockHttpRequest = jest.fn().mockResolvedValue(expectedResponse);
@@ -1088,7 +1134,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					'Updated message',
 					{},
 				),
-			).rejects.toThrow('Message ID is required and cannot be empty');
+			).rejects.toThrow('Message ID is required');
 
 			await expect(
 				editMessage.call(
@@ -1098,7 +1144,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					'Updated message',
 					{},
 				),
-			).rejects.toThrow('Message ID is required and cannot be empty');
+			).rejects.toThrow('Message ID is required');
 		});
 
 		it('should validate message text', async () => {
@@ -1122,7 +1168,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					'<b>unclosed tag',
 					{ format: 'html' },
 				),
-			).rejects.toThrow('HTML format error: unclosed tags detected');
+			).rejects.toThrow('HTML error: Unclosed tags.');
 		});
 
 		it('should validate Markdown format in edit message', async () => {
@@ -1134,7 +1180,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					'*unclosed bold',
 					{ format: 'markdown' },
 				),
-			).rejects.toThrow('Markdown format error: unmatched bold markers');
+			).rejects.toThrow('Markdown error: Unmatched bold markers (*).');
 		});
 
 		it('should retry edit as plain text when Max rejects markdown syntax', async () => {
@@ -1182,7 +1228,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					null as any,
 					{},
 				),
-			).rejects.toThrow('Message text is required and must be a string');
+			).rejects.toThrow('Message text is required');
 		});
 
 		it('should handle undefined text validation', async () => {
@@ -1194,7 +1240,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					undefined as any,
 					{},
 				),
-			).rejects.toThrow('Message text is required and must be a string');
+			).rejects.toThrow('Message text is required');
 		});
 
 		it('should handle empty text validation', async () => {
@@ -2380,7 +2426,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				() =>
 					getChatInfo.call(scenario.mockExecuteFunctions, {} as any, TEST_CONSTANTS.IDS.VALID_CHAT),
 				NodeApiError,
-				/not able to process your request/i,
+				/Request failed/i,
 			);
 		});
 	});
@@ -2459,7 +2505,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				() =>
 					leaveChat.call(scenario.mockExecuteFunctions, {} as any, TEST_CONSTANTS.IDS.VALID_CHAT),
 				NodeApiError,
-				/not able to process your request/i,
+				/Request failed/i,
 			);
 		});
 	});

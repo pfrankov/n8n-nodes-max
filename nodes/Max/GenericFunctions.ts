@@ -91,6 +91,51 @@ function isAttachmentNotReadyError(error: unknown): boolean {
 	);
 }
 
+function parseHttpStatusCode(value: unknown): number | undefined {
+	if (typeof value === 'number' && Number.isInteger(value)) {
+		return value;
+	}
+
+	if (typeof value === 'string') {
+		const trimmed = value.trim();
+		if (/^\d{3}$/.test(trimmed)) {
+			return Number.parseInt(trimmed, 10);
+		}
+	}
+
+	return undefined;
+}
+
+function getHttpStatusCode(error: unknown): number | undefined {
+	const candidates: unknown[] = [
+		(error as { status?: unknown })?.status,
+		(error as { statusCode?: unknown })?.statusCode,
+		(error as { response?: { status?: unknown; statusCode?: unknown } })?.response?.status,
+		(error as { response?: { status?: unknown; statusCode?: unknown } })?.response?.statusCode,
+		(error as { response?: { body?: { status?: unknown; statusCode?: unknown } } })?.response?.body
+			?.status,
+		(error as { response?: { body?: { status?: unknown; statusCode?: unknown } } })?.response?.body
+			?.statusCode,
+		(error as { response?: { data?: { status?: unknown; statusCode?: unknown } } })?.response?.data
+			?.status,
+		(error as { response?: { data?: { status?: unknown; statusCode?: unknown } } })?.response?.data
+			?.statusCode,
+	];
+
+	for (const candidate of candidates) {
+		const parsed = parseHttpStatusCode(candidate);
+		if (parsed !== undefined) {
+			return parsed;
+		}
+	}
+
+	return undefined;
+}
+
+function isNotFoundError(error: unknown): boolean {
+	return getHttpStatusCode(error) === 404;
+}
+
 function hasMediaAttachments(body: IDataObject): boolean {
 	const attachments = body['attachments'];
 	if (!Array.isArray(attachments)) {
@@ -462,6 +507,7 @@ export async function editMessage(
 		const credentials = await this.getCredentials('maxApi');
 		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
 		const accessToken = credentials['accessToken'] as string;
+		const trimmedMessageId = messageId.trim();
 
 		// Build request body. `disable_link_preview` is supported only for POST /messages.
 		const requestBody: IDataObject = {
@@ -470,12 +516,34 @@ export async function editMessage(
 		};
 		delete requestBody['disable_link_preview'];
 
-		// Make HTTP request to edit message endpoint
+		const executeEditRequest = async (requestOptions: IHttpRequestOptions): Promise<any> => {
+			try {
+				return await this.helpers.httpRequest(requestOptions);
+			} catch (error) {
+				if (format === 'markdown' && isUnsupportedMarkdownSyntaxError(error)) {
+					const plainText = stripMarkdownFormatting(text);
+					const fallbackBody: IDataObject = {
+						...(requestOptions.body as IDataObject),
+						text: plainText.trim().length > 0 ? plainText : text,
+					};
+					delete fallbackBody['format'];
+
+					return await this.helpers.httpRequest({
+						...requestOptions,
+						body: fallbackBody,
+					});
+				}
+
+				throw error;
+			}
+		};
+
+		// Primary contract: message_id in query (`PUT /messages?message_id=...`).
 		const requestOptions: IHttpRequestOptions = {
 			method: 'PUT',
 			url: `${baseUrl}/messages`,
 			qs: {
-				message_id: messageId.trim(),
+				message_id: trimmedMessageId,
 			},
 			headers: {
 				...getAuthHeaders(accessToken),
@@ -486,24 +554,28 @@ export async function editMessage(
 		};
 
 		try {
-			return await this.helpers.httpRequest(requestOptions);
+			return await executeEditRequest(requestOptions);
 		} catch (error) {
-			const format = options['format'] as string | undefined;
-			if (format === 'markdown' && isUnsupportedMarkdownSyntaxError(error)) {
-				const plainText = stripMarkdownFormatting(text);
-				const fallbackBody: IDataObject = {
-					...requestBody,
-					text: plainText.trim().length > 0 ? plainText : text,
-				};
-				delete fallbackBody['format'];
-
-				return await this.helpers.httpRequest({
-					...requestOptions,
-					body: fallbackBody,
-				});
+			if (!isNotFoundError(error)) {
+				throw error;
 			}
 
-			throw error;
+			// Compatibility fallback: some API surfaces expect message_id in request body.
+			const fallbackRequestOptions: IHttpRequestOptions = {
+				method: 'PUT',
+				url: `${baseUrl}/messages`,
+				headers: {
+					...getAuthHeaders(accessToken),
+					'Content-Type': 'application/json',
+				},
+				body: {
+					...requestBody,
+					message_id: trimmedMessageId,
+				},
+				json: true,
+			};
+
+			return await executeEditRequest(fallbackRequestOptions);
 		}
 	} catch (error) {
 		// Use enhanced error handling
