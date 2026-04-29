@@ -57,6 +57,7 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 - Автоматический fallback в plain text при ошибке Max API о неподдерживаемом Markdown
 - Редактирование и удаление сообщений
 - Для `Edit Message` нода отправляет `message_id` в query-параметре запроса `PUT /messages?message_id=...`
+- В `Edit Message` опция `Clear Attachments` удаляет текущие вложения сообщения, включая inline-клавиатуру
 - Отправка файлов (изображения, видео, аудио, документы)
 - Для вложений в `Send Message` доступны три источника: `Binary Data`, `URL` и готовый `Token` MAX
 - В `Send Message` текст не обязателен, если отправляются вложения
@@ -96,6 +97,12 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 4. Чтобы отправить только файл/медиа, оставьте `Message Text` пустым и добавьте вложение в `Additional Fields → Attachments`
 5. Чтобы переиспользовать уже загруженный файл, выберите `Additional Fields → Attachments → Attachment Source = Token` и вставьте `File Token`
 6. Запустите workflow
+
+### Удаление inline-кнопок при редактировании
+
+1. Выберите операцию `Edit Message`
+2. Укажите `Message ID` и новый текст
+3. Включите `Clear Attachments`, чтобы Max API получил `attachments: []` и удалил текущую inline-клавиатуру
 
 ### Получение сообщений
 

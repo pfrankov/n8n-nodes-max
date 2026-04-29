@@ -1080,6 +1080,38 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			});
 		});
 
+		it('should send empty attachments array when clearing message attachments', async () => {
+			const expectedResponse = { success: true };
+			const mockHttpRequest = jest.fn().mockResolvedValue(expectedResponse);
+			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock) = mockHttpRequest;
+			(mockExecuteFunctions.getCredentials as jest.Mock).mockResolvedValue({
+				accessToken: 'test-token',
+			});
+
+			const result = await editMessage.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				mockBot,
+				'456',
+				'Updated message',
+				{ attachments: [] },
+			);
+
+			expect(result).toEqual(expectedResponse);
+			expect(mockHttpRequest).toHaveBeenCalledWith(
+				expect.objectContaining({
+					method: 'PUT',
+					url: 'https://platform-api.max.ru/messages',
+					qs: {
+						message_id: '456',
+					},
+					body: {
+						text: 'Updated message',
+						attachments: [],
+					},
+				}),
+			);
+		});
+
 		it('should ignore disable_link_preview for editMessage body', async () => {
 			const expectedResponse = { success: true };
 			const mockHttpRequest = jest.fn().mockResolvedValue(expectedResponse);

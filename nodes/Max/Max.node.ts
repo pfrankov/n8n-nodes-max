@@ -801,6 +801,20 @@ export class Max implements INodeType {
 					},
 				],
 			},
+			{
+				displayName: 'Clear Attachments',
+				name: 'clearAttachments',
+				type: 'boolean',
+				displayOptions: {
+					show: {
+						resource: ['message'],
+						operation: ['editMessage'],
+					},
+				},
+				default: false,
+				description:
+					'Whether to remove all current message attachments, including inline keyboard buttons',
+			},
 			// Delete Message Operation
 			{
 				displayName: 'Message ID',
@@ -1096,11 +1110,16 @@ export class Max implements INodeType {
 						// Create Max Bot instance
 						const bot = await createMaxBotInstance.call(this);
 
-						// Handle inline keyboard if provided
-						const keyboardAttachment = processKeyboardFromParameters.call(this, i);
-						if (keyboardAttachment) {
-							// Add keyboard to attachments array
-							options['attachments'] = [keyboardAttachment];
+						const clearAttachments = this.getNodeParameter('clearAttachments', i, false) as boolean;
+						if (clearAttachments) {
+							options['attachments'] = [];
+						} else {
+							// Handle inline keyboard if provided
+							const keyboardAttachment = processKeyboardFromParameters.call(this, i);
+							if (keyboardAttachment) {
+								// Add keyboard to attachments array
+								options['attachments'] = [keyboardAttachment];
+							}
 						}
 
 						// Edit message using Max Bot API

@@ -110,6 +110,25 @@ describe('Max Node', () => {
 				},
 			});
 		});
+
+		it('should expose clear attachments option for Edit Message', () => {
+			const clearAttachmentsField = maxNode.description.properties.find(
+				(p) => p.name === 'clearAttachments',
+			);
+
+			expect(clearAttachmentsField).toMatchObject({
+				displayName: 'Clear Attachments',
+				name: 'clearAttachments',
+				type: 'boolean',
+				default: false,
+				displayOptions: {
+					show: {
+						resource: ['message'],
+						operation: ['editMessage'],
+					},
+				},
+			});
+		});
 	});
 
 	describe('execute', () => {
@@ -159,6 +178,22 @@ describe('Max Node', () => {
 				await maxNode.execute.call(executeFunctions);
 				expect(editMessage).toHaveBeenCalledWith(expect.anything(), 'msg-789', 'Updated', {
 					format: 'html',
+				});
+			});
+
+			it('should pass empty attachments array when clearing Edit Message attachments', async () => {
+				const params = {
+					resource: 'message',
+					operation: 'editMessage',
+					messageId: 'msg-789',
+					text: 'Updated',
+					format: 'plain',
+					clearAttachments: true,
+				};
+				const executeFunctions = getExecuteFunctionsMock(params);
+				await maxNode.execute.call(executeFunctions);
+				expect(editMessage).toHaveBeenCalledWith(expect.anything(), 'msg-789', 'Updated', {
+					attachments: [],
 				});
 			});
 
