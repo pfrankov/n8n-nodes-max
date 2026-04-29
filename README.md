@@ -1,5 +1,7 @@
 # n8n-nodes-max
 
+[![npm version](https://img.shields.io/npm/v/n8n-nodes-max?logo=npm)](https://www.npmjs.com/package/n8n-nodes-max)
+
 Нода для интеграции мессенджера Max с платформой автоматизации n8n.
 <img width="518" height="429" alt="image" src="https://github.com/user-attachments/assets/577165bb-510f-4523-b898-76ea94dc0f2b" />
 
