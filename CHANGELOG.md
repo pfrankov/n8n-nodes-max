@@ -1,5 +1,23 @@
 # Журнал изменений
 
+## v0.1.23 - дата не назначена
+
+### Сопровождение
+
+- Публикация npm переведена на Trusted Publisher через GitHub Actions OIDC: workflow больше не использует `NPM_TOKEN`, получает `id-token: write` и запускает `npm publish` без долгоживущего токена.
+- В release workflow отключён npm cache для публикации, чтобы релизная сборка не зависела от сохранённого кэша GitHub Actions.
+
+### Кому важно
+
+- Мейнтейнерам, которые выпускают пакет через semver-теги `v*.*.*`.
+- Пользователям, которые ждут свежие версии пакета в npm после релиза.
+
+### Что проверить после обновления
+
+- В настройках npm пакета проверить Trusted Publisher: `pfrankov/n8n-nodes-max`, workflow filename `publish-npm.yml`, allowed action `npm publish`.
+- На следующем release-теге убедиться, что GitHub Actions проходит `npm ci` и `npm publish` без секрета `NPM_TOKEN`.
+- После публикации установить свежую версию в тестовое окружение n8n и проверить отправку `Send Message` и активацию `Max Trigger`.
+
 ## v0.1.22 - 2026-05-26
 
 ### Добавлено

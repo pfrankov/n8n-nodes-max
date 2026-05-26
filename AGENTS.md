@@ -127,7 +127,9 @@
   - Create the release commit and semver tag only via `npm version patch|minor|major`. Do not edit package versions manually for releases.
   - Push branch and tags with `git push origin master --follow-tags` unless a different release branch/remote was explicitly requested.
   - npm publication is handled by GitHub Actions on push of tags matching `v*.*.*`.
-  - Repository secret `NPM_TOKEN` must be configured for the publish workflow. Never store tokens in the repo, workflow files, docs, or terminal history.
+  - npm publication uses Trusted Publisher with GitHub Actions OIDC. Do not add `NPM_TOKEN` to the workflow.
+  - The npm trusted publisher must target GitHub Actions for `pfrankov/n8n-nodes-max`, workflow filename `publish-npm.yml`, with `npm publish` allowed.
+  - Never store npm tokens in the repo, workflow files, docs, or terminal history.
 - In PRs, clearly list:
   - which Max API behaviors changed,
   - which official docs pages were used to validate the change,

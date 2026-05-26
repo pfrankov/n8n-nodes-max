@@ -49,7 +49,13 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 3. Запушьте ветку и теги командой `git push origin master --follow-tags`.
 4. GitHub Actions опубликует пакет в npm по пушу тега `v*.*.*`.
 
-Для автопубликации в репозитории должен быть настроен секрет `NPM_TOKEN`.
+Автопубликация использует npm Trusted Publisher через GitHub Actions OIDC, без `NPM_TOKEN`.
+В настройках пакета npm trusted publisher должен указывать:
+
+- Organization or user: `pfrankov`
+- Repository: `n8n-nodes-max`
+- Workflow filename: `publish-npm.yml`
+- Allowed actions: `npm publish`
 
 ## Возможности
 
