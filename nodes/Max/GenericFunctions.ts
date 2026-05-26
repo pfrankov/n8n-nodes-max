@@ -164,6 +164,16 @@ function hasAnyAttachments(options: IDataObject): boolean {
 	return Array.isArray(attachments) && attachments.length > 0;
 }
 
+function hasMessageLink(options: IDataObject): boolean {
+	const link = options['link'];
+	if (!link || typeof link !== 'object') {
+		return false;
+	}
+
+	const mid = (link as IDataObject)['mid'];
+	return typeof mid === 'string' && mid.trim().length > 0;
+}
+
 function isNonEmptyObject(value: unknown): value is Record<string, unknown> {
 	return (
 		value !== null &&
@@ -334,7 +344,7 @@ export async function createMaxBotInstance(this: IExecuteFunctions): Promise<Bot
  * @param bot - Configured Max Bot API instance
  * @param recipientType - Type of recipient ('user' or 'chat')
  * @param recipientId - Numeric ID of the recipient user or chat
- * @param text - Message text content (max 4000 characters). May be empty when attachments are provided
+ * @param text - Message text content (max 4000 characters). May be empty with attachments or a message link
  * @param options - Additional message options (format, attachments, etc.)
  * @returns Promise resolving to the API response with message details
  * @throws {NodeOperationError} When validation fails or parameters are invalid
@@ -349,12 +359,13 @@ export async function sendMessage(
 	options: IDataObject = {},
 ): Promise<any> {
 	const hasAttachments = hasAnyAttachments(options);
+	const hasLink = hasMessageLink(options);
 	const hasText = text.trim().length > 0;
 	const format = hasText ? (options['format'] as string | undefined) : undefined;
 
 	// Validate input parameters before making API call
 	validateInputParameters(recipientType, recipientId, text, format, {
-		allowEmptyText: hasAttachments,
+		allowEmptyText: hasAttachments || hasLink,
 	});
 
 	try {

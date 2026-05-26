@@ -764,6 +764,47 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			});
 		});
 
+		it('should send forward-only linked message without text field in request body', async () => {
+			const expectedResponse = { message_id: 779 };
+			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mockResolvedValue(expectedResponse);
+
+			const result = await sendMessage.call(
+				mockExecuteFunctions as IExecuteFunctions,
+				mockBot,
+				'chat',
+				456,
+				'',
+				{
+					link: {
+						type: 'forward',
+						mid: 'msg-original-123',
+					},
+					format: 'markdown',
+				},
+			);
+
+			expect(result).toEqual(expectedResponse);
+			expect(
+				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mock.calls[0]?.[0],
+			).toMatchObject({
+				qs: {
+					chat_id: 456,
+				},
+				body: {
+					link: {
+						type: 'forward',
+						mid: 'msg-original-123',
+					},
+				},
+			});
+			expect(
+				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mock.calls[0]?.[0]?.body,
+			).not.toHaveProperty('text');
+			expect(
+				(mockExecuteFunctions.helpers!.httpRequest as jest.Mock).mock.calls[0]?.[0]?.body,
+			).not.toHaveProperty('format');
+		});
+
 		it('should reject empty message text when no attachments are provided', async () => {
 			await expect(
 				sendMessage.call(

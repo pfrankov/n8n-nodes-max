@@ -215,7 +215,6 @@ export class Max implements INodeType {
 				default: 'plain',
 				description: 'The message format',
 			},
-
 			{
 				displayName: 'Additional Fields',
 				name: 'additionalFields',
@@ -228,6 +227,8 @@ export class Max implements INodeType {
 					},
 				},
 				default: {},
+				// Keep related reply/forward message ID fields adjacent in the n8n UI.
+				// eslint-disable-next-line n8n-nodes-base/node-param-collection-type-unsorted-items
 				options: [
 					{
 						displayName: 'Attachments',
@@ -547,7 +548,16 @@ export class Max implements INodeType {
 						name: 'replyToMessageId',
 						type: 'string',
 						default: '',
-						description: 'The message ID to reply to. Optional.',
+						description:
+							'The original message ID to reply to. Use message.body.mid or event_context.message_id from Max Trigger.',
+					},
+					{
+						displayName: 'Forward Message ID',
+						name: 'forwardMessageId',
+						type: 'string',
+						default: '',
+						description:
+							'The original message ID to forward. Use message.body.mid or event_context.message_id from Max Trigger.',
 					},
 				],
 			},
@@ -931,7 +941,8 @@ export class Max implements INodeType {
 							i,
 							{},
 						) as IDataObject;
-						const replyToMessageId = (additionalFields['replyToMessageId'] as string) || '';
+						const replyMessageId = String(additionalFields['replyToMessageId'] ?? '').trim();
+						const forwardMessageId = String(additionalFields['forwardMessageId'] ?? '').trim();
 
 						// Validate and format text
 						const formattedText = validateAndFormatText(text, format);
@@ -1001,21 +1012,19 @@ export class Max implements INodeType {
 							options['format'] = format;
 						}
 
-						// Add reply link if replyToMessageId is provided
-						if (replyToMessageId) {
-							const trimmedReplyId = replyToMessageId.trim();
-							// Basic validation for message ID format
-							if (trimmedReplyId.length === 0) {
-								throw new NodeOperationError(
-									this.getNode(),
-									'Reply to Message ID cannot be empty',
-									{ itemIndex: i },
-								);
-							}
+						if (replyMessageId && forwardMessageId) {
+							throw new NodeOperationError(
+								this.getNode(),
+								'Use either Reply to Message ID or Forward Message ID, not both.',
+								{ itemIndex: i },
+							);
+						}
 
+						const linkedMessageId = forwardMessageId || replyMessageId;
+						if (linkedMessageId) {
 							options['link'] = {
-								type: 'reply',
-								mid: trimmedReplyId,
+								type: forwardMessageId ? 'forward' : 'reply',
+								mid: linkedMessageId,
 							};
 						}
 

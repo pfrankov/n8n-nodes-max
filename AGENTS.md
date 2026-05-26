@@ -53,9 +53,10 @@
 - Attachment validation on node side does not restrict file extension/MIME type; format acceptance is determined by Max API.
 - Message sending with media attachments retries on documented temporary processing errors (`attachment.not.ready` / `errors.process.attachment.file.not.processed`) before failing.
 - Message send/edit in `markdown` format retries once as plain text if Max API rejects unsupported Markdown syntax.
+- `Send Message` supports Max message links through `link: { type: 'reply' | 'forward', mid }`. UI keeps the original optional `Additional Fields → Reply to Message ID` field and adds a matching `Forward Message ID` field. Blank reply/forward IDs mean no `link` is sent. If both IDs are filled, execution fails with a clear validation error because Max API accepts only one link.
 - `Edit Message` sends `message_id` in query params for `PUT /messages`; live verification against Max API returns `200` for `PUT /messages?message_id=...` and `400 proto.payload` when `message_id` is only in JSON body.
 - `Edit Message` exposes `Clear Attachments`; when enabled, the node sends `attachments: []` to remove all current message attachments, including inline keyboards.
-- `Send Message` allows attachment-only requests: `text` may be empty when at least one attachment is present.
+- `Send Message` allows non-text requests: `text` may be empty when at least one attachment is present or when a reply/forward link is provided.
 - Recipient ID validation rejects `0` for `sendMessage` and returns guidance for Max Trigger field mapping (`message.sender.user_id` for user, `message.recipient.chat_id` for chat).
 - Keyboard validation enforces documented limits (rows/buttons/text/payload/url and limited-type per-row constraints).
 
@@ -120,7 +121,7 @@
 
 ## Commit & Pull Request Guidelines
 
-- Use short, clear commit messages in Russian that explain the essence of the change (for example: `Исправить загрузку вложений по multipart-контракту`).
+- Use short, clear commit messages in Russian, written in past tense, that explain the essence of the change (for example: `Исправлена загрузка вложений по multipart-контракту`).
 - Release flow:
   - Commit functional/documentation changes first with a regular short Russian commit message that explains the essence of the change.
   - Create the release commit and semver tag only via `npm version patch|minor|major`. Do not edit package versions manually for releases.

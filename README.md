@@ -63,6 +63,7 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 - Отправка файлов (изображения, видео, аудио, документы)
 - Для вложений в `Send Message` доступны три источника: `Binary Data`, `URL` и готовый `Token` MAX
 - В `Send Message` текст не обязателен, если отправляются вложения
+- В `Send Message` через `Additional Fields → Reply to Message ID` можно ответить на исходное сообщение, а через `Forward Message ID` — переслать оригинал
 - Нода не ограничивает вложения по расширению файла: формат проверяется на стороне Max API
 - Payload вложения зависит от типа файла: для `image` используются поля из JSON-ответа upload-шага (`token`/`photos`/`url`), для `file` используется `token` из upload-ответа, а для `video`/`audio` нода также поддерживает токен из `POST /uploads`, если upload endpoint возвращает `retval`
 - Если у вас уже есть `payload.token` из Max API, выберите `Attachment Source = Token`: нода отправит вложение без повторного скачивания и upload
@@ -99,6 +100,15 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 4. Чтобы отправить только файл/медиа, оставьте `Message Text` пустым и добавьте вложение в `Additional Fields → Attachments`
 5. Чтобы переиспользовать уже загруженный файл, выберите `Additional Fields → Attachments → Attachment Source = Token` и вставьте `File Token`
 6. Запустите workflow
+
+### Пересылка входящего сообщения
+
+1. Добавьте `Max Trigger` и подпишитесь на `message_created` или `message_chat_created`
+2. Добавьте `Max` → `Send Message`
+3. В `Send To` выберите `Chat` и укажите ID группы поддержки
+4. Оставьте `Message Text` пустым
+5. В `Additional Fields` добавьте `Forward Message ID` и передайте `={{$json.event_context.message_id}}`
+6. Оставьте остальные additional fields по необходимости, например `Notify`
 
 ### Удаление inline-кнопок при редактировании
 

@@ -129,6 +129,37 @@ describe('Max Node', () => {
 				},
 			});
 		});
+
+		it('should expose simple reply and forward message ID fields', () => {
+			const additionalFields = maxNode.description.properties.find(
+				(p) => p.name === 'additionalFields',
+			) as any;
+			const replyToMessageIdField = additionalFields.options.find(
+				(option: { name: string }) => option.name === 'replyToMessageId',
+			);
+			const forwardMessageIdField = additionalFields.options.find(
+				(option: { name: string }) => option.name === 'forwardMessageId',
+			);
+			const replyToMessageIdIndex = additionalFields.options.findIndex(
+				(option: { name: string }) => option.name === 'replyToMessageId',
+			);
+
+			expect(replyToMessageIdField).toMatchObject({
+				displayName: 'Reply to Message ID',
+				name: 'replyToMessageId',
+				type: 'string',
+				default: '',
+			});
+			expect(forwardMessageIdField).toMatchObject({
+				displayName: 'Forward Message ID',
+				name: 'forwardMessageId',
+				type: 'string',
+				default: '',
+			});
+			expect(replyToMessageIdField.required).toBeUndefined();
+			expect(forwardMessageIdField.required).toBeUndefined();
+			expect(additionalFields.options[replyToMessageIdIndex + 1]?.name).toBe('forwardMessageId');
+		});
 	});
 
 	describe('execute', () => {
@@ -617,6 +648,30 @@ describe('Max Node', () => {
 				);
 			});
 
+			it('should call sendMessage with forward link and empty text', async () => {
+				const params = {
+					resource: 'message',
+					operation: 'sendMessage',
+					sendTo: 'chat',
+					chatId: '12345',
+					text: '',
+					format: 'plain',
+					additionalFields: {
+						forwardMessageId: 'msg-456',
+					},
+				};
+				const executeFunctions = getExecuteFunctionsMock(params);
+
+				await maxNode.execute.call(executeFunctions);
+
+				expect(sendMessage).toHaveBeenCalledWith(expect.anything(), 'chat', 12345, '', {
+					link: {
+						type: 'forward',
+						mid: 'msg-456',
+					},
+				});
+			});
+
 			it('should call sendMessage without reply link when replyToMessageId is empty', async () => {
 				const params = {
 					resource: 'message',
@@ -644,21 +699,50 @@ describe('Max Node', () => {
 				);
 			});
 
-			it('should throw error for whitespace-only replyToMessageId', async () => {
+			it('should ignore forward message ID when it is blank', async () => {
 				const params = {
 					resource: 'message',
 					operation: 'sendMessage',
 					sendTo: 'chat',
 					chatId: '12345',
-					text: 'This should fail',
+					text: 'This should not link',
+					format: 'plain',
 					additionalFields: {
-						replyToMessageId: '   ',
+						forwardMessageId: '   ',
+					},
+				};
+				const executeFunctions = getExecuteFunctionsMock(params);
+
+				await maxNode.execute.call(executeFunctions);
+
+				expect(sendMessage).toHaveBeenCalledWith(
+					expect.anything(),
+					'chat',
+					12345,
+					'This should not link',
+					expect.not.objectContaining({
+						link: expect.anything(),
+					}),
+				);
+			});
+
+			it('should throw when both reply and forward message IDs are set', async () => {
+				const params = {
+					resource: 'message',
+					operation: 'sendMessage',
+					sendTo: 'chat',
+					chatId: '12345',
+					text: 'Ambiguous link',
+					format: 'plain',
+					additionalFields: {
+						replyToMessageId: 'msg-reply-123',
+						forwardMessageId: 'msg-forward-123',
 					},
 				};
 				const executeFunctions = getExecuteFunctionsMock(params);
 
 				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow(
-					'Reply to Message ID cannot be empty',
+					'Use either Reply to Message ID or Forward Message ID, not both.',
 				);
 			});
 		});
