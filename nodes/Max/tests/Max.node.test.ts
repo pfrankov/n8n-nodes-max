@@ -1,5 +1,6 @@
 import { Max } from '../Max.node';
 import type { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
+import { SAMPLE_MESSAGES, TEST_MESSAGE_ID, WORKFLOW_TEST_DATA } from './fixtures/testData';
 
 // Mock the entire GenericFunctions module
 jest.mock('../GenericFunctions', () => ({
@@ -130,6 +131,25 @@ describe('Max Node', () => {
 			});
 		});
 
+		it('should expose disable link preview option for Edit Message', () => {
+			const disableLinkPreviewField = maxNode.description.properties.find(
+				(p) => p.name === 'disable_link_preview',
+			);
+
+			expect(disableLinkPreviewField).toMatchObject({
+				displayName: 'Disable Link Preview',
+				name: 'disable_link_preview',
+				type: 'boolean',
+				default: false,
+				displayOptions: {
+					show: {
+						resource: ['message'],
+						operation: ['editMessage'],
+					},
+				},
+			});
+		});
+
 		it('should expose simple reply and forward message ID fields', () => {
 			const additionalFields = maxNode.description.properties.find(
 				(p) => p.name === 'additionalFields',
@@ -226,6 +246,43 @@ describe('Max Node', () => {
 				expect(editMessage).toHaveBeenCalledWith(expect.anything(), 'msg-789', 'Updated', {
 					attachments: [],
 				});
+			});
+
+			it('should pass disable link preview when editing a message', async () => {
+				const params = {
+					resource: 'message',
+					operation: 'editMessage',
+					messageId: 'msg-789',
+					text: 'Updated https://example.com',
+					format: 'plain',
+					disable_link_preview: true,
+				};
+				const executeFunctions = getExecuteFunctionsMock(params);
+				await maxNode.execute.call(executeFunctions);
+				expect(editMessage).toHaveBeenCalledWith(
+					expect.anything(),
+					'msg-789',
+					'Updated https://example.com',
+					{
+						disable_link_preview: true,
+					},
+				);
+			});
+
+			it('should execute edit-message disable link preview workflow fixture', async () => {
+				const workflowNode = WORKFLOW_TEST_DATA.editMessageDisableLinkPreviewWorkflow.nodes[0]!;
+				const executeFunctions = getExecuteFunctionsMock(workflowNode.parameters);
+
+				await maxNode.execute.call(executeFunctions);
+
+				expect(editMessage).toHaveBeenCalledWith(
+					expect.anything(),
+					TEST_MESSAGE_ID,
+					SAMPLE_MESSAGES.withLinks,
+					{
+						disable_link_preview: true,
+					},
+				);
 			});
 
 			it('should call deleteMessage', async () => {

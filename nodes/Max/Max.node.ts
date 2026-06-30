@@ -622,6 +622,19 @@ export class Max implements INodeType {
 				description: 'The message format',
 			},
 			{
+				displayName: 'Disable Link Preview',
+				name: 'disable_link_preview',
+				type: 'boolean',
+				displayOptions: {
+					show: {
+						resource: ['message'],
+						operation: ['editMessage'],
+					},
+				},
+				default: false,
+				description: 'Whether to disable link previews for URLs in the edited message text',
+			},
+			{
 				displayName: 'Inline Keyboard',
 				name: 'inlineKeyboard',
 				type: 'fixedCollection',
@@ -1114,6 +1127,15 @@ export class Max implements INodeType {
 						// Add format if not plain text
 						if (format !== 'plain') {
 							options['format'] = format;
+						}
+
+						const disableLinkPreview = this.getNodeParameter(
+							'disable_link_preview',
+							i,
+							false,
+						) as boolean;
+						if (disableLinkPreview) {
+							options['disable_link_preview'] = true;
 						}
 
 						// Create Max Bot instance

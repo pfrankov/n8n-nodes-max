@@ -55,6 +55,7 @@
 - Message send/edit in `markdown` format retries once as plain text if Max API rejects unsupported Markdown syntax.
 - `Send Message` supports Max message links through `link: { type: 'reply' | 'forward', mid }`. UI keeps the original optional `Additional Fields → Reply to Message ID` field and adds a matching `Forward Message ID` field. Blank reply/forward IDs mean no `link` is sent. If both IDs are filled, execution fails with a clear validation error because Max API accepts only one link.
 - `Edit Message` sends `message_id` in query params for `PUT /messages`; live verification against Max API returns `200` for `PUT /messages?message_id=...` and `400 proto.payload` when `message_id` is only in JSON body.
+- `Edit Message` exposes `Disable Link Preview`; when enabled, the node sends `disable_link_preview=true` in query params together with `message_id` for `PUT /messages`.
 - `Edit Message` exposes `Clear Attachments`; when enabled, the node sends `attachments: []` to remove all current message attachments, including inline keyboards.
 - `Send Message` allows non-text requests: `text` may be empty when at least one attachment is present or when a reply/forward link is provided.
 - Recipient ID validation rejects `0` for `sendMessage` and returns guidance for Max Trigger field mapping (`message.sender.user_id` for user, `message.recipient.chat_id` for chat).

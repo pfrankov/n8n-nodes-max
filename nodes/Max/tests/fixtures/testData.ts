@@ -567,6 +567,22 @@ export const WORKFLOW_TEST_DATA = {
 			},
 		],
 	},
+	editMessageDisableLinkPreviewWorkflow: {
+		nodes: [
+			{
+				name: 'Max',
+				type: 'max',
+				parameters: {
+					resource: 'message',
+					operation: 'editMessage',
+					messageId: TEST_MESSAGE_ID,
+					text: SAMPLE_MESSAGES.withLinks,
+					format: 'plain',
+					disable_link_preview: true,
+				},
+			},
+		],
+	},
 };
 
 export function createMockExecuteFunctions(parameters: IDataObject = {}) {

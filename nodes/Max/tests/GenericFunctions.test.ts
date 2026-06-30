@@ -1153,7 +1153,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			);
 		});
 
-		it('should ignore disable_link_preview for editMessage body', async () => {
+		it('should pass disable_link_preview as query parameter for editMessage', async () => {
 			const expectedResponse = { success: true };
 			const mockHttpRequest = jest.fn().mockResolvedValue(expectedResponse);
 			(mockExecuteFunctions.helpers!.httpRequest as jest.Mock) = mockHttpRequest;
@@ -1171,7 +1171,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 			expect(mockHttpRequest).toHaveBeenCalledWith(
 				expect.objectContaining({
-					qs: { message_id: '456' },
+					qs: { message_id: '456', disable_link_preview: true },
 					body: { text: 'Updated message', notify: false },
 				}),
 			);

@@ -527,7 +527,8 @@ export async function editMessage(
 		const accessToken = credentials['accessToken'] as string;
 		const trimmedMessageId = messageId.trim();
 
-		// Build request body. `disable_link_preview` is supported only for POST /messages.
+		const disableLinkPreview = options['disable_link_preview'] as boolean | undefined;
+
 		const requestBody: IDataObject = {
 			text,
 			...options,
@@ -562,6 +563,7 @@ export async function editMessage(
 			url: `${baseUrl}/messages`,
 			qs: {
 				message_id: trimmedMessageId,
+				...(disableLinkPreview !== undefined ? { disable_link_preview: disableLinkPreview } : {}),
 			},
 			headers: {
 				...getAuthHeaders(accessToken),

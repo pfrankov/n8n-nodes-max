@@ -65,6 +65,7 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 - Автоматический fallback в plain text при ошибке Max API о неподдерживаемом Markdown
 - Редактирование и удаление сообщений
 - Для `Edit Message` нода отправляет `message_id` в query-параметре запроса `PUT /messages?message_id=...`
+- В `Edit Message` опция `Disable Link Preview` добавляет `disable_link_preview=true` в query-параметры запроса редактирования
 - В `Edit Message` опция `Clear Attachments` удаляет текущие вложения сообщения, включая inline-клавиатуру
 - Отправка файлов (изображения, видео, аудио, документы)
 - Для вложений в `Send Message` доступны три источника: `Binary Data`, `URL` и готовый `Token` MAX
