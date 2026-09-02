@@ -21,7 +21,9 @@ describe('current MAX API coverage', () => {
 		expect(MAX_TRIGGER_EVENTS).toEqual(expect.arrayContaining(NEW_UPDATE_TYPES));
 
 		const eventsProperty = MAX_TRIGGER_PROPERTIES.find((property) => property.name === 'events');
-		const configuredValues = eventsProperty?.options?.map((option) => option.value);
+		const configuredValues = (eventsProperty as any).options.map(
+			(option: { value: string }) => option.value,
+		);
 		expect(configuredValues).toEqual(expect.arrayContaining(NEW_UPDATE_TYPES));
 	});
 });
