@@ -1,0 +1,66 @@
+name: Apply MAX API coverage migration
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/apply-max-api-coverage.yml
+      - scripts/apply-max-api-coverage.mjs
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply migration
+        run: node scripts/apply-max-api-coverage.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format changed files
+        run: >-
+          npx prettier --write
+          nodes/Max/GenericFunctions.ts
+          nodes/Max/MaxWebhookManager.ts
+          nodes/Max/MaxApiOperationsDescription.ts
+          nodes/Max/tests/MaxApiOperations.node.test.ts
+          nodes/Max/tests/MaxWebhookManager.test.ts
+          nodes/Max/tests/GenericFunctions.test.ts
+          nodes/Max/tests/testUtils.ts
+          nodes/Max/tests/fixtures/testData.ts
+          credentials/MaxApi.credentials.ts
+          credentials/tests/MaxApi.credentials.test.ts
+          README.md
+          AGENTS.md
+          CHANGELOG.md
+
+      - name: Verify
+        run: |
+          npm test -- --runInBand
+          npm run build
+          npm run lint
+
+      - name: Commit migration
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Обновлены существующие ноды под актуальный MAX API"
+          git push origin HEAD:feature/max-api-coverage-23
