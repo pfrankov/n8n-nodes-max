@@ -115,10 +115,21 @@ replaceOptional(
 
 const readme = read('README.md');
 if (!readme.includes('## Advanced MAX API operations')) {
-	write(
-		'README.md',
-		`${readme.trimEnd()}\n\n## Advanced MAX API operations\n\nUse **Max API** for current operations that do not fit the compact legacy node:\n\n- bot information and command management;\n- message history, individual messages, video metadata, advanced callback answers, and current inline keyboard buttons;\n- chat updates, actions, pinned messages, bot membership, members, and administrators;\n- channel comments and explicit webhook subscription management.\n\nExisting workflows using **Max** and **Max Trigger** remain compatible. **Max Trigger** also exposes the current bot, dialog, and comment update types. The removed `GET /chats` method and Long Polling are intentionally not exposed: MAX marks chat listing as unsupported and recommends Webhook instead of Long Polling for production.\n`,
-	);
+	const addition = [
+		'',
+		'## Advanced MAX API operations',
+		'',
+		'Use **Max API** for current operations that do not fit the compact legacy node:',
+		'',
+		'- bot information and command management;',
+		'- message history, individual messages, video metadata, advanced callback answers, and current inline keyboard buttons;',
+		'- chat updates, actions, pinned messages, bot membership, members, and administrators;',
+		'- channel comments and explicit webhook subscription management.',
+		'',
+		'Existing workflows using **Max** and **Max Trigger** remain compatible. **Max Trigger** also exposes the current bot, dialog, and comment update types. The removed `GET /chats` method and Long Polling are intentionally not exposed: MAX marks chat listing as unsupported and recommends Webhook instead of Long Polling for production.',
+		'',
+	].join('\n');
+	write('README.md', `${readme.trimEnd()}\n${addition}`);
 }
 
 const agents = read('AGENTS.md');
@@ -134,6 +145,30 @@ if (!agents.includes('`Max API` node')) {
 
 const changelog = read('CHANGELOG.md');
 if (!changelog.includes('Расширено покрытие актуального MAX Bot API')) {
-	const entry = `## Не выпущено\n\n### Добавлено\n\n- Расширено покрытие актуального MAX Bot API: команды бота, чтение сообщений, сведения о видео, управление чатами, участниками и администраторами, комментарии и подписки Webhook.\n- В inline-клавиатуру добавлены кнопки типов \`message\` и \`clipboard\`.\n- В Max Trigger добавлены события остановки бота, изменений диалога и комментариев.\n\n### Улучшено\n\n- Запросы по умолчанию направляются на актуальный домен \`platform-api2.max.ru\`; сохранённые настройки со старым официальным доменом переводятся автоматически.\n- Идентификаторы \`int64\` передаются строками без риска потери точности JavaScript.\n\n### Кому важно\n\nПользователям, которым раньше требовалась HTTP Request для работы с участниками, администраторами, комментариями, историей сообщений или командами бота.\n\n### Что проверить после обновления\n\n- Доступность новой ноды Max API.\n- Активацию Max Trigger с новыми типами событий.\n- Отправку сообщений и работу существующих Webhook после перехода на новый API-домен.\n\n`;
-	write('CHANGELOG.md', `${entry}${changelog}`);
+	const entry = [
+		'## Не выпущено',
+		'',
+		'### Добавлено',
+		'',
+		'- Расширено покрытие актуального MAX Bot API: команды бота, чтение сообщений, сведения о видео, управление чатами, участниками и администраторами, комментарии и подписки Webhook.',
+		'- В inline-клавиатуру добавлены кнопки типов `message` и `clipboard`.',
+		'- В Max Trigger добавлены события остановки бота, изменений диалога и комментариев.',
+		'',
+		'### Улучшено',
+		'',
+		'- Запросы по умолчанию направляются на актуальный домен `platform-api2.max.ru`; сохранённые настройки со старым официальным доменом переводятся автоматически.',
+		'- Идентификаторы `int64` передаются строками без риска потери точности JavaScript.',
+		'',
+		'### Кому важно',
+		'',
+		'Пользователям, которым раньше требовалась HTTP Request для работы с участниками, администраторами, комментариями, историей сообщений или командами бота.',
+		'',
+		'### Что проверить после обновления',
+		'',
+		'- Доступность новой ноды Max API.',
+		'- Активацию Max Trigger с новыми типами событий.',
+		'- Отправку сообщений и работу существующих Webhook после перехода на новый API-домен.',
+		'',
+	].join('\n');
+	write('CHANGELOG.md', `${entry}\n${changelog}`);
 }
