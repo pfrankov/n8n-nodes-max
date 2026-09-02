@@ -10,7 +10,6 @@ import { Bot } from '@maxhub/max-bot-api';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { basename, join } from 'path';
-import FormData from 'form-data';
 
 const DEFAULT_MAX_BASE_URL = 'https://platform-api.max.ru';
 const ATTACHMENT_READY_RETRY_DELAYS_MS = [700, 1500, 3000];
@@ -1303,19 +1302,24 @@ export async function uploadFileToMax(
 		// Step 2: Read file data from binary data
 		const fs = await import('fs');
 		const fileBuffer = await fs.promises.readFile(filePath);
-		const formData = new FormData();
-		formData.append('data', fileBuffer, {
-			filename: fileName,
-			contentType: 'application/octet-stream',
-		});
+		const boundary = `----n8n-max-${randomUUID()}`;
+		const safeFileName = fileName.replace(/[\r\n"]/g, '_');
+		const multipartBody = Buffer.concat([
+			Buffer.from(
+				`--${boundary}\r\nContent-Disposition: form-data; name="data"; filename="${safeFileName}"\r\nContent-Type: application/octet-stream\r\n\r\n`,
+			),
+			fileBuffer,
+			Buffer.from(`\r\n--${boundary}--\r\n`),
+		]);
 
 		// Step 3: Upload file to the provided URL
 		const uploadResponse = await this.helpers.httpRequest({
 			method: 'POST',
 			url: uploadUrlResponse.url,
-			body: formData,
+			body: multipartBody,
 			headers: {
-				...formData.getHeaders(),
+				'content-type': `multipart/form-data; boundary=${boundary}`,
+				'content-length': multipartBody.length,
 				...getAuthHeaders(accessToken),
 			},
 			returnFullResponse: true,

@@ -1786,6 +1786,15 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					returnFullResponse: true,
 				}),
 			);
+			const uploadRequest = mockHttpRequest.mock.calls[1]![0];
+			expect(Buffer.isBuffer(uploadRequest.body)).toBe(true);
+			expect(uploadRequest.body.toString()).toContain(
+				'Content-Disposition: form-data; name="data"; filename="test-file.jpg"',
+			);
+			expect(uploadRequest.headers['content-type']).toMatch(
+				/^multipart\/form-data; boundary=----n8n-max-/,
+			);
+			expect(uploadRequest.headers['content-length']).toBe(uploadRequest.body.length);
 		});
 
 		it('should reject uploads response without upload URL', async () => {
