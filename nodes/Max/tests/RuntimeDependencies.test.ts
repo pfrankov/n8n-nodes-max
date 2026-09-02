@@ -93,10 +93,7 @@ function collectRuntimeModuleSpecifiers(filePath: string): string[] {
 	const visit = (node: ts.Node) => {
 		if (ts.isImportDeclaration(node) && importClauseHasRuntimeBindings(node.importClause)) {
 			addStringLiteral(node.moduleSpecifier);
-		} else if (
-			ts.isExportDeclaration(node) &&
-			exportDeclarationHasRuntimeBindings(node)
-		) {
+		} else if (ts.isExportDeclaration(node) && exportDeclarationHasRuntimeBindings(node)) {
 			addStringLiteral(node.moduleSpecifier);
 		} else if (
 			ts.isImportEqualsDeclaration(node) &&

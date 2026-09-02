@@ -54,6 +54,7 @@ jest.mock('@maxhub/max-bot-api', () => ({
 
 // Mock external dependencies for comprehensive tests
 jest.mock('crypto', () => ({
+	...jest.requireActual<typeof import('crypto')>('crypto'),
 	randomUUID: jest.fn().mockReturnValue('test-uuid-12345'),
 }));
 
