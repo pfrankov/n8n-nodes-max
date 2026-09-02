@@ -81,6 +81,11 @@ replaceRequired(
 	"default: 'https://platform-api.max.ru',",
 	"default: 'https://platform-api2.max.ru',",
 );
+replaceRequired(
+	'credentials/MaxApi.credentials.ts',
+	"baseURL: '={{$credentials.baseUrl}}',",
+	"baseURL:\n\t\t\t\t'={{$credentials.baseUrl === \\\"https://platform-api.max.ru\\\" ? \\\"https://platform-api2.max.ru\\\" : $credentials.baseUrl}}',",
+);
 
 replaceHostInTests('credentials/tests');
 replaceHostInTests('nodes/Max/tests');
