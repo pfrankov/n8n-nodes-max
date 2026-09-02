@@ -64,10 +64,23 @@ jobs:
       - name: Apply n8n lint fixes
         run: npm run lintfix || true
 
-      - name: Verify tests and build
+      - name: Capture test result
+        id: tests
+        shell: bash
         run: |
-          npm test -- --runInBand
-          npm run build
+          set +e
+          npm test -- --runInBand 2>&1 | tee test-output.txt
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Capture build result
+        id: build
+        shell: bash
+        run: |
+          set +e
+          npm run build 2>&1 | tee build-output.txt
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Capture lint result
         id: lint
@@ -86,5 +99,9 @@ jobs:
           git commit -m "Обновлены существующие ноды под актуальный MAX API" || true
           git push origin HEAD:feature/max-api-coverage-23
 
-      - name: Fail if lint failed
-        run: exit "${{ steps.lint.outputs.status }}"
+      - name: Fail if verification failed
+        shell: bash
+        run: |
+          test "${{ steps.tests.outputs.status }}" = "0"
+          test "${{ steps.build.outputs.status }}" = "0"
+          test "${{ steps.lint.outputs.status }}" = "0"
