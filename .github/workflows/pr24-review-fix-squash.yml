@@ -49,6 +49,11 @@ jobs:
           git apply --check /tmp/pr24.patch
           git apply --whitespace=error-all /tmp/pr24.patch
 
+          for helper in MaxUrlUtils.ts MaxApiCompatibility.ts; do
+            gh api "repos/${{ github.repository }}/contents/.github/pr24-${helper}?ref=automation/pr24-review-fix-squash" \
+              --jq .content | tr -d '\n' | base64 --decode > "nodes/Max/${helper}"
+          done
+
           find .github/workflows -maxdepth 1 -type f \
             ! -name ci.yml \
             ! -name publish-npm.yml \
