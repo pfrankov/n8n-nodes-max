@@ -1,4 +1,4 @@
-name: Upload verified PR 24 blobs
+name: Stage verified PR 24 source tree
 
 on:
   push:
@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  upload-blobs:
+  stage-source:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR branch
@@ -50,41 +50,24 @@ jobs:
             ! -name ci.yml ! -name publish-npm.yml ! -name stale.yml -delete
           test "$(find .github/workflows -maxdepth 1 -type f | wc -l)" -eq 3
 
-      - name: Upload all changed blobs with verification
+      - name: Commit source tree without workflow changes
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git fetch origin master
           git reset --soft origin/master
           git add -A
           git diff --cached --check
           test "$(git diff --cached --name-only | wc -l)" -eq 23
-          : > blob-map.tsv
-          while IFS= read -r -d '' path; do
-            expected="$(git hash-object -- "$path")"
-            payload="$(jq -n --rawfile content "$path" '{content: $content, encoding: "utf-8"}')"
-            sha=''
-            for attempt in 1 2 3 4 5; do
-              echo "Uploading $path (attempt $attempt)"
-              if sha="$(gh api --method POST "repos/${{ github.repository }}/git/blobs" \
-                --input - --jq .sha <<<"$payload")"; then
-                break
-              fi
-              sleep "$((attempt * 2))"
-            done
-            test -n "$sha"
-            test "$sha" = "$expected"
-            printf '%s\t%s\n' "$path" "$sha" >> blob-map.tsv
-            sleep 1
-          done < <(git diff --cached --name-only -z --diff-filter=ACMRT)
-          test "$(wc -l < blob-map.tsv)" -eq 23
 
-      - name: Upload blob map
-        uses: actions/upload-artifact@v4
-        with:
-          name: pr24-final-blob-map
-          path: blob-map.tsv
-          if-no-files-found: error
-          retention-days: 1
+          rm .github/workflows/ci.yml
+          git reset origin/master -- .github/workflows/ci.yml
+          test "$(git diff --cached --name-only | wc -l)" -eq 22
+          test -z "$(git diff --cached --name-only | grep '^\.github/workflows/' || true)"
+
+          HUSKY=0 git commit -m "Stage reviewed MAX API source tree"
+          test "$(git rev-list --count origin/master..HEAD)" -eq 1
+          test "$(git rev-parse HEAD^)" = "$(git rev-parse origin/master)"
+          git push --force origin HEAD:refs/heads/automation/pr24-staged-source
