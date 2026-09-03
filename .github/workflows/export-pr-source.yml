@@ -26,28 +26,66 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Repair contract test typing
+      - name: Repair source and tests
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path('nodes/Max/tests/MaxApiOperations.node.test.ts')
-          text = path.read_text()
+          test_path = Path('nodes/Max/tests/MaxApiOperations.node.test.ts')
+          test = test_path.read_text()
           old_import = "import type { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';"
           new_import = "import type { IExecuteFunctions, INodeExecutionData, INodePropertyOptions } from 'n8n-workflow';"
-          if old_import in text:
-              text = text.replace(old_import, new_import, 1)
-          elif new_import not in text:
-              raise SystemExit('Expected n8n-workflow type import was not found')
-
+          if old_import in test:
+              test = test.replace(old_import, new_import, 1)
+          elif new_import not in test:
+              raise SystemExit('Expected test type import was not found')
           old_map = ".flatMap((property) => property.options ?? [])\n\t\t\t\t.map((option) => option.value);"
           new_map = ".flatMap((property) => property.options ?? [])\n\t\t\t\t.filter((option): option is INodePropertyOptions => 'value' in option)\n\t\t\t\t.map((option) => option.value);"
-          if old_map in text:
-              text = text.replace(old_map, new_map, 1)
-          elif new_map not in text:
-              raise SystemExit('Expected operation options expression was not found')
+          if old_map in test:
+              test = test.replace(old_map, new_map, 1)
+          elif new_map not in test:
+              raise SystemExit('Expected operation option expression was not found')
+          test_path.write_text(test)
 
-          path.write_text(text)
+          operations_path = Path('nodes/Max/MaxApiOperations.node.ts')
+          operations = operations_path.read_text()
+          old_import = "import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';"
+          new_import = "import { ApplicationError, NodeConnectionType, NodeOperationError } from 'n8n-workflow';"
+          if old_import in operations:
+              operations = operations.replace(old_import, new_import, 1)
+          elif new_import not in operations:
+              raise SystemExit('Expected operations import was not found')
+          operations = operations.replace('throw new Error(', 'throw new ApplicationError(')
+          operations_path.write_text(operations)
+
+          request_path = Path('nodes/Max/MaxApiRequest.ts')
+          request = request_path.read_text()
+          old_import = "import { NodeApiError, NodeOperationError } from 'n8n-workflow';"
+          new_import = "import { ApplicationError, NodeApiError, NodeOperationError } from 'n8n-workflow';"
+          if old_import in request:
+              request = request.replace(old_import, new_import, 1)
+          elif new_import not in request:
+              raise SystemExit('Expected request import was not found')
+          request = request.replace('throw new Error(', 'throw new ApplicationError(')
+          request_path.write_text(request)
+
+          description_path = Path('nodes/Max/MaxApiOperationsDescription.ts')
+          description = description_path.read_text()
+          old_show = "show: { type: ['callback', 'clipboard'] },"
+          new_show = "show: { type: ['callback', 'clipboard', 'open_app'] },"
+          if old_show in description:
+              description = description.replace(old_show, new_show, 1)
+          elif new_show not in description:
+              raise SystemExit('Expected keyboard payload visibility was not found')
+          description = description.replace(
+              "The callback data or text copied to the clipboard.",
+              "The callback data, clipboard text, or optional mini-app payload.",
+              1,
+          )
+          duplicate_payload = """\t{\n\t\tdisplayName: 'Start Payload',\n\t\tname: 'payload',\n\t\ttype: 'string',\n\t\tdefault: '',\n\t\tdisplayOptions: { show: { type: ['open_app'] } },\n\t\tdescription: 'The optional payload passed to the mini-app.',\n\t},\n"""
+          if duplicate_payload in description:
+              description = description.replace(duplicate_payload, '', 1)
+          description_path.write_text(description)
           PY
 
       - name: Remove one-time repair machinery
@@ -84,8 +122,14 @@ jobs:
           nodes/Max/tests/MaxTriggerConfig.test.ts
           package.json
 
-      - name: Apply safe lint fixes
-        run: npm run lintfix
+      - name: Commit cleaned source before verification
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          HUSKY=0 git commit -m "Очистить PR и исправить ошибки реализации MAX API"
+          git push origin HEAD:feature/max-api-coverage-23
 
       - name: Run tests
         run: npm test -- --runInBand
@@ -109,12 +153,3 @@ jobs:
           }
           NODE
           git diff --check
-
-      - name: Commit verified repair
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -A
-          git diff --cached --check
-          HUSKY=0 git commit -m "Очистить PR и исправить типизацию контрактного теста"
-          git push origin HEAD:feature/max-api-coverage-23
