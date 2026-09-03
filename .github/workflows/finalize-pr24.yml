@@ -1,0 +1,184 @@
+name: Finalize PR 24
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/finalize-pr24.yml
+      - scripts/finalize-pr24.mjs
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: finalize-pr-24
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate and apply finalizer
+        run: |
+          node --check scripts/finalize-pr24.mjs
+          node scripts/finalize-pr24.mjs
+
+      - name: Format changed files
+        run: |
+          npx prettier --write \
+            nodes/Max/GenericFunctions.ts \
+            nodes/Max/MaxApiOperations.node.ts \
+            nodes/Max/MaxApiOperationsDescription.ts \
+            nodes/Max/MaxApiRequest.ts \
+            nodes/Max/MaxTriggerConfig.ts \
+            nodes/Max/MaxUpload.ts \
+            nodes/Max/MaxWebhookManager.ts \
+            nodes/Max/tests/MaxApiAdditionalCoverage.test.ts \
+            nodes/Max/tests/MaxApiOperations.node.test.ts \
+            credentials/MaxApi.credentials.ts \
+            credentials/tests/MaxApi.credentials.test.ts \
+            package.json \
+            README.md \
+            CHANGELOG.md
+          npm run lintfix
+
+      - name: Test
+        run: npm test -- --runInBand
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verify package contents
+        run: |
+          npm pack --dry-run --json > /tmp/package.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = require('./package.json');
+          const report = JSON.parse(fs.readFileSync('/tmp/package.json', 'utf8'))[0];
+          const files = new Set(report.files.map((entry) => entry.path));
+          const requiredNodes = [
+            'dist/nodes/Max/Max.node.js',
+            'dist/nodes/Max/MaxApiOperations.node.js',
+            'dist/nodes/Max/MaxTrigger.node.js',
+          ];
+          for (const file of requiredNodes) {
+            if (!files.has(file)) throw new Error(`${file} is missing from the npm package`);
+          }
+          for (const node of manifest.n8n.nodes) {
+            if (!files.has(node)) throw new Error(`Registered node ${node} is missing from the npm package`);
+          }
+          NODE
+          git diff --check
+
+      - name: Remove one-shot repair files
+        run: |
+          rm -f \
+            .github/workflows/finalize-pr24.yml \
+            .github/workflows/apply-max-api-coverage.yml \
+            .github/workflows/export-pr-source.yml \
+            scripts/finalize-pr24.mjs \
+            scripts/apply-max-api-coverage.mjs \
+            scripts/fix-max-api-lint.mjs
+
+      - name: Commit final implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          HUSKY=0 git commit -m "feat: complete current MAX Bot API coverage"
+          git push origin HEAD:feature/max-api-coverage-23
+          git rev-parse HEAD > /tmp/final-head
+
+      - name: Wait for final CI
+        run: |
+          head_sha="$(cat /tmp/final-head)"
+          for attempt in $(seq 1 120); do
+            runs="$(gh api \
+              -H 'Accept: application/vnd.github+json' \
+              "/repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${head_sha}&per_page=20" \
+              --jq '[.workflow_runs[] | select(.name == "CI")]')"
+            count="$(jq 'length' <<<"$runs")"
+            in_progress="$(jq '[.[] | select(.status != "completed")] | length' <<<"$runs")"
+            failures="$(jq '[.[] | select(.status == "completed" and .conclusion != "success")] | length' <<<"$runs")"
+            if [ "$failures" -gt 0 ]; then
+              jq -r '.[] | "CI run \(.html_url): \(.status)/\(.conclusion)"' <<<"$runs"
+              exit 1
+            fi
+            if [ "$count" -gt 0 ] && [ "$in_progress" -eq 0 ]; then
+              jq -r '.[] | "CI run \(.html_url): success"' <<<"$runs"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Timed out waiting for final CI for ${head_sha}" >&2
+          exit 1
+
+      - name: Publish pull request for review
+        run: |
+          cat > /tmp/pr-body.md <<'EOF'
+          ## Что изменено
+
+          PR доводит community node до покрытия текущего публичного MAX Bot API, сохраняя совместимость существующих workflow на нодах `Max` и `Max Trigger`.
+
+          ### Новая нода `Max API`
+
+          - **Bot:** сведения о боте и полная замена списка команд.
+          - **Message:** отправка, получение одного сообщения, история по chat/message IDs, изменение, удаление, callback answer и сведения о видео.
+          - **Chat:** получение и изменение чата/канала, typing и sending actions, pinned message, pin/unpin, membership и выход бота.
+          - **Chat Member:** получение с пагинацией или по IDs, добавление и удаление/блокировка.
+          - **Chat Administrator:** получение, назначение/обновление полного набора permissions и снятие прав.
+          - **Comment:** получение списка/одного комментария, создание, изменение и удаление.
+          - **Subscription:** получение, создание/обновление и удаление webhook-подписки.
+          - **Upload:** двухшаговая загрузка binary data для `image`, `video`, `audio` и `file`.
+
+          ### Существующие ноды
+
+          - `Max Trigger` получил актуальные события `bot_stopped`, изменения диалогов и CRUD комментариев.
+          - Inline Keyboard поддерживает актуальные типы кнопок, включая `message` и `clipboard`.
+          - `int64` IDs остаются строками, поэтому не теряют точность JavaScript.
+          - Старое официальное значение API host мигрирует на актуальный host; пользовательские base URL не меняются.
+
+          ## Намеренно не добавлено
+
+          - `GET /chats`: список чатов больше не является поддерживаемой операцией текущего API.
+          - Long Polling: webhook trigger уже является корректным lifecycle-механизмом для постоянно работающего n8n workflow; одновременно использовать оба транспорта нельзя.
+
+          ## Проверка
+
+          - `npm test -- --runInBand`
+          - `npm run build`
+          - `npm run lint`
+          - `npm pack --dry-run --json`
+          - проверка, что все зарегистрированные n8n nodes присутствуют в публикуемом npm-пакете
+          - `git diff --check`
+
+          Closes #23.
+          EOF
+          sed -i 's/^          //' /tmp/pr-body.md
+          gh pr edit 24 --title "Расширить покрытие актуального MAX Bot API" --body-file /tmp/pr-body.md
+          gh pr ready 24
