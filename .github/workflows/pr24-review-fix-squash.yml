@@ -1,0 +1,116 @@
+name: Repair and squash PR 24
+
+on:
+  push:
+    branches:
+      - automation/pr24-review-fix-squash
+    paths:
+      - .github/workflows/pr24-review-fix-squash.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr24-review-fix-squash
+  cancel-in-progress: false
+
+jobs:
+  rewrite:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Reconstruct and apply reviewed patch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          : > /tmp/pr24.patch.xz.b64
+          for part in 00 01 02 03 04 05 06; do
+            gh api "repos/${{ github.repository }}/contents/.github/pr24-xz-${part}?ref=automation/pr24-review-fix-squash" \
+              --jq .content | tr -d '\n' | base64 --decode >> /tmp/pr24.patch.xz.b64
+          done
+          test "$(wc -c < /tmp/pr24.patch.xz.b64)" -eq 26584
+          echo "6ae9a5a92ede969bc510d3827f18257c86c14517a475662552c3559fabdba7ef  /tmp/pr24.patch.xz.b64" | sha256sum --check
+          base64 --decode /tmp/pr24.patch.xz.b64 > /tmp/pr24.patch.xz
+          xz --decompress --stdout /tmp/pr24.patch.xz > /tmp/pr24.patch
+          echo "1caa09a08259ac9154a9445d29296acbc7258e77fe7d373b9094f5a7959ed682  /tmp/pr24.patch" | sha256sum --check
+          git apply --check /tmp/pr24.patch
+          git apply --whitespace=error-all /tmp/pr24.patch
+
+          find .github/workflows -maxdepth 1 -type f \
+            ! -name ci.yml \
+            ! -name publish-npm.yml \
+            ! -name stale.yml \
+            -delete
+          test "$(find .github/workflows -maxdepth 1 -type f | wc -l)" -eq 3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --runInBand
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verify package and diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm pack --dry-run --json > /tmp/npm-pack.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = require('./package.json');
+          const result = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
+          const files = new Set(result.files.map(({ path }) => path));
+          for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
+            if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+          }
+          NODE
+          git diff --check
+
+      - name: Create the single final commit and force-push safely
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git fetch origin master feature/max-api-coverage-23
+          expected_head="$(git rev-parse origin/feature/max-api-coverage-23)"
+
+          git reset --soft origin/master
+          git add -A
+          git diff --cached --check
+
+          test -z "$(find .github/workflows -maxdepth 1 -type f \
+            ! -name ci.yml \
+            ! -name publish-npm.yml \
+            ! -name stale.yml \
+            -print -quit)"
+
+          HUSKY=0 git commit -m "Расширено покрытие актуального MAX Bot API"
+          test "$(git rev-list --count origin/master..HEAD)" -eq 1
+          test "$(git rev-parse HEAD^)" = "$(git rev-parse origin/master)"
+
+          git push \
+            --force-with-lease="refs/heads/feature/max-api-coverage-23:${expected_head}" \
+            origin HEAD:refs/heads/feature/max-api-coverage-23
+
+      - name: Remove temporary automation branch
+        if: success()
+        run: git push origin --delete automation/pr24-review-fix-squash
