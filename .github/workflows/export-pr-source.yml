@@ -19,13 +19,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Pack source
-        run: tar --exclude=.git --exclude=node_modules -czf /tmp/n8n-nodes-max-source.tgz .
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Pack source and dependencies
+        run: |
+          tar --exclude=.git --exclude=node_modules -czf /tmp/n8n-nodes-max-source.tgz .
+          tar -czf /tmp/n8n-nodes-max-node-modules.tgz node_modules
 
       - name: Upload source
         uses: actions/upload-artifact@v4
         with:
           name: n8n-nodes-max-source
           path: /tmp/n8n-nodes-max-source.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: n8n-nodes-max-node-modules
+          path: /tmp/n8n-nodes-max-node-modules.tgz
           if-no-files-found: error
           retention-days: 1
