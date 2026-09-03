@@ -1,0 +1,234 @@
+name: Finalize MAX API pull request
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/finalize-max-api-pr.yml
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Clean temporary files and repair review findings
+        run: |
+          rm -f .github/workflows/apply-max-api-coverage.yml
+          rm -f .github/workflows/export-pr-source.yml
+          rm -f scripts/apply-max-api-coverage.mjs
+          rm -f scripts/fix-max-api-lint.mjs
+          rm -f .github/workflows/finalize-max-api-pr.yml
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          test_path = Path('nodes/Max/tests/MaxApiOperations.node.test.ts')
+          test_text = test_path.read_text()
+          test_text = test_text.replace(
+              '.map((option) => option.value);',
+              '.map((option) => (option as { value: unknown }).value);',
+          )
+          test_text = test_text.replace(
+              '.map((option: any) => option.value);',
+              '.map((option) => (option as { value: unknown }).value);',
+          )
+          test_path.write_text(test_text)
+
+          description_path = Path('nodes/Max/MaxApiOperationsDescription.ts')
+          description = description_path.read_text()
+          description = description.replace(
+              "show: { type: ['callback', 'clipboard'] },",
+              "show: { type: ['callback', 'clipboard', 'open_app'] },",
+          )
+          description = description.replace(
+              "The callback data or text copied to the clipboard.",
+              "The callback data, clipboard text, or optional mini-app payload.",
+          )
+          description = re.sub(
+              r"\n\t\{\n\t\tdisplayName: 'Start Payload',\n\t\tname: 'payload',\n\t\ttype: 'string',\n\t\tdefault: '',\n\t\tdisplayOptions: \{ show: \{ type: \['open_app'\] \} \},\n\t\tdescription: 'The optional payload passed to the mini-app\.',\n\t\},",
+              '',
+              description,
+          )
+          description_path.write_text(description)
+
+          ci_path = Path('.github/workflows/ci.yml')
+          ci = ci_path.read_text()
+          if 'Verify npm package' not in ci:
+              needle = '      - name: Lint\n        run: npm run lint\n'
+              replacement = needle + '\n      - name: Verify npm package\n        run: npm pack --dry-run --json > /tmp/npm-pack.json\n'
+              if needle not in ci:
+                  raise SystemExit('Could not find the CI lint step')
+              ci = ci.replace(needle, replacement)
+          ci_path.write_text(ci)
+
+          readme_path = Path('README.md')
+          readme = readme_path.read_text()
+          marker = '## Расширенные операции MAX API'
+          if marker not in readme:
+              readme = readme.rstrip() + '''\n\n## Расширенные операции MAX API\n\nНода **Max API** дополняет обратно совместимую ноду **Max** актуальными ресурсами Bot API:\n\n- информация о боте и управление командами;\n- чтение сообщений, сведения о видео и расширенный ответ на callback;\n- управление чатами, закреплёнными сообщениями, участниками и администраторами;\n- комментарии к публикациям каналов и Webhook-подписки;\n- актуальные типы inline-кнопок и событий Max Trigger.\n\nУдалённый из API список чатов и Long Polling намеренно не представлены. Получение отдельного чата, удаление сообщений и загрузка вложений остаются в существующей ноде **Max**, поэтому не дублируются в **Max API**.\n'''
+          readme_path.write_text(readme)
+
+          changelog_path = Path('CHANGELOG.md')
+          changelog = changelog_path.read_text()
+          marker = 'Расширено покрытие актуального MAX Bot API'
+          if marker not in changelog:
+              entry = '''## Не выпущено\n\n### Добавлено\n\n- Расширено покрытие актуального MAX Bot API: команды бота, чтение сообщений, сведения о видео, управление чатами, участниками и администраторами, комментарии и Webhook-подписки.\n- В inline-клавиатуру добавлены кнопки `message` и `clipboard`.\n- В Max Trigger добавлены актуальные события остановки бота, изменений диалога и комментариев.\n- Добавлены контрактные тесты API и обязательная CI-проверка npm-пакета.\n\n'''
+              changelog = entry + changelog
+          changelog_path.write_text(changelog)
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format changed files
+        run: >-
+          npx prettier --write
+          "nodes/Max/**/*.{ts,json}"
+          "credentials/**/*.ts"
+          .github/workflows/ci.yml
+          package.json
+          README.md
+          CHANGELOG.md
+
+      - name: Apply safe lint fixes
+        run: npm run lintfix
+
+      - name: Run unit and contract tests
+        run: npm test -- --runInBand
+
+      - name: Build package
+        run: npm run build
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Verify npm package
+        run: npm pack --dry-run --json > /tmp/npm-pack.json
+
+      - name: Verify diff integrity
+        run: |
+          git diff --check
+          test -f dist/nodes/Max/Max.node.js
+          test -f dist/nodes/Max/MaxApiOperations.node.js
+          test -f dist/nodes/Max/MaxTrigger.node.js
+          test -f dist/credentials/MaxApi.credentials.js
+
+      - name: Commit verified final state
+        id: commit
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          if ! git diff --cached --quiet; then
+            git commit -m "Доведено покрытие MAX API до готового состояния"
+            git push origin HEAD:feature/max-api-coverage-23
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for CI on final commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import time
+
+          repo = os.environ['REPO']
+          sha = os.environ['HEAD_SHA']
+          deadline = time.time() + 900
+          seen = False
+
+          while time.time() < deadline:
+              raw = subprocess.check_output([
+                  'gh', 'api', f'/repos/{repo}/actions/runs?head_sha={sha}&per_page=30'
+              ], text=True)
+              runs = [
+                  run for run in json.loads(raw).get('workflow_runs', [])
+                  if run.get('name') == 'CI' and run.get('head_sha') == sha
+              ]
+              if runs:
+                  seen = True
+                  if any(run.get('status') != 'completed' for run in runs):
+                      time.sleep(10)
+                      continue
+                  failed = [run for run in runs if run.get('conclusion') != 'success']
+                  if failed:
+                      raise SystemExit(f'CI failed for {sha}: {failed}')
+                  print(f'CI passed for {sha}')
+                  break
+              time.sleep(10)
+          else:
+              state = 'was never observed' if not seen else 'did not finish'
+              raise SystemExit(f'CI {state} for {sha}')
+          PY
+
+      - name: Update pull request and mark ready
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          cat > /tmp/pr-body.md <<'EOF'
+          ## Что изменено
+
+          PR расширяет покрытие актуального публичного MAX Bot API, сохраняя совместимость существующих workflow с нодой `Max`.
+
+          ### Новая нода `Max API`
+
+          - Bot: получение информации и полная замена списка команд.
+          - Message: получение одного или нескольких сообщений, сведения о видео, отправка и редактирование расширенных сообщений, Answer Callback.
+          - Chat: обновление данных, chat actions, pin/unpin, получение закреплённого сообщения, membership бота и выход из чата.
+          - Chat Member: получение, добавление и удаление участников.
+          - Chat Administrator: получение, назначение/обновление прав и снятие администратора.
+          - Comment: полный CRUD комментариев к публикациям каналов.
+          - Subscription: получение, создание и удаление Webhook-подписок.
+
+          ### Существующие ноды
+
+          - `Max Trigger` дополнен актуальными событиями остановки бота, изменений диалога и комментариев.
+          - Inline Keyboard дополнена кнопками `message` и `clipboard`.
+          - Идентификаторы MAX `int64` обрабатываются как строки без потери точности JavaScript.
+          - Существующая нода `Max` остаётся обратно совместимой и продолжает отвечать за уже реализованные операции получения чата, удаления сообщений и загрузки вложений.
+
+          `GET /chats` и Long Polling намеренно не добавлены: первый удалён из актуального API, второй не нужен при штатном Webhook-trigger в n8n.
+
+          ## Проверка
+
+          - `npm test -- --runInBand`
+          - `npm run build`
+          - `npm run lint`
+          - `npm pack --dry-run --json`
+          - проверка наличия всех объявленных нод и credentials в собранном пакете
+
+          Closes #23
+          EOF
+
+          gh api --method PATCH "/repos/$REPO/pulls/24" \
+            -f title='Расширить покрытие актуального MAX Bot API' \
+            -F body=@/tmp/pr-body.md
+
+          PR_NODE_ID=$(gh api "/repos/$REPO/pulls/24" --jq .node_id)
+          gh api graphql \
+            -f query='mutation($id: ID!) { markPullRequestReadyForReview(input: { pullRequestId: $id }) { pullRequest { isDraft url } } }' \
+            -f id="$PR_NODE_ID"
