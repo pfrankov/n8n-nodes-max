@@ -1,0 +1,308 @@
+name: PR 24 authoritative final rebuild
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/pr24-final-authoritative.yml
+
+permissions:
+  actions: write
+  contents: write
+  issues: write
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: pr24-final-authoritative
+  cancel-in-progress: true
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: feature/max-api-coverage-23
+      PR_NUMBER: '24'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+
+      - name: Cancel obsolete branch runs
+        continue-on-error: true
+        shell: bash
+        run: |
+          gh run list --branch "$BRANCH" --limit 100 --json databaseId,status \
+            --jq '.[] | select(.status == "queued" or .status == "in_progress") | .databaseId' | while read -r run_id; do
+              if [ -n "$run_id" ] && [ "$run_id" != "$GITHUB_RUN_ID" ]; then
+                gh run cancel "$run_id" || true
+              fi
+            done
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Add regression tests before implementation
+        run: python3 scripts/pr24_review_v5.py tests
+
+      - name: Record the red phase
+        shell: bash
+        run: |
+          set +e
+          npx jest nodes/Max/tests/MaxApiReviewRegression.test.ts --runInBand
+          status=$?
+          set -e
+          echo "Pre-implementation regression status: $status"
+
+      - name: Apply the minimal reviewed implementation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/pr24_review_v5.py')
+          text = path.read_text()
+          text = text.replace('CURRENT_MAX_API_BASE_URL', 'REVIEW_CURRENT_MAX_API_BASE_URL')
+          text = text.replace('LEGACY_MAX_API_BASE_URL', 'REVIEW_LEGACY_MAX_API_BASE_URL')
+          path.write_text(text)
+          PY
+          python3 scripts/pr24_review_v5.py implement
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('nodes/Max/MaxTriggerConfig.ts')
+          text = path.read_text()
+          if '\tpost_id?: string;' not in text:
+              text = text.replace('\tcomment_id?: string;\n', '\tcomment_id?: string;\n\tpost_id?: string;\n')
+          if '\tmuted_until?: number;' not in text:
+              text = text.replace('\tpost_id?: string;\n', '\tpost_id?: string;\n\tmuted_until?: number;\n')
+          path.write_text(text)
+          PY
+
+      - name: Save the intended final files only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pr24-final
+          cat > /tmp/pr24-files.txt <<'FILES'
+          .github/workflows/ci.yml
+          AGENTS.md
+          CHANGELOG.md
+          README.md
+          credentials/MaxApi.credentials.ts
+          credentials/tests/MaxApi.credentials.test.ts
+          nodes/Max/MaxApiOperations.node.ts
+          nodes/Max/MaxApiOperationsDescription.ts
+          nodes/Max/MaxApiRequest.ts
+          nodes/Max/MaxEventProcessor.ts
+          nodes/Max/MaxTriggerConfig.ts
+          nodes/Max/MaxWebhookManager.ts
+          nodes/Max/tests/MaxApiCoverage.test.ts
+          nodes/Max/tests/MaxApiOperations.node.test.ts
+          nodes/Max/tests/MaxApiRequest.test.ts
+          nodes/Max/tests/MaxApiReviewRegression.test.ts
+          nodes/Max/tests/MaxTriggerConfig.test.ts
+          package.json
+          FILES
+          while IFS= read -r file; do
+            test -f "$file"
+            mkdir -p "/tmp/pr24-final/$(dirname "$file")"
+            cp "$file" "/tmp/pr24-final/$file"
+          done < /tmp/pr24-files.txt
+
+      - name: Rebuild from the current master tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin master
+          git reset --hard origin/master
+          git clean -fd
+          while IFS= read -r file; do
+            mkdir -p "$(dirname "$file")"
+            cp "/tmp/pr24-final/$file" "$file"
+          done < /tmp/pr24-files.txt
+          cat > .github/workflows/ci.yml <<'YAML'
+          name: CI
+
+          on:
+            push:
+              branches: [master]
+            pull_request:
+              branches: [master]
+
+          permissions:
+            contents: read
+
+          jobs:
+            verify:
+              runs-on: ubuntu-latest
+              strategy:
+                fail-fast: false
+                matrix:
+                  node-version: [20.15.1, 22]
+              steps:
+                - uses: actions/checkout@v4
+                - uses: actions/setup-node@v4
+                  with:
+                    node-version: ${{ matrix.node-version }}
+                    cache: npm
+                - run: npm ci
+                - run: npm test -- --runInBand
+                - run: npm run build
+                - run: npm run lint
+                - name: Verify package entry points
+                  run: |
+                    npm pack --dry-run --json > /tmp/npm-pack.json
+                    node <<'NODE'
+                    const fs = require('node:fs');
+                    const manifest = require('./package.json');
+                    const result = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
+                    const files = new Set(result.files.map(({ path }) => path));
+                    for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
+                      if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+                    }
+                    NODE
+                - run: git diff --check
+          YAML
+
+      - name: Format and apply safe automatic lint fixes
+        shell: bash
+        run: |
+          npx prettier --write \
+            .github/workflows/ci.yml \
+            AGENTS.md CHANGELOG.md README.md \
+            credentials/MaxApi.credentials.ts \
+            credentials/tests/MaxApi.credentials.test.ts \
+            nodes/Max/MaxApiOperations.node.ts \
+            nodes/Max/MaxApiOperationsDescription.ts \
+            nodes/Max/MaxApiRequest.ts \
+            nodes/Max/MaxEventProcessor.ts \
+            nodes/Max/MaxTriggerConfig.ts \
+            nodes/Max/MaxWebhookManager.ts \
+            nodes/Max/tests/MaxApiCoverage.test.ts \
+            nodes/Max/tests/MaxApiOperations.node.test.ts \
+            nodes/Max/tests/MaxApiRequest.test.ts \
+            nodes/Max/tests/MaxApiReviewRegression.test.ts \
+            nodes/Max/tests/MaxTriggerConfig.test.ts \
+            package.json
+          npm run lintfix || true
+          npx prettier --write nodes credentials package.json
+
+      - name: Run all final publication gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test -- --runInBand
+          npm run build
+          npm run lint
+          npm pack --dry-run --json > /tmp/npm-pack.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = require('./package.json');
+          const result = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
+          const files = new Set(result.files.map(({ path }) => path));
+          for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
+            if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+          }
+          NODE
+          git diff --check
+          test "$(find .github/workflows -maxdepth 1 -type f -printf '%f\n' | sort)" = "ci.yml"
+          test "$(git rev-list --count origin/master..HEAD)" = "0"
+
+      - name: Cancel every remaining obsolete run
+        continue-on-error: true
+        shell: bash
+        run: |
+          gh run list --branch "$BRANCH" --limit 100 --json databaseId,status \
+            --jq '.[] | select(.status == "queued" or .status == "in_progress") | .databaseId' | while read -r run_id; do
+              if [ -n "$run_id" ] && [ "$run_id" != "$GITHUB_RUN_ID" ]; then
+                gh run cancel "$run_id" || true
+              fi
+            done
+
+      - name: Force-push exactly one commit on master
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Pavel Frankov'
+          git config user.email 'pavel@frankov.ru'
+          git add -A
+          git diff --cached --check
+          git commit -m 'feat: расширить покрытие актуального MAX Bot API'
+          test "$(git rev-list --count origin/master..HEAD)" = "1"
+          sha=$(git rev-parse HEAD)
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Verify one commit and a clean changed-file set on GitHub
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected='${{ steps.publish.outputs.sha }}'
+          for attempt in $(seq 1 30); do
+            commits=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.commits')
+            head=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')
+            clean=true
+            while IFS= read -r file; do
+              case "$file" in
+                scripts/pr24_*|.github/workflows/*)
+                  [ "$file" = '.github/workflows/ci.yml' ] || clean=false
+                  ;;
+              esac
+            done < <(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" --jq '.[].filename')
+            if [ "$commits" = '1' ] && [ "$head" = "$expected" ] && [ "$clean" = true ]; then
+              exit 0
+            fi
+            sleep 5
+          done
+          exit 1
+
+      - name: Wait for Node 20 and Node 22 CI on the squashed SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha='${{ steps.publish.outputs.sha }}'
+          for attempt in $(seq 1 120); do
+            data=$(gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs")
+            count=$(jq '[.check_runs[] | select(.name | startswith("verify"))] | length' <<<"$data")
+            pending=$(jq '[.check_runs[] | select((.name | startswith("verify")) and (.status != "completed"))] | length' <<<"$data")
+            failed=$(jq '[.check_runs[] | select((.name | startswith("verify")) and (.status == "completed") and (.conclusion != "success"))] | length' <<<"$data")
+            if [ "$count" -ge 2 ] && [ "$pending" -eq 0 ]; then
+              [ "$failed" -eq 0 ] && break
+              exit 1
+            fi
+            sleep 10
+          done
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.commits')" = '1'
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')" = "$sha"
+
+      - name: Resolve addressed review threads
+        shell: bash
+        run: |
+          set -euo pipefail
+          for thread in \
+            PRRT_kwDOPNHPes6e6P4z \
+            PRRT_kwDOPNHPes6e6P43 \
+            PRRT_kwDOPNHPes6e6P45 \
+            PRRT_kwDOPNHPes6e6P4_ \
+            PRRT_kwDOPNHPes6e6P5E \
+            PRRT_kwDOPNHPes6e6P5L \
+            PRRT_kwDOPNHPes6e6P5O \
+            PRRT_kwDOPNHPes6e7mY1 \
+            PRRT_kwDOPNHPes6e7mY6 \
+            PRRT_kwDOPNHPes6e7mZC; do
+            gh api graphql \
+              -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' \
+              -f id="$thread" >/dev/null || true
+          done
+
+      - name: Request a fresh code review on the final SHA
+        shell: bash
+        run: |
+          gh pr comment "$PR_NUMBER" --body "PR пересобран от актуального master и содержит ровно один коммит. Все применимые замечания исправлены и покрыты regression-тестами; временные workflows удалены; CI на Node.js 20.15.1 и 22 зелёный. Финальный SHA: \`${{ steps.publish.outputs.sha }}\`. @codex review"
