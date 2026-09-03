@@ -1,4 +1,4 @@
-name: Repair and squash PR 24
+name: Build verified single commit for PR 24
 
 on:
   push:
@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  rewrite:
+  build-commit:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR branch
@@ -30,7 +30,7 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Reconstruct and apply reviewed patch
+      - name: Reconstruct reviewed tree
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -64,7 +64,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
+      - name: Test
         run: npm test -- --runInBand
 
       - name: Build
@@ -89,33 +89,66 @@ jobs:
           NODE
           git diff --check
 
-      - name: Create the single final commit and force-push safely
+      - name: Create verified Git commit object
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git fetch origin master feature/max-api-coverage-23
-          expected_head="$(git rev-parse origin/feature/max-api-coverage-23)"
+          master_sha="$(git rev-parse origin/master)"
+          master_tree="$(gh api "repos/${{ github.repository }}/git/commits/${master_sha}" --jq .tree.sha)"
 
           git reset --soft origin/master
           git add -A
           git diff --cached --check
-
+          test "$(git diff --cached --name-only | wc -l)" -eq 23
           test -z "$(find .github/workflows -maxdepth 1 -type f \
             ! -name ci.yml \
             ! -name publish-npm.yml \
             ! -name stale.yml \
             -print -quit)"
 
-          HUSKY=0 git commit -m "Расширено покрытие актуального MAX Bot API"
-          test "$(git rev-list --count origin/master..HEAD)" -eq 1
-          test "$(git rev-parse HEAD^)" = "$(git rev-parse origin/master)"
+          entries_file=/tmp/tree-entries.json
+          printf '[]' > "$entries_file"
+          while IFS= read -r -d '' path; do
+            encoded="$(base64 -w0 -- "$path")"
+            blob_sha="$(gh api --method POST "repos/${{ github.repository }}/git/blobs" \
+              -f content="$encoded" -f encoding=base64 --jq .sha)"
+            jq --arg path "$path" --arg sha "$blob_sha" \
+              '. + [{path: $path, mode: "100644", type: "blob", sha: $sha}]' \
+              "$entries_file" > "${entries_file}.next"
+            mv "${entries_file}.next" "$entries_file"
+          done < <(git diff --cached --name-only -z --diff-filter=ACMRT)
 
-          git push \
-            --force-with-lease="refs/heads/feature/max-api-coverage-23:${expected_head}" \
-            origin HEAD:refs/heads/feature/max-api-coverage-23
+          tree_payload="$(jq -n --arg base_tree "$master_tree" --slurpfile tree "$entries_file" \
+            '{base_tree: $base_tree, tree: $tree[0]}')"
+          final_tree="$(gh api --method POST "repos/${{ github.repository }}/git/trees" \
+            --input - --jq .sha <<<"$tree_payload")"
 
-      - name: Remove temporary automation branch
-        if: success()
-        run: git push origin --delete automation/pr24-review-fix-squash
+          commit_payload="$(jq -n \
+            --arg message 'Расширено покрытие актуального MAX Bot API' \
+            --arg tree "$final_tree" \
+            --arg parent "$master_sha" \
+            '{message: $message, tree: $tree, parents: [$parent]}')"
+          final_commit="$(gh api --method POST "repos/${{ github.repository }}/git/commits" \
+            --input - --jq .sha <<<"$commit_payload")"
+
+          test "$(gh api "repos/${{ github.repository }}/git/commits/${final_commit}" --jq '.parents | length')" -eq 1
+          test "$(gh api "repos/${{ github.repository }}/git/commits/${final_commit}" --jq '.parents[0].sha')" = "$master_sha"
+          test "$(gh api "repos/${{ github.repository }}/git/commits/${final_commit}" --jq .tree.sha)" = "$final_tree"
+
+          printf '%s\n' "$final_commit" | tee final-commit-sha.txt
+          printf '%s\n' "$master_sha" > final-parent-sha.txt
+          printf '%s\n' "$final_tree" > final-tree-sha.txt
+
+      - name: Upload commit identity
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr24-final-commit
+          path: |
+            final-commit-sha.txt
+            final-parent-sha.txt
+            final-tree-sha.txt
+          if-no-files-found: error
+          retention-days: 1
