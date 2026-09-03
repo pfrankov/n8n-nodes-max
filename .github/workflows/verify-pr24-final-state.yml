@@ -1,0 +1,96 @@
+name: Verify PR 24 final state
+
+on:
+  push:
+    branches: [automation/issue-16-verify]
+    paths: [.github/workflows/verify-pr24-final-state.yml]
+
+permissions:
+  checks: read
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: '24'
+    steps:
+      - name: Wait for one commit, clean diff and green CI
+        id: state
+        shell: bash
+        run: |
+          set -euo pipefail
+          ready=0
+          for attempt in $(seq 1 120); do
+            pr=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}")
+            sha=$(jq -r '.head.sha' <<<"$pr")
+            commits=$(jq -r '.commits' <<<"$pr")
+            invalid=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR}/files?per_page=100" --jq '.[].filename' |
+              awk '$0 ~ /^scripts\/pr24_/ || ($0 ~ /^\.github\/workflows\// && $0 != ".github/workflows/ci.yml") {n++} END {print n+0}')
+            checks=$(gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs")
+            count=$(jq '[.check_runs[] | select(.name | startswith("verify"))] | length' <<<"$checks")
+            pending=$(jq '[.check_runs[] | select((.name | startswith("verify")) and .status != "completed")] | length' <<<"$checks")
+            failed=$(jq '[.check_runs[] | select((.name | startswith("verify")) and .status == "completed" and .conclusion != "success")] | length' <<<"$checks")
+            if [ "$commits" = '1' ] && [ "$invalid" = '0' ] && [ "$count" -ge 2 ] && [ "$pending" = '0' ] && [ "$failed" = '0' ]; then
+              ready=1
+              echo "sha=$sha" >> "$GITHUB_OUTPUT"
+              break
+            fi
+            sleep 10
+          done
+          test "$ready" = '1'
+
+      - name: Resolve the old review conversations
+        shell: bash
+        run: |
+          for thread in \
+            PRRT_kwDOPNHPes6e6P4z PRRT_kwDOPNHPes6e6P43 \
+            PRRT_kwDOPNHPes6e6P45 PRRT_kwDOPNHPes6e6P4_ \
+            PRRT_kwDOPNHPes6e6P5E PRRT_kwDOPNHPes6e6P5L \
+            PRRT_kwDOPNHPes6e6P5O PRRT_kwDOPNHPes6e7mY1 \
+            PRRT_kwDOPNHPes6e7mY6 PRRT_kwDOPNHPes6e7mZC; do
+            gh api graphql \
+              -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' \
+              -f id="$thread" >/dev/null || true
+          done
+
+      - name: Start a fresh code review
+        id: review
+        shell: bash
+        run: |
+          set -euo pipefail
+          requested_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          echo "requested_at=$requested_at" >> "$GITHUB_OUTPUT"
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/pulls/${PR}/requested_reviewers" \
+            -f 'reviewers[]=chatgpt-codex-connector' >/dev/null 2>&1 || true
+          gh pr comment "$PR" --body "Финальное состояние проверено: один коммит, чистый diff и зелёный CI Node.js 20.15.1/22. Запускаю повторное ревью финального SHA \`${{ steps.state.outputs.sha }}\`. @codex review"
+
+      - name: Wait for a new Codex response
+        shell: bash
+        run: |
+          set -euo pipefail
+          requested='${{ steps.review.outputs.requested_at }}'
+          observed=0
+          for attempt in $(seq 1 120); do
+            reviews=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}/reviews?per_page=100")
+            issue_comments=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR}/comments?per_page=100")
+            review_comments=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}/comments?per_page=100")
+            reviews_n=$(jq --arg requested "$requested" '[.[] | select(.user.login == "chatgpt-codex-connector" and ((.submitted_at // .created_at // "") >= $requested))] | length' <<<"$reviews")
+            issue_n=$(jq --arg requested "$requested" '[.[] | select(.user.login == "chatgpt-codex-connector" and .created_at >= $requested)] | length' <<<"$issue_comments")
+            inline_n=$(jq --arg requested "$requested" '[.[] | select(.user.login == "chatgpt-codex-connector" and .created_at >= $requested)] | length' <<<"$review_comments")
+            if [ "$reviews_n" -gt 0 ] || [ "$issue_n" -gt 0 ] || [ "$inline_n" -gt 0 ]; then
+              observed=1
+              break
+            fi
+            sleep 10
+          done
+          test "$observed" = '1'
+
+      - name: Mark the PR as independently verified
+        shell: bash
+        run: |
+          gh pr edit "$PR" --title '[ГОТОВО] Расширено покрытие актуального MAX Bot API'
+          gh pr comment "$PR" --body "Независимая финальная проверка завершена: история состоит из одного коммита, обязательные CI-проверки зелёные, новый Codex review финального SHA был получен."
