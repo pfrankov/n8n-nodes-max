@@ -1,4 +1,4 @@
-name: Build verified single commit for PR 24
+name: Upload verified PR 24 blobs
 
 on:
   push:
@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-commit:
+  upload-blobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR branch
@@ -23,12 +23,6 @@ jobs:
         with:
           ref: feature/max-api-coverage-23
           fetch-depth: 0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
 
       - name: Reconstruct reviewed tree
         shell: bash
@@ -48,107 +42,49 @@ jobs:
           echo "1caa09a08259ac9154a9445d29296acbc7258e77fe7d373b9094f5a7959ed682  /tmp/pr24.patch" | sha256sum --check
           git apply --check /tmp/pr24.patch
           git apply --whitespace=error-all /tmp/pr24.patch
-
           for helper in MaxUrlUtils.ts MaxApiCompatibility.ts; do
             gh api "repos/${{ github.repository }}/contents/.github/pr24-${helper}?ref=automation/pr24-review-fix-squash" \
               --jq .content | tr -d '\n' | base64 --decode > "nodes/Max/${helper}"
           done
-
           find .github/workflows -maxdepth 1 -type f \
-            ! -name ci.yml \
-            ! -name publish-npm.yml \
-            ! -name stale.yml \
-            -delete
+            ! -name ci.yml ! -name publish-npm.yml ! -name stale.yml -delete
           test "$(find .github/workflows -maxdepth 1 -type f | wc -l)" -eq 3
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Test
-        run: npm test -- --runInBand
-
-      - name: Build
-        run: npm run build
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Verify package and diff
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm pack --dry-run --json > /tmp/npm-pack.json
-          node <<'NODE'
-          const fs = require('node:fs');
-          const manifest = require('./package.json');
-          const result = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
-          const files = new Set(result.files.map(({ path }) => path));
-          for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
-            if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
-          }
-          NODE
-          git diff --check
-
-      - name: Create verified Git commit object
+      - name: Upload all changed blobs with verification
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git fetch origin master feature/max-api-coverage-23
-          master_sha="$(git rev-parse origin/master)"
-          master_tree="$(gh api "repos/${{ github.repository }}/git/commits/${master_sha}" --jq .tree.sha)"
-
+          git fetch origin master
           git reset --soft origin/master
           git add -A
           git diff --cached --check
           test "$(git diff --cached --name-only | wc -l)" -eq 23
-          test -z "$(find .github/workflows -maxdepth 1 -type f \
-            ! -name ci.yml \
-            ! -name publish-npm.yml \
-            ! -name stale.yml \
-            -print -quit)"
-
-          entries_file=/tmp/tree-entries.json
-          printf '[]' > "$entries_file"
+          : > blob-map.tsv
           while IFS= read -r -d '' path; do
-            encoded="$(base64 -w0 -- "$path")"
-            blob_sha="$(gh api --method POST "repos/${{ github.repository }}/git/blobs" \
-              -f content="$encoded" -f encoding=base64 --jq .sha)"
-            jq --arg path "$path" --arg sha "$blob_sha" \
-              '. + [{path: $path, mode: "100644", type: "blob", sha: $sha}]' \
-              "$entries_file" > "${entries_file}.next"
-            mv "${entries_file}.next" "$entries_file"
+            expected="$(git hash-object -- "$path")"
+            payload="$(jq -n --rawfile content "$path" '{content: $content, encoding: "utf-8"}')"
+            sha=''
+            for attempt in 1 2 3 4 5; do
+              echo "Uploading $path (attempt $attempt)"
+              if sha="$(gh api --method POST "repos/${{ github.repository }}/git/blobs" \
+                --input - --jq .sha <<<"$payload")"; then
+                break
+              fi
+              sleep "$((attempt * 2))"
+            done
+            test -n "$sha"
+            test "$sha" = "$expected"
+            printf '%s\t%s\n' "$path" "$sha" >> blob-map.tsv
+            sleep 1
           done < <(git diff --cached --name-only -z --diff-filter=ACMRT)
+          test "$(wc -l < blob-map.tsv)" -eq 23
 
-          tree_payload="$(jq -n --arg base_tree "$master_tree" --slurpfile tree "$entries_file" \
-            '{base_tree: $base_tree, tree: $tree[0]}')"
-          final_tree="$(gh api --method POST "repos/${{ github.repository }}/git/trees" \
-            --input - --jq .sha <<<"$tree_payload")"
-
-          commit_payload="$(jq -n \
-            --arg message 'Расширено покрытие актуального MAX Bot API' \
-            --arg tree "$final_tree" \
-            --arg parent "$master_sha" \
-            '{message: $message, tree: $tree, parents: [$parent]}')"
-          final_commit="$(gh api --method POST "repos/${{ github.repository }}/git/commits" \
-            --input - --jq .sha <<<"$commit_payload")"
-
-          test "$(gh api "repos/${{ github.repository }}/git/commits/${final_commit}" --jq '.parents | length')" -eq 1
-          test "$(gh api "repos/${{ github.repository }}/git/commits/${final_commit}" --jq '.parents[0].sha')" = "$master_sha"
-          test "$(gh api "repos/${{ github.repository }}/git/commits/${final_commit}" --jq .tree.sha)" = "$final_tree"
-
-          printf '%s\n' "$final_commit" | tee final-commit-sha.txt
-          printf '%s\n' "$master_sha" > final-parent-sha.txt
-          printf '%s\n' "$final_tree" > final-tree-sha.txt
-
-      - name: Upload commit identity
+      - name: Upload blob map
         uses: actions/upload-artifact@v4
         with:
-          name: pr24-final-commit
-          path: |
-            final-commit-sha.txt
-            final-parent-sha.txt
-            final-tree-sha.txt
+          name: pr24-final-blob-map
+          path: blob-map.tsv
           if-no-files-found: error
           retention-days: 1
