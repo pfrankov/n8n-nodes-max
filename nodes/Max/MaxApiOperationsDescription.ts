@@ -1,3 +1,4 @@
+/* eslint-disable n8n-nodes-base/node-param-default-missing -- The operation helper supplies a resource-specific default dynamically. */
 import type { INodeProperties, INodePropertyOptions } from 'n8n-workflow';
 import { MAX_TRIGGER_EVENTS } from './MaxTriggerConfig';
 
@@ -40,7 +41,7 @@ const keyboardButtonValues: INodeProperties[] = [
 			{ name: 'Request Location', value: 'request_geo_location' },
 		],
 		default: 'callback',
-		description: 'The action performed when the user presses the button.',
+		description: 'The action performed when the user presses the button',
 	},
 	{
 		displayName: 'Text',
@@ -48,7 +49,7 @@ const keyboardButtonValues: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		required: true,
-		description: 'The text displayed on the button, up to 128 characters.',
+		description: 'The text displayed on the button, up to 128 characters',
 	},
 	{
 		displayName: 'Payload',
@@ -58,7 +59,7 @@ const keyboardButtonValues: INodeProperties[] = [
 		displayOptions: {
 			show: { type: ['callback', 'clipboard', 'open_app'] },
 		},
-		description: 'The callback data, clipboard text, or optional mini-app payload.',
+		description: 'The callback data, clipboard text, or optional mini-app payload',
 	},
 	{
 		displayName: 'URL',
@@ -66,7 +67,7 @@ const keyboardButtonValues: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		displayOptions: { show: { type: ['link'] } },
-		description: 'The URL opened by the button, up to 2048 characters.',
+		description: 'The URL opened by the button, up to 2048 characters',
 	},
 	{
 		displayName: 'Web App',
@@ -74,7 +75,7 @@ const keyboardButtonValues: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		displayOptions: { show: { type: ['open_app'] } },
-		description: 'The mini-app link opened by the button.',
+		description: 'The mini-app link opened by the button',
 	},
 	{
 		displayName: 'Contact ID',
@@ -82,7 +83,7 @@ const keyboardButtonValues: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		displayOptions: { show: { type: ['open_app'] } },
-		description: 'The int64 contact ID used by the open-app button.',
+		description: 'The int64 contact ID used by the open-app button',
 	},
 	{
 		displayName: 'Quick Request',
@@ -90,7 +91,7 @@ const keyboardButtonValues: INodeProperties[] = [
 		type: 'boolean',
 		default: false,
 		displayOptions: { show: { type: ['request_geo_location'] } },
-		description: 'Whether to use the quick location request mode.',
+		description: 'Whether to use the quick location request mode',
 	},
 ];
 
@@ -129,12 +130,12 @@ function keyboardProperty(
 								values: keyboardButtonValues,
 							},
 						],
-						description: 'Buttons shown in this keyboard row.',
+						description: 'Buttons shown in this keyboard row',
 					},
 				],
 			},
 		],
-		description: 'An inline keyboard built with the current MAX button types.',
+		description: 'An inline keyboard built with the current MAX button types',
 	};
 }
 
@@ -154,7 +155,7 @@ const messageFormatProperty = (
 		{ name: 'Plain Text', value: 'plain' },
 	],
 	default: 'plain',
-	description: 'The formatting mode used for the message text.',
+	description: 'The formatting mode used for the message text',
 });
 
 const messageBodyProperties = (
@@ -170,7 +171,7 @@ const messageBodyProperties = (
 		displayOptions: {
 			show: { resource: ['message'], operation: operations, ...extraShow },
 		},
-		description: 'The message text, up to 4000 characters.',
+		description: 'The message text, up to 4000 characters',
 	},
 	messageFormatProperty(operations, extraShow),
 	{
@@ -181,7 +182,7 @@ const messageBodyProperties = (
 		displayOptions: {
 			show: { resource: ['message'], operation: operations, ...extraShow },
 		},
-		description: 'An optional JSON array of MAX attachment request objects.',
+		description: 'An optional JSON array of MAX attachment request objects',
 	},
 	keyboardProperty(operations, extraShow),
 	{
@@ -429,7 +430,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 						type: 'string',
 						default: '',
 						required: true,
-						description: 'The command name without the leading slash.',
+						description: 'The command name without the leading slash',
 					},
 					{
 						displayName: 'Description',
@@ -437,7 +438,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 						type: 'string',
 						default: '',
 						required: true,
-						description: 'The command description shown to users.',
+						description: 'The command description shown to users',
 					},
 				],
 			},
@@ -451,7 +452,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		default: '',
 		required: true,
 		displayOptions: { show: { resource: ['chat', 'chatAdmin', 'chatMember'] } },
-		description: 'The signed int64 ID of the group chat or channel.',
+		description: 'The signed int64 ID of the group chat or channel',
 	},
 	{
 		displayName: 'Update Fields',
@@ -474,28 +475,28 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 				name: 'iconUrl',
 				type: 'string',
 				default: '',
-				description: 'The URL of the new chat or channel icon.',
+				description: 'The URL of the new chat or channel icon',
 			},
 			{
 				displayName: 'Notify',
 				name: 'notify',
 				type: 'boolean',
 				default: true,
-				description: 'Whether to notify members about the change.',
+				description: 'Whether to notify members about the change',
 			},
 			{
 				displayName: 'Pin Message ID',
 				name: 'pin',
 				type: 'string',
 				default: '',
-				description: 'The message ID to pin while updating the chat.',
+				description: 'The message ID to pin while updating the chat',
 			},
 			{
 				displayName: 'Title',
 				name: 'title',
 				type: 'string',
 				default: '',
-				description: 'The new title, from 1 to 200 characters.',
+				description: 'The new title, from 1 to 200 characters',
 			},
 		],
 	},
@@ -505,14 +506,14 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		type: 'options',
 		displayOptions: { show: { resource: ['chat'], operation: ['sendAction'] } },
 		options: [
-			{ name: 'Sending Audio', value: 'sending_audio' },
-			{ name: 'Sending File', value: 'sending_file' },
-			{ name: 'Sending Photo', value: 'sending_photo' },
-			{ name: 'Sending Video', value: 'sending_video' },
-			{ name: 'Typing', value: 'typing_on' },
+			{ name: 'Sending Audio', value: 'sending_audio', action: 'Show sending audio' },
+			{ name: 'Sending File', value: 'sending_file', action: 'Show sending file' },
+			{ name: 'Sending Photo', value: 'sending_photo', action: 'Show sending photo' },
+			{ name: 'Sending Video', value: 'sending_video', action: 'Show sending video' },
+			{ name: 'Typing', value: 'typing_on', action: 'Show typing' },
 		],
 		default: 'typing_on',
-		description: 'The activity displayed to chat members.',
+		description: 'The activity displayed to chat members',
 	},
 	{
 		displayName: 'Message ID',
@@ -521,7 +522,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		default: '',
 		required: true,
 		displayOptions: { show: { resource: ['chat'], operation: ['pinMessage'] } },
-		description: 'The message or post ID to pin.',
+		description: 'The message or post ID to pin',
 	},
 	{
 		displayName: 'Notify',
@@ -529,7 +530,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		type: 'boolean',
 		default: true,
 		displayOptions: { show: { resource: ['chat'], operation: ['pinMessage'] } },
-		description: 'Whether to notify members about the pinned message.',
+		description: 'Whether to notify members about the pinned message',
 	},
 	{
 		displayName: 'User ID',
@@ -543,7 +544,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 				operation: ['remove', 'set'],
 			},
 		},
-		description: 'The signed int64 ID of the user or bot.',
+		description: 'The signed int64 ID of the user or bot',
 	},
 	{
 		displayName: 'Alias',
@@ -551,7 +552,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		displayOptions: { show: { resource: ['chatAdmin'], operation: ['set'] } },
-		description: 'The optional administrator label.',
+		description: 'The optional administrator label',
 	},
 	{
 		displayName: 'Permissions',
@@ -571,7 +572,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 			{ name: 'Read All Messages', value: 'read_all_messages' },
 			{ name: 'Write', value: 'write' },
 		],
-		description: 'The complete permission set that replaces the current administrator rights.',
+		description: 'The complete permission set that replaces the current administrator rights',
 	},
 	{
 		displayName: 'Member Selection',
@@ -583,7 +584,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 			{ name: 'Specific User IDs', value: 'userIds' },
 		],
 		default: 'all',
-		description: 'Whether to page through members or request specific user IDs.',
+		description: 'Whether to page through members or request specific user IDs',
 	},
 	{
 		displayName: 'User IDs',
@@ -597,7 +598,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 				operation: ['add'],
 			},
 		},
-		description: 'A comma-separated list of signed int64 user IDs, up to 100.',
+		description: 'A comma-separated list of signed int64 user IDs, up to 100',
 	},
 	{
 		displayName: 'User IDs',
@@ -612,7 +613,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 				memberSelection: ['userIds'],
 			},
 		},
-		description: 'A comma-separated list of signed int64 user IDs.',
+		description: 'A comma-separated list of signed int64 user IDs',
 	},
 	{
 		displayName: 'Marker',
@@ -626,14 +627,14 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 				memberSelection: ['all'],
 			},
 		},
-		description: 'The marker returned by the previous page.',
+		description: 'The marker returned by the previous page',
 	},
 	{
 		displayName: 'Limit',
 		name: 'limit',
 		type: 'number',
-		typeOptions: { minValue: 1, maxValue: 100 },
-		default: 20,
+		typeOptions: { minValue: 1 },
+		default: 50,
 		displayOptions: {
 			show: {
 				resource: ['chatMember'],
@@ -641,7 +642,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 				memberSelection: ['all'],
 			},
 		},
-		description: 'Max number of results to return.',
+		description: 'Max number of results to return',
 	},
 	{
 		displayName: 'User ID',
@@ -650,7 +651,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		default: '',
 		required: true,
 		displayOptions: { show: { resource: ['chatMember'], operation: ['remove'] } },
-		description: 'The signed int64 ID of the user to remove.',
+		description: 'The signed int64 ID of the user to remove',
 	},
 	{
 		displayName: 'Block',
@@ -658,7 +659,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		type: 'boolean',
 		default: false,
 		displayOptions: { show: { resource: ['chatMember'], operation: ['remove'] } },
-		description: 'Whether to block the removed user when the chat supports blocking.',
+		description: 'Whether to block the removed user when the chat supports blocking',
 	},
 	{
 		displayName: 'Message ID',
@@ -667,7 +668,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		default: '',
 		required: true,
 		displayOptions: { show: { resource: ['comment'] } },
-		description: 'The channel post ID that owns the comment.',
+		description: 'The channel post ID that owns the comment',
 	},
 	{
 		displayName: 'Comment ID',
@@ -678,7 +679,6 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		displayOptions: {
 			show: { resource: ['comment'], operation: ['delete', 'get', 'update'] },
 		},
-		description: 'The comment ID.',
 	},
 	{
 		displayName: 'Comment Selection',
@@ -690,7 +690,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 			{ name: 'Specific Comment IDs', value: 'commentIds' },
 		],
 		default: 'filter',
-		description: 'Whether to use time filters or request specific comments.',
+		description: 'Whether to use time filters or request specific comments',
 	},
 	{
 		displayName: 'Comment IDs',
@@ -705,7 +705,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 				commentSelection: ['commentIds'],
 			},
 		},
-		description: 'A comma-separated list of comment IDs.',
+		description: 'A comma-separated list of comment IDs',
 	},
 	{
 		displayName: 'After',
@@ -741,10 +741,10 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		displayName: 'Limit',
 		name: 'limit',
 		type: 'number',
-		typeOptions: { minValue: 1, maxValue: 100 },
+		typeOptions: { minValue: 1 },
 		default: 50,
 		displayOptions: { show: { resource: ['comment'], operation: ['getMany'] } },
-		description: 'Max number of results to return.',
+		description: 'Max number of results to return',
 	},
 	{
 		displayName: 'Text',
@@ -753,7 +753,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		typeOptions: { rows: 4 },
 		default: '',
 		displayOptions: { show: { resource: ['comment'], operation: ['create', 'update'] } },
-		description: 'The comment text, up to 4000 characters.',
+		description: 'The comment text, up to 4000 characters',
 	},
 	{
 		displayName: 'Text Format',
@@ -766,7 +766,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 			{ name: 'Plain Text', value: 'plain' },
 		],
 		default: 'plain',
-		description: 'The formatting mode used for the comment text.',
+		description: 'The formatting mode used for the comment text',
 	},
 	{
 		displayName: 'Reply to Comment ID',
@@ -774,7 +774,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		displayOptions: { show: { resource: ['comment'], operation: ['create', 'update'] } },
-		description: 'The optional comment ID to reply to.',
+		description: 'The optional comment ID to reply to',
 	},
 	{
 		displayName: 'Message ID',
@@ -783,7 +783,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		default: '',
 		required: true,
 		displayOptions: { show: { resource: ['message'], operation: ['get', 'update'] } },
-		description: 'The message or channel post ID.',
+		description: 'The message or channel post ID',
 	},
 	{
 		displayName: 'Get Messages By',
@@ -795,7 +795,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 			{ name: 'Message IDs', value: 'messageIds' },
 		],
 		default: 'chatId',
-		description: 'Whether to retrieve messages from a chat or by explicit IDs.',
+		description: 'Whether to retrieve messages from a chat or by explicit IDs',
 	},
 	{
 		displayName: 'Chat ID',
@@ -810,7 +810,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 				getMessagesBy: ['chatId'],
 			},
 		},
-		description: 'The signed int64 ID of the chat or channel.',
+		description: 'The signed int64 ID of the chat or channel',
 	},
 	{
 		displayName: 'Message IDs',
@@ -825,7 +825,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 				getMessagesBy: ['messageIds'],
 			},
 		},
-		description: 'A comma-separated list of message or post IDs.',
+		description: 'A comma-separated list of message or post IDs',
 	},
 	{
 		displayName: 'From',
@@ -849,19 +849,19 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		displayName: 'Limit',
 		name: 'limit',
 		type: 'number',
-		typeOptions: { minValue: 1, maxValue: 100 },
+		typeOptions: { minValue: 1 },
 		default: 50,
 		displayOptions: { show: { resource: ['message'], operation: ['getMany'] } },
-		description: 'Max number of results to return.',
+		description: 'Max number of results to return',
 	},
 	{
-		displayName: 'Video Token',
-		name: 'videoToken',
+		displayName: 'Video Identifier',
+		name: 'videoIdentifier',
 		type: 'string',
 		default: '',
 		required: true,
 		displayOptions: { show: { resource: ['message'], operation: ['getVideo'] } },
-		description: 'The token of the attached video.',
+		description: 'The identifier of the attached video',
 	},
 	{
 		displayName: 'Send To',
@@ -873,7 +873,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 			{ name: 'User', value: 'user' },
 		],
 		default: 'user',
-		description: 'Whether to send the message to a user or a chat.',
+		description: 'Whether to send the message to a user or a chat',
 	},
 	{
 		displayName: 'Recipient ID',
@@ -882,7 +882,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		default: '',
 		required: true,
 		displayOptions: { show: { resource: ['message'], operation: ['send'] } },
-		description: 'The signed int64 user, chat, or channel ID.',
+		description: 'The signed int64 user, chat, or channel ID',
 	},
 	...messageBodyProperties(['send', 'update']),
 	{
@@ -891,7 +891,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		type: 'boolean',
 		default: true,
 		displayOptions: { show: { resource: ['message'], operation: ['send', 'update'] } },
-		description: 'Whether to send a push notification to chat members.',
+		description: 'Whether to send a push notification to chat members',
 	},
 	{
 		displayName: 'Disable Link Preview',
@@ -901,7 +901,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		displayOptions: {
 			show: { resource: ['message'], operation: ['answerCallback', 'send', 'update'] },
 		},
-		description: 'Whether to prevent MAX from generating link previews.',
+		description: 'Whether to prevent MAX from generating link previews',
 	},
 	{
 		displayName: 'Clear Attachments',
@@ -909,7 +909,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		type: 'boolean',
 		default: false,
 		displayOptions: { show: { resource: ['message'], operation: ['update'] } },
-		description: 'Whether to remove all current message attachments.',
+		description: 'Whether to remove all current message attachments',
 	},
 	{
 		displayName: 'Callback ID',
@@ -918,7 +918,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		default: '',
 		required: true,
 		displayOptions: { show: { resource: ['message'], operation: ['answerCallback'] } },
-		description: 'The callback ID received in a message_callback update.',
+		description: 'The callback ID received in a message_callback update',
 	},
 	{
 		displayName: 'Notification',
@@ -926,7 +926,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		displayOptions: { show: { resource: ['message'], operation: ['answerCallback'] } },
-		description: 'The optional one-time notification shown to the user.',
+		description: 'The optional one-time notification shown to the user',
 	},
 	{
 		displayName: 'Update Message',
@@ -934,7 +934,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		type: 'boolean',
 		default: false,
 		displayOptions: { show: { resource: ['message'], operation: ['answerCallback'] } },
-		description: 'Whether to replace the message after answering the callback.',
+		description: 'Whether to replace the message after answering the callback',
 	},
 	...messageBodyProperties(['answerCallback'], { updateMessage: [true] }),
 	{
@@ -949,7 +949,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 				updateMessage: [true],
 			},
 		},
-		description: 'Whether to remove all current message attachments.',
+		description: 'Whether to remove all current message attachments',
 	},
 	{
 		displayName: 'Webhook URL',
@@ -958,7 +958,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		default: '',
 		required: true,
 		displayOptions: { show: { resource: ['subscription'], operation: ['create', 'delete'] } },
-		description: 'The HTTPS URL used for the webhook subscription.',
+		description: 'The HTTPS URL used for the webhook subscription',
 	},
 	{
 		displayName: 'Update Types',
@@ -968,7 +968,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		required: true,
 		displayOptions: { show: { resource: ['subscription'], operation: ['create'] } },
 		options: updateTypeOptions,
-		description: 'The update types delivered to this webhook.',
+		description: 'The update types delivered to this webhook',
 	},
 	{
 		displayName: 'Secret',
@@ -977,7 +977,7 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		typeOptions: { password: true },
 		default: '',
 		displayOptions: { show: { resource: ['subscription'], operation: ['create'] } },
-		description: 'The optional X-Max-Bot-Api-Secret value, from 5 to 256 characters.',
+		description: 'The optional X-Max-Bot-Api-Secret value, from 5 to 256 characters',
 	},
 	{
 		displayName: 'API Version',
@@ -985,6 +985,6 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		displayOptions: { show: { resource: ['subscription'], operation: ['create'] } },
-		description: 'The optional API version requested for webhook payloads.',
+		description: 'The optional API version requested for webhook payloads',
 	},
 ];

@@ -453,7 +453,7 @@ async function executeMessageOperation(
 	}
 	if (operation === 'getVideo') {
 		const videoToken = requireString(
-			getParameter<unknown>(context, 'videoToken', itemIndex, ''),
+			getParameter<unknown>(context, 'videoIdentifier', itemIndex, ''),
 			'Video Token',
 		);
 		return await request(context, 'GET', `/videos/${encodePath(videoToken)}`);
