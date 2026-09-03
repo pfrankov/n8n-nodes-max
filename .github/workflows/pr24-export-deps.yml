@@ -1,0 +1,40 @@
+name: Export PR 24 dependencies for local TDD
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/pr24-export-deps.yml
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Archive dependencies
+        run: tar -czf /tmp/pr24-node-modules.tar.gz node_modules
+
+      - name: Upload dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr24-node-modules
+          path: /tmp/pr24-node-modules.tar.gz
+          if-no-files-found: error
+          retention-days: 1
