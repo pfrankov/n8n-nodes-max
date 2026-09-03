@@ -1,0 +1,109 @@
+name: Verify PR 24 final gate v4
+
+on:
+  push:
+    branches:
+      - automation/pr24-review-fix-squash
+    paths:
+      - .github/workflows/verify-pr24-final-v4.yml
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  statuses: write
+
+concurrency:
+  group: verify-pr24-final-gate-v4
+  cancel-in-progress: true
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  TARGET_REPO: pfrankov/n8n-nodes-max
+  TARGET_PR: '24'
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pin exact one-commit head
+        id: state
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=$(gh api repos/$TARGET_REPO/pulls/$TARGET_PR --jq .head.sha)
+          commits=$(gh api repos/$TARGET_REPO/pulls/$TARGET_PR --jq .commits)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "commits=$commits" >> "$GITHUB_OUTPUT"
+          test "$commits" = '1'
+          gh api -X POST repos/$TARGET_REPO/statuses/$sha -f state=pending -f context='PR24 final / review gate v4' -f description='Waiting for runtime verification and Codex'
+
+      - name: Require successful Node 20 and Node 22 verification on this head
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha='${{ steps.state.outputs.sha }}'
+          for attempt in $(seq 1 80); do
+            gh api repos/$TARGET_REPO/commits/$sha/status > /tmp/status.json
+            node20=$(jq -r '[.statuses[] | select(.context == "PR24 final / Node 20")][0].state // "missing"' /tmp/status.json)
+            node22=$(jq -r '[.statuses[] | select(.context == "PR24 final / Node 22")][0].state // "missing"' /tmp/status.json)
+            if [ "$node20" = success ] && [ "$node22" = success ]; then exit 0; fi
+            if [ "$node20" = failure ] || [ "$node22" = failure ]; then exit 1; fi
+            sleep 15
+          done
+          exit 1
+
+      - name: Wait for fresh Codex review on this exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha='${{ steps.state.outputs.sha }}'
+          short=${sha:0:7}
+          for attempt in $(seq 1 80); do
+            test "$(gh api repos/$TARGET_REPO/pulls/$TARGET_PR --jq .head.sha)" = "$sha"
+            gh api --paginate "repos/$TARGET_REPO/issues/$TARGET_PR/comments?per_page=100" --slurp > /tmp/comments.json
+            body=$(jq -r 'add | map(select(.body | contains("codex-pull-request-review-summary"))) | last | .body // ""' /tmp/comments.json)
+            if printf '%s' "$body" | grep -q "$short" && printf '%s' "$body" | grep -q 'Completed'; then exit 0; fi
+            sleep 15
+          done
+          exit 1
+
+      - name: Resolve superseded known threads
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api graphql -F owner=pfrankov -F name=n8n-nodes-max -F number=24 \
+            -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{id isResolved isOutdated}}}}}' > /tmp/threads.json
+          for thread in \
+            PRRT_kwDOPNHPes6e6P4z PRRT_kwDOPNHPes6e6P43 PRRT_kwDOPNHPes6e6P45 \
+            PRRT_kwDOPNHPes6e6P4_ PRRT_kwDOPNHPes6e6P5E PRRT_kwDOPNHPes6e6P5L \
+            PRRT_kwDOPNHPes6e6P5O PRRT_kwDOPNHPes6e7mY1 PRRT_kwDOPNHPes6e7mY6 \
+            PRRT_kwDOPNHPes6e7mZC; do
+            resolved=$(jq -r --arg id "$thread" '.data.repository.pullRequest.reviewThreads.nodes[] | select(.id == $id) | .isResolved' /tmp/threads.json)
+            if [ "$resolved" = false ]; then
+              gh api graphql -F thread="$thread" -f query='mutation($thread:ID!){resolveReviewThread(input:{threadId:$thread}){thread{isResolved}}}' >/dev/null
+            fi
+          done
+
+      - name: Reject unresolved findings on the current diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api graphql -F owner=pfrankov -F name=n8n-nodes-max -F number=24 \
+            -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{id isResolved isOutdated path comments(first:20){nodes{body url author{login}}}}}}}}' > /tmp/final-threads.json
+          jq -r '.data.repository.pullRequest.reviewThreads.nodes[] | select((.isResolved|not) and (.isOutdated|not)) | [.path, (.comments.nodes[-1].body // ""), (.comments.nodes[-1].url // "")] | @tsv' /tmp/final-threads.json > /tmp/unresolved.tsv
+          test ! -s /tmp/unresolved.tsv
+
+      - name: Publish final success
+        if: success()
+        run: |
+          sha='${{ steps.state.outputs.sha }}'
+          gh api -X POST repos/$TARGET_REPO/statuses/$sha -f state=success -f context='PR24 final / review gate v4' -f description='One commit, Node 20/22 green, Codex complete, no findings'
+          gh api -X POST repos/$TARGET_REPO/issues/$TARGET_PR/comments -f body="FINAL_READY_VERIFIED_V4: exact head $sha has one commit; Node 20/22 verification passed; fresh Codex review completed; no unresolved current-diff findings remain."
+
+      - name: Publish final failure
+        if: failure()
+        run: |
+          sha='${{ steps.state.outputs.sha }}'
+          gh api -X POST repos/$TARGET_REPO/statuses/$sha -f state=failure -f context='PR24 final / review gate v4' -f description='A final gate failed'
+          gh api -X POST repos/$TARGET_REPO/issues/$TARGET_PR/comments -f body="FINAL_READY_V4_FAILED for head $sha. Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}."
