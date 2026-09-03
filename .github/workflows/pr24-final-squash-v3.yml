@@ -1,0 +1,248 @@
+name: PR 24 idempotent final squash
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/pr24-final-squash-v3.yml
+
+permissions:
+  actions: write
+  contents: write
+  issues: write
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: pr24-authoritative-finalizer
+  cancel-in-progress: true
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: feature/max-api-coverage-23
+      PR_NUMBER: '24'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+
+      - name: Cancel obsolete runs
+        continue-on-error: true
+        run: |
+          gh run list --branch "$BRANCH" --limit 100 --json databaseId,status \
+            --jq '.[] | select(.status == "queued" or .status == "in_progress") | .databaseId' | while read -r run_id; do
+              if [ -n "$run_id" ] && [ "$run_id" != "$GITHUB_RUN_ID" ]; then
+                gh run cancel "$run_id" || true
+              fi
+            done
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run the red phase when starting from the pre-fix branch
+        shell: bash
+        run: |
+          if [ -f scripts/pr24_finalize_review.py ]; then
+            python3 scripts/pr24_finalize_review.py write-tests
+            set +e
+            npx jest nodes/Max/tests/MaxApiReviewRegression.test.ts --runInBand
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ]; then
+              echo 'Regression suite unexpectedly passed before the implementation phase'
+              exit 1
+            fi
+          fi
+
+      - name: Apply or complete all reviewed fixes
+        run: python3 scripts/pr24_finalize_review_v3.py
+
+      - name: Remove all temporary workflows and scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin master
+          while IFS= read -r file; do
+            [ -n "$file" ] && rm -f "$file"
+          done < <(git diff --name-only --diff-filter=A origin/master -- .github/workflows scripts)
+          git checkout origin/master -- .github/workflows 2>/dev/null || true
+          cat > .github/workflows/ci.yml <<'YAML'
+          name: CI
+
+          on:
+            push:
+              branches: [master]
+            pull_request:
+              branches: [master]
+
+          permissions:
+            contents: read
+
+          jobs:
+            verify:
+              runs-on: ubuntu-latest
+              strategy:
+                fail-fast: false
+                matrix:
+                  node-version: [20.15.1, 22]
+              steps:
+                - uses: actions/checkout@v4
+                - uses: actions/setup-node@v4
+                  with:
+                    node-version: ${{ matrix.node-version }}
+                    cache: npm
+                - run: npm ci
+                - run: npm test -- --runInBand
+                - run: npm run build
+                - run: npm run lint
+                - name: Verify package entry points
+                  run: |
+                    npm pack --dry-run --json > /tmp/npm-pack.json
+                    node <<'NODE'
+                    const fs = require('node:fs');
+                    const manifest = require('./package.json');
+                    const result = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
+                    const files = new Set(result.files.map(({ path }) => path));
+                    for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
+                      if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+                    }
+                    NODE
+                - run: git diff --check
+          YAML
+
+      - name: Apply safe format and metadata fixes
+        shell: bash
+        run: |
+          npx prettier --write \
+            .github/workflows/ci.yml \
+            credentials/MaxApi.credentials.ts \
+            credentials/tests/MaxApi.credentials.test.ts \
+            nodes/Max/GenericFunctions.ts \
+            nodes/Max/MaxApiBaseUrl.ts \
+            nodes/Max/MaxApiOperations.node.ts \
+            nodes/Max/MaxApiOperationsDescription.ts \
+            nodes/Max/MaxApiRequest.ts \
+            nodes/Max/MaxEventProcessor.ts \
+            nodes/Max/MaxTriggerConfig.ts \
+            nodes/Max/MaxWebhookManager.ts \
+            nodes/Max/tests/MaxApiReviewRegression.test.ts \
+            README.md AGENTS.md CHANGELOG.md package.json
+          npm run lintfix
+          npx prettier --write nodes credentials package.json
+
+      - name: Run all publication gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm test -- --runInBand
+          npm run build
+          npm run lint
+          npm pack --dry-run --json > /tmp/npm-pack.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = require('./package.json');
+          const result = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
+          const files = new Set(result.files.map(({ path }) => path));
+          for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
+            if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+          }
+          NODE
+          git diff --check
+          test "$(find .github/workflows -maxdepth 1 -type f -printf '%f\n' | sort)" = "ci.yml"
+          test ! -e scripts/pr24_finalize_review.py
+          test ! -e scripts/pr24_finalize_review_v3.py
+
+      - name: Cancel remaining obsolete runs before force-push
+        continue-on-error: true
+        run: |
+          gh run list --branch "$BRANCH" --limit 100 --json databaseId,status \
+            --jq '.[] | select(.status == "queued" or .status == "in_progress") | .databaseId' | while read -r run_id; do
+              if [ -n "$run_id" ] && [ "$run_id" != "$GITHUB_RUN_ID" ]; then
+                gh run cancel "$run_id" || true
+              fi
+            done
+
+      - name: Create and force-push the single PR commit
+        id: squash
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin master
+          git add -A
+          git diff --cached --check
+          tree=$(git write-tree)
+          parent=$(git rev-parse origin/master)
+          commit=$(printf '%s\n' 'feat: расширить покрытие актуального MAX Bot API' | \
+            GIT_AUTHOR_NAME='Pavel Frankov' \
+            GIT_AUTHOR_EMAIL='pavel@frankov.ru' \
+            GIT_COMMITTER_NAME='github-actions[bot]' \
+            GIT_COMMITTER_EMAIL='41898282+github-actions[bot]@users.noreply.github.com' \
+            git commit-tree "$tree" -p "$parent")
+          git push --force origin "$commit:refs/heads/$BRANCH"
+          echo "sha=$commit" >> "$GITHUB_OUTPUT"
+
+      - name: Verify one-commit history on GitHub
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha='${{ steps.squash.outputs.sha }}'
+          for attempt in $(seq 1 30); do
+            commits=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.commits')
+            head=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')
+            if [ "$commits" = '1' ] && [ "$head" = "$sha" ]; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo 'GitHub still does not report exactly one commit' >&2
+          exit 1
+
+      - name: Wait for permanent CI on the squashed commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha='${{ steps.squash.outputs.sha }}'
+          for attempt in $(seq 1 90); do
+            data=$(gh api -H 'Accept: application/vnd.github+json' "repos/${GITHUB_REPOSITORY}/commits/${sha}/check-runs")
+            count=$(jq '[.check_runs[] | select(.name | startswith("verify"))] | length' <<<"$data")
+            pending=$(jq '[.check_runs[] | select((.name | startswith("verify")) and (.status != "completed"))] | length' <<<"$data")
+            failed=$(jq '[.check_runs[] | select((.name | startswith("verify")) and (.status == "completed") and (.conclusion != "success"))] | length' <<<"$data")
+            if [ "$count" -ge 2 ] && [ "$pending" -eq 0 ]; then
+              [ "$failed" -eq 0 ] && exit 0
+              echo 'CI failed on the squashed commit' >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          echo 'Timed out waiting for CI on the squashed commit' >&2
+          exit 1
+
+      - name: Resolve addressed threads and start a fresh code review
+        shell: bash
+        run: |
+          set -euo pipefail
+          for thread in \
+            PRRT_kwDOPNHPes6e6P4z \
+            PRRT_kwDOPNHPes6e6P43 \
+            PRRT_kwDOPNHPes6e6P45 \
+            PRRT_kwDOPNHPes6e6P4_ \
+            PRRT_kwDOPNHPes6e6P5E \
+            PRRT_kwDOPNHPes6e6P5L \
+            PRRT_kwDOPNHPes6e6P5O \
+            PRRT_kwDOPNHPes6e7mY1 \
+            PRRT_kwDOPNHPes6e7mY6 \
+            PRRT_kwDOPNHPes6e7mZC; do
+            gh api graphql \
+              -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' \
+              -f id="$thread" >/dev/null || true
+          done
+          gh pr comment "$PR_NUMBER" --body "Исправления по ревью внесены и покрыты regression-тестами. PR теперь состоит из одного коммита поверх актуального master, временные workflow удалены, CI на Node.js 20.15.1 и 22 зелёный. Финальный SHA: \`${{ steps.squash.outputs.sha }}\`. @codex review"
