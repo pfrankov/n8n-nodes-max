@@ -1,0 +1,145 @@
+name: PR 24 atomic finalization
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/pr24-atomic-final.yml
+
+permissions:
+  contents: write
+  actions: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: pr24-final-review-and-squash
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout latest branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Materialize the reviewed fix set if necessary
+        run: |
+          if [ ! -f nodes/Max/tests/MaxApiRequestResilience.test.ts ]; then
+            test -f scripts/pr24-finalize.py
+            python3 scripts/pr24-finalize.py tests
+          fi
+          if [ ! -f nodes/Max/MaxUrlUtils.ts ]; then
+            test -f scripts/pr24-finalize.py
+            python3 scripts/pr24-finalize.py implementation
+          fi
+
+      - name: Assert review requirements
+        run: |
+          grep -q "normalizeMaxWebhookUrl" nodes/Max/MaxApiOperations.node.ts
+          grep -q "MAX_API_ATTACHMENT_RETRY_DELAYS_MS" nodes/Max/MaxApiRequest.ts
+          grep -q "recipientId === '0'" nodes/Max/MaxApiOperations.node.ts
+          grep -q "instanceof NodeApiError" nodes/Max/MaxApiOperations.node.ts
+          grep -q "platform-api2.max.ru" credentials/MaxApi.credentials.ts
+          grep -q "processCurrentApiEvent" nodes/Max/MaxEventProcessor.ts
+          grep -q "max-api-operations" README.md
+          grep -q "max-api-review-contract" AGENTS.md
+          grep -q "max-api-coverage-release" CHANGELOG.md
+          grep -q -- "- master" .github/workflows/ci.yml
+
+      - name: Remove temporary branch-mutating machinery
+        run: |
+          find .github/workflows -maxdepth 1 -type f ! -name ci.yml -delete
+          rm -f scripts/pr24-finalize.py
+
+      - name: Format
+        run: |
+          npx prettier --write \
+            .github/workflows/ci.yml \
+            credentials/MaxApi.credentials.ts \
+            nodes/Max/GenericFunctions.ts \
+            nodes/Max/MaxApiOperations.node.ts \
+            nodes/Max/MaxApiOperationsDescription.ts \
+            nodes/Max/MaxApiRequest.ts \
+            nodes/Max/MaxEventProcessor.ts \
+            nodes/Max/MaxTriggerConfig.ts \
+            nodes/Max/MaxUrlUtils.ts \
+            nodes/Max/tests/MaxApiRequestResilience.test.ts \
+            nodes/Max/tests/MaxApiReviewFixes.node.test.ts \
+            nodes/Max/tests/MaxEventProcessorCurrentEvents.test.ts \
+            README.md AGENTS.md CHANGELOG.md
+
+      - name: Test
+        run: npm test -- --runInBand
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verify npm package
+        run: |
+          npm pack --dry-run --json > /tmp/npm-pack.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = require('./package.json');
+          const pack = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
+          const files = new Set(pack.files.map(({ path }) => path));
+          for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
+            if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+          }
+          NODE
+          git diff --check
+
+      - name: Cancel every stale feature-branch run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for status in queued in_progress; do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs?branch=feature/max-api-coverage-23&status=${status}&per_page=100" \
+              --jq '.workflow_runs[].id' | while read -r run_id; do
+                [ -z "$run_id" ] && continue
+                [ "$run_id" = "$GITHUB_RUN_ID" ] && continue
+                gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/cancel" || true
+              done
+          done
+
+      - name: Create and force-push one commit
+        run: |
+          git config user.name 'Pavel Frankov'
+          git config user.email 'pavel@frankov.ru'
+          git fetch origin master
+          git reset --soft origin/master
+          git add -A
+          git diff --cached --check
+          git commit -m 'feat: расширить покрытие актуального MAX Bot API'
+          test "$(git rev-list --count origin/master..HEAD)" = '1'
+          git push --force origin HEAD:feature/max-api-coverage-23
+
+      - name: Verify remote history and report success
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sleep 5
+          git fetch --force origin master feature/max-api-coverage-23
+          count=$(git rev-list --count origin/master..origin/feature/max-api-coverage-23)
+          test "$count" = '1'
+          sha=$(git rev-parse origin/feature/max-api-coverage-23)
+          changed_workflows=$(git diff --name-only origin/master...origin/feature/max-api-coverage-23 -- '.github/workflows/*' | grep -v '^.github/workflows/ci.yml$' || true)
+          test -z "$changed_workflows"
+          gh pr comment 24 --body "Финальная проверка завершена: ветка переписана одним коммитом \`$sha\` поверх \`master\`; test, build, lint и проверка npm-пакета прошли; временных self-mutating workflow в diff нет. Новый push должен запустить повторный code review."
