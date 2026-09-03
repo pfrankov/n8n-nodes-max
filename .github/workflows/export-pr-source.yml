@@ -1,4 +1,4 @@
-name: Export PR source
+name: Repair and verify MAX API PR
 
 on:
   push:
@@ -8,37 +8,70 @@ on:
       - .github/workflows/export-pr-source.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  export:
+  repair:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout feature branch
         uses: actions/checkout@v4
         with:
+          ref: feature/max-api-coverage-23
           fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Remove temporary migration machinery
+        run: |
+          rm -f .github/workflows/apply-max-api-coverage.yml
+          rm -f scripts/apply-max-api-coverage.mjs
+          rm -f scripts/fix-max-api-lint.mjs
+          rm -f .github/workflows/export-pr-source.yml
+
+      - name: Repair the contract test typing
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('nodes/Max/tests/MaxApiOperations.node.test.ts')
+          text = path.read_text()
+          old = '.map((option) => option.value);'
+          new = '.map((option: any) => option.value);'
+          if old not in text and new not in text:
+              raise SystemExit('Expected map expression was not found')
+          path.write_text(text.replace(old, new))
+          PY
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Pack source and dependencies
+      - name: Format changed source
+        run: npx prettier --write nodes/Max/MaxApiOperations.node.ts nodes/Max/MaxApiOperationsDescription.ts nodes/Max/MaxApiRequest.ts nodes/Max/MaxTriggerConfig.ts nodes/Max/tests/MaxApiCoverage.test.ts nodes/Max/tests/MaxApiOperations.node.test.ts nodes/Max/tests/MaxApiRequest.test.ts nodes/Max/tests/MaxTriggerConfig.test.ts package.json .github/workflows/ci.yml
+
+      - name: Apply safe lint fixes
+        run: npm run lintfix
+
+      - name: Test
+        run: npm test -- --runInBand
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verify package contents
+        run: npm pack --dry-run --json > /tmp/npm-pack.json
+
+      - name: Commit verified repair
         run: |
-          tar --exclude=.git --exclude=node_modules -czf /tmp/n8n-nodes-max-source.tgz .
-          tar -czf /tmp/n8n-nodes-max-node-modules.tgz node_modules
-
-      - name: Upload source
-        uses: actions/upload-artifact@v4
-        with:
-          name: n8n-nodes-max-source
-          path: /tmp/n8n-nodes-max-source.tgz
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Upload dependencies
-        uses: actions/upload-artifact@v4
-        with:
-          name: n8n-nodes-max-node-modules
-          path: /tmp/n8n-nodes-max-node-modules.tgz
-          if-no-files-found: error
-          retention-days: 1
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git diff --cached --check
+          git commit -m "Исправлена и очищена реализация MAX API"
+          git push origin HEAD:feature/max-api-coverage-23
