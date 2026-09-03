@@ -1,0 +1,837 @@
+name: Finalize and squash PR 24
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/pr24-export-source.yml
+
+concurrency:
+  group: pr24-finalize-and-squash
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply review fixes and remove temporary machinery
+        run: |
+          cat > /tmp/finalize_pr24.py <<'PY'
+          from __future__ import annotations
+
+          import json
+          import re
+          from pathlib import Path
+
+          ROOT = Path('.')
+
+          def read(path: str) -> str:
+              return (ROOT / path).read_text(encoding='utf-8')
+
+          def write(path: str, text: str) -> None:
+              target = ROOT / path
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(text, encoding='utf-8')
+
+          def function_span(text: str, name: str) -> tuple[int, int]:
+              match = re.search(rf'(?m)^\s*(?:export\s+)?(?:async\s+)?function\s+{re.escape(name)}\b', text)
+              if not match:
+                  match = re.search(rf'(?m)^\s*(?:public|private|protected)?\s*(?:async\s+)?{re.escape(name)}\s*\(', text)
+              if not match:
+                  raise RuntimeError(f'Function {name} was not found')
+              opening = text.find('{', match.end())
+              if opening < 0:
+                  raise RuntimeError(f'Opening brace for {name} was not found')
+              depth = 0
+              quote = None
+              escaped = False
+              index = opening
+              while index < len(text):
+                  char = text[index]
+                  if quote:
+                      if escaped:
+                          escaped = False
+                      elif char == '\\':
+                          escaped = True
+                      elif char == quote:
+                          quote = None
+                  else:
+                      if char in ("'", '"', '`'):
+                          quote = char
+                      elif char == '{':
+                          depth += 1
+                      elif char == '}':
+                          depth -= 1
+                          if depth == 0:
+                              return match.start(), index + 1
+                  index += 1
+              raise RuntimeError(f'Closing brace for {name} was not found')
+
+          # Remove every one-shot/self-mutating workflow. Only permanent CI remains.
+          workflows = ROOT / '.github/workflows'
+          if workflows.exists():
+              for path in workflows.iterdir():
+                  if path.is_file() and path.name != 'ci.yml':
+                      path.unlink()
+
+          scripts = ROOT / 'scripts'
+          if scripts.exists():
+              for path in list(scripts.iterdir()):
+                  lower = path.name.lower()
+                  if path.is_file() and (
+                      path.name.startswith('.probe')
+                      or any(token in lower for token in ('pr24', 'finalize', 'apply-max-api', 'export-pr', 'publication'))
+                  ):
+                      path.unlink()
+              if not any(scripts.iterdir()):
+                  scripts.rmdir()
+
+          write('.github/workflows/ci.yml', '''name: CI
+
+          on:
+            push:
+              branches:
+                - master
+            pull_request:
+
+          permissions:
+            contents: read
+
+          jobs:
+            verify:
+              name: Node.js ${{ matrix.node-version }}
+              runs-on: ubuntu-latest
+              strategy:
+                fail-fast: false
+                matrix:
+                  node-version:
+                    - 20.15.1
+                    - 22
+
+              steps:
+                - name: Checkout
+                  uses: actions/checkout@v4
+
+                - name: Set up Node.js
+                  uses: actions/setup-node@v4
+                  with:
+                    node-version: ${{ matrix.node-version }}
+                    cache: npm
+
+                - name: Install dependencies
+                  run: npm ci
+
+                - name: Test
+                  run: npm test -- --runInBand
+
+                - name: Build
+                  run: npm run build
+
+                - name: Lint
+                  run: npm run lint
+
+                - name: Verify npm package
+                  run: |
+                    npm pack --dry-run --json > /tmp/npm-pack.json
+                    node <<'NODE'
+                    const fs = require('node:fs');
+                    const manifest = require('./package.json');
+                    const result = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
+                    const files = new Set(result.files.map(({ path }) => path));
+                    for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
+                      if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+                    }
+                    NODE
+
+                - name: Check whitespace
+                  run: git diff --check
+          '''.replace('          ', ''))
+
+          # Credential default and credential test must use the same current host as execution.
+          credential_path = 'credentials/MaxApi.credentials.ts'
+          credential = read(credential_path)
+          credential = credential.replace("default: 'https://platform-api.max.ru'", "default: 'https://platform-api2.max.ru'")
+          credential = credential.replace(
+              "baseURL: '={{$credentials.baseUrl}}',",
+              "baseURL:\n\t\t\t\t'={{$credentials.baseUrl === \"https://platform-api.max.ru\" || $credentials.baseUrl === \"https://platform-api.max.ru/\" ? \"https://platform-api2.max.ru\" : ($credentials.baseUrl || \"https://platform-api2.max.ru\")}}',",
+          )
+          write(credential_path, credential)
+
+          # Reuse the existing runtime host normalizer in the legacy node and trigger.
+          request_path = 'nodes/Max/MaxApiRequest.ts'
+          request_source = read(request_path)
+          normalizer = re.search(r'(?m)^export function\s+(\w*[Nn]ormalize\w*[Bb]ase\w*[Uu]rl\w*)\s*\(', request_source)
+          if not normalizer:
+              normalizer = re.search(r'(?m)^function\s+(\w*[Nn]ormalize\w*[Bb]ase\w*[Uu]rl\w*)\s*\(', request_source)
+              if normalizer:
+                  request_source = request_source[:normalizer.start()] + 'export ' + request_source[normalizer.start():]
+                  normalizer = re.search(r'(?m)^export function\s+(\w*[Nn]ormalize\w*[Bb]ase\w*[Uu]rl\w*)\s*\(', request_source)
+          if not normalizer:
+              first_export = request_source.find('export ')
+              helper = "export function normalizeMaxBaseUrl(value: unknown): string {\n\tconst baseUrl = String(value ?? '').trim().replace(/\\/+$/, '');\n\tif (!baseUrl || baseUrl === 'https://platform-api.max.ru') return 'https://platform-api2.max.ru';\n\treturn baseUrl;\n}\n\n"
+              request_source = request_source[:first_export] + helper + request_source[first_export:]
+              normalizer_name = 'normalizeMaxBaseUrl'
+          else:
+              normalizer_name = normalizer.group(1)
+          write(request_path, request_source)
+
+          generic_path = 'nodes/Max/GenericFunctions.ts'
+          generic = read(generic_path)
+          generic_import = f"import {{ {normalizer_name} }} from './MaxApiRequest';\n"
+          if generic_import not in generic:
+              imports = list(re.finditer(r"(?m)^import[\s\S]*?from ['\"][^'\"]+['\"];\n", generic))
+              if not imports:
+                  raise RuntimeError('GenericFunctions import block was not found')
+              position = imports[-1].end()
+              generic = generic[:position] + generic_import + generic[position:]
+          generic = re.sub(r"(?m)^const DEFAULT_MAX_BASE_URL = ['\"][^'\"]+['\"];\n", '', generic)
+          generic = generic.replace(
+              "(credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL",
+              f"{normalizer_name}(credentials['baseUrl'])",
+          )
+          write(generic_path, generic)
+
+          manager_path = 'nodes/Max/MaxWebhookManager.ts'
+          manager = read(manager_path)
+          manager_import = f"import {{ {normalizer_name} }} from './MaxApiRequest';\n"
+          if manager_import not in manager:
+              imports = list(re.finditer(r"(?m)^import[\s\S]*?from ['\"][^'\"]+['\"];\n", manager))
+              if not imports:
+                  raise RuntimeError('MaxWebhookManager import block was not found')
+              position = imports[-1].end()
+              manager = manager[:position] + manager_import + manager[position:]
+          manager = manager.replace('function toPunycodeUrl(', 'export function normalizeMaxWebhookUrl(')
+          manager = manager.replace('toPunycodeUrl(', 'normalizeMaxWebhookUrl(')
+          manager = re.sub(r"(?m)^\s*private readonly DEFAULT_BASE_URL = ['\"][^'\"]+['\"];\n", '', manager)
+          manager = manager.replace(
+              "(credentials['baseUrl'] as string) || this.DEFAULT_BASE_URL",
+              f"{normalizer_name}(credentials['baseUrl'])",
+          )
+          if 'export function normalizeMaxWebhookUrl' not in manager:
+              raise RuntimeError('Webhook URL normalizer was not exported')
+          write(manager_path, manager)
+
+          write('nodes/Max/MaxApiResilience.ts', '''import type { IDataObject } from 'n8n-workflow';
+
+          export const MAX_ATTACHMENT_RETRY_DELAYS_MS = [700, 1500, 3000] as const;
+
+          function errorText(error: unknown): string {
+            const values: unknown[] = [
+              (error as { message?: unknown })?.message,
+              (error as { description?: unknown })?.description,
+              (error as { cause?: { message?: unknown } })?.cause?.message,
+              (error as { context?: { description?: unknown } })?.context?.description,
+              (error as { context?: { message?: unknown } })?.context?.message,
+            ];
+            return values
+              .filter((value) => typeof value === 'string' || typeof value === 'number')
+              .map((value) => String(value).toLowerCase())
+              .join(' ');
+          }
+
+          export function isUnsupportedMarkdownError(error: unknown): boolean {
+            const text = errorText(error);
+            return (
+              text.includes('some markdown syntax is not supported') ||
+              (text.includes('markdown syntax') && text.includes('not supported')) ||
+              text.includes('use basic formatting')
+            );
+          }
+
+          export function isAttachmentNotReadyError(error: unknown): boolean {
+            const text = errorText(error);
+            return (
+              text.includes('attachment.not.ready') ||
+              text.includes('errors.process.attachment.file.not.processed') ||
+              text.includes('file.not.processed')
+            );
+          }
+
+          function targetBody(body: IDataObject): IDataObject {
+            const nested = body['message'];
+            return nested && typeof nested === 'object' && !Array.isArray(nested)
+              ? (nested as IDataObject)
+              : body;
+          }
+
+          function cloneBody(body: IDataObject): IDataObject {
+            return JSON.parse(JSON.stringify(body)) as IDataObject;
+          }
+
+          export function hasMediaAttachments(body: IDataObject | undefined): boolean {
+            if (!body) return false;
+            const attachments = targetBody(body)['attachments'];
+            return (
+              Array.isArray(attachments) &&
+              attachments.some((attachment) => {
+                if (!attachment || typeof attachment !== 'object' || Array.isArray(attachment)) return false;
+                return ['image', 'video', 'audio', 'file'].includes(
+                  String((attachment as IDataObject)['type']),
+                );
+              })
+            );
+          }
+
+          export function stripMaxMarkdown(text: string): string {
+            return text
+              .replace(/```([\s\S]*?)```/g, '$1')
+              .replace(/`([^`]+)`/g, '$1')
+              .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
+              .replace(/^(?:#{1,6}|>)\s*/gm, '')
+              .replace(/(\*\*|__|~~|\+\+|\^\^)(.*?)\1/g, '$2')
+              .replace(/([*_])([^\n]+?)\1/g, '$2');
+          }
+
+          function plainTextFallback(body: IDataObject): IDataObject | undefined {
+            const copy = cloneBody(body);
+            const target = targetBody(copy);
+            if (target['format'] !== 'markdown') return undefined;
+            delete target['format'];
+            if (typeof target['text'] === 'string') target['text'] = stripMaxMarkdown(target['text']);
+            return copy;
+          }
+
+          export async function withMaxMessageResilience<T>(
+            body: IDataObject | undefined,
+            execute: (attemptBody: IDataObject | undefined) => Promise<T>,
+            wait: (milliseconds: number) => Promise<void> = async (milliseconds) => {
+              await new Promise((resolve) => setTimeout(resolve, milliseconds));
+            },
+          ): Promise<T> {
+            let attemptBody = body;
+            let markdownRetried = false;
+            let attachmentRetry = 0;
+
+            while (true) {
+              try {
+                return await execute(attemptBody);
+              } catch (error) {
+                if (!markdownRetried && attemptBody && isUnsupportedMarkdownError(error)) {
+                  const fallback = plainTextFallback(attemptBody);
+                  if (fallback) {
+                    markdownRetried = true;
+                    attemptBody = fallback;
+                    continue;
+                  }
+                }
+
+                if (
+                  attemptBody &&
+                  hasMediaAttachments(attemptBody) &&
+                  isAttachmentNotReadyError(error) &&
+                  attachmentRetry < MAX_ATTACHMENT_RETRY_DELAYS_MS.length
+                ) {
+                  await wait(MAX_ATTACHMENT_RETRY_DELAYS_MS[attachmentRetry]);
+                  attachmentRetry += 1;
+                  continue;
+                }
+                throw error;
+              }
+            }
+          }
+          '''.replace('          ', ''))
+
+          operations_path = 'nodes/Max/MaxApiOperations.node.ts'
+          operations = read(operations_path)
+          operations = re.sub(
+              r"import \{ ([^}]*?) \} from 'n8n-workflow';",
+              lambda match: "import { " + (
+                  match.group(1)
+                  if 'NodeApiError' in match.group(1)
+                  else match.group(1).replace('NodeConnectionType', 'NodeApiError, NodeConnectionType')
+              ) + " } from 'n8n-workflow';",
+              operations,
+              count=1,
+          )
+          marker = "import { MAX_API_OPERATION_PROPERTIES } from './MaxApiOperationsDescription';\n"
+          if "from './MaxApiResilience'" not in operations:
+              operations = operations.replace(
+                  marker,
+                  marker + "import { withMaxMessageResilience } from './MaxApiResilience';\n",
+                  1,
+              )
+          if "from './MaxWebhookManager'" not in operations:
+              operations = operations.replace(
+                  "import { withMaxMessageResilience } from './MaxApiResilience';\n",
+                  "import { withMaxMessageResilience } from './MaxApiResilience';\nimport { normalizeMaxWebhookUrl } from './MaxWebhookManager';\n",
+                  1,
+              )
+
+          start, end = function_span(operations, 'request')
+          operations = operations[:start] + '''async function request(
+            context: IExecuteFunctions,
+            method: MaxHttpMethod,
+            path: string,
+            qs?: IDataObject,
+            body?: IDataObject,
+          ): Promise<unknown> {
+            return await withMaxMessageResilience(body, async (attemptBody) => {
+              return await maxApiRequest(context, {
+                method,
+                path,
+                ...(qs && Object.keys(qs).length > 0 ? { qs } : {}),
+                ...(attemptBody !== undefined ? { body: attemptBody } : {}),
+              });
+            });
+          }'''.replace('          ', '') + operations[end:]
+
+          if 'Recipient ID cannot be 0' not in operations:
+              recipient = re.search(
+                  r"(const recipientId = requireInt64\([\s\S]*?'Recipient ID',\n\s*\);)",
+                  operations,
+              )
+              if not recipient:
+                  raise RuntimeError('Recipient ID declaration was not found')
+              guard = "\n\t\tif (recipientId === '0') {\n\t\t\tthrow new ApplicationError(\n\t\t\t\t'Recipient ID cannot be 0. Use a user, chat, or channel ID from Max Trigger output',\n\t\t\t);\n\t\t}\n"
+              operations = operations[:recipient.end()] + guard + operations[recipient.end():]
+
+          subscription_start, subscription_end = function_span(operations, 'executeSubscriptionOperation')
+          subscription = operations[subscription_start:subscription_end]
+          if 'normalizeMaxWebhookUrl' not in subscription:
+              subscription = re.sub(
+                  r"const url = requireString\(([\s\S]*?),\s*'Webhook URL',\s*\);",
+                  r"const url = normalizeMaxWebhookUrl(requireString(\1, 'Webhook URL'));",
+                  subscription,
+                  count=1,
+              )
+              if 'normalizeMaxWebhookUrl' not in subscription:
+                  raise RuntimeError('Subscription URL declaration was not found')
+              operations = operations[:subscription_start] + subscription + operations[subscription_end:]
+
+          operations = operations.replace(
+              'if (error instanceof NodeOperationError) {',
+              'if (error instanceof NodeOperationError || error instanceof NodeApiError) {',
+          )
+          if 'error instanceof NodeApiError' not in operations:
+              raise RuntimeError('NodeApiError preservation was not applied')
+          write(operations_path, operations)
+
+          trigger_path = 'nodes/Max/MaxTriggerConfig.ts'
+          trigger = read(trigger_path)
+          if '\tpost_id?: string;\n' not in trigger:
+              trigger = trigger.replace(
+                  '\tmessage_id?: string;\n',
+                  '\tmessage_id?: string;\n\tpost_id?: string;\n\tmuted_until?: number;\n',
+                  1,
+              )
+          if 'post_id?: string' not in trigger[trigger.find('recipient?:'):trigger.find('recipient?:') + 300]:
+              trigger = trigger.replace(
+                  '\t\t\tuser_id?: number;\n\t\t};',
+                  '\t\t\tuser_id?: number;\n\t\t\tpost_id?: string;\n\t\t};',
+                  1,
+              )
+              trigger = trigger.replace(
+                  'recipient?: { chat_id: number; chat_type?: string; user_id?: number };',
+                  'recipient?: { chat_id: number; chat_type?: string; user_id?: number; post_id?: string };',
+                  1,
+              )
+          write(trigger_path, trigger)
+
+          processor_path = 'nodes/Max/MaxEventProcessor.ts'
+          processor = read(processor_path)
+          process_start, process_end = function_span(processor, 'processEventSpecificData')
+          block = processor[process_start:process_end]
+          if "case 'bot_stopped':" not in block:
+              cases = '''
+                case 'bot_stopped':
+                case 'dialog_cleared':
+                case 'dialog_muted':
+                case 'dialog_removed':
+                case 'dialog_unmuted':
+                case 'comment_created':
+                case 'comment_edited':
+                case 'comment_removed':
+                  ({ data: eventSpecificData, context: eventContext } = this.processCurrentApiEvent(
+                    bodyData,
+                    eventType,
+                  ));
+                  break;
+              '''.replace('              ', '')
+              default = block.rfind('\n\t\t\tdefault:')
+              if default < 0:
+                  raise RuntimeError('Event processor default case was not found')
+              block = block[:default] + cases + block[default:]
+              processor = processor[:process_start] + block + processor[process_end:]
+
+          if 'private processCurrentApiEvent' not in processor:
+              generic = re.search(r'(?m)^\s*private\s+processGenericEvent\s*\(', processor)
+              if not generic:
+                  raise RuntimeError('Generic event processor was not found')
+              method = '''
+                private processCurrentApiEvent(bodyData: MaxWebhookEvent, eventType: string) {
+                  const descriptions: Record<string, string> = {
+                    bot_stopped: 'A user stopped the bot',
+                    dialog_cleared: 'A user cleared the dialog history',
+                    dialog_muted: 'A user muted dialog notifications',
+                    dialog_removed: 'A user removed the dialog',
+                    dialog_unmuted: 'A user enabled dialog notifications',
+                    comment_created: 'A channel comment was created',
+                    comment_edited: 'A channel comment was edited',
+                    comment_removed: 'A channel comment was removed',
+                  };
+                  const messageId = bodyData.message?.body?.mid ?? bodyData.message_id ?? bodyData.comment_id;
+                  const chatId = bodyData.message?.recipient?.chat_id ?? bodyData.chat_id;
+                  const userId = bodyData.message?.sender?.user_id ?? bodyData.user?.user_id ?? bodyData.user_id;
+                  return {
+                    data: { ...(bodyData as unknown as IDataObject) },
+                    context: {
+                      type: eventType,
+                      description: descriptions[eventType] ?? 'MAX Bot API event',
+                      is_supported: true,
+                      chat_id: chatId,
+                      user_id: userId,
+                      message_id: messageId,
+                      post_id: bodyData.post_id ?? bodyData.message?.recipient?.post_id,
+                      muted_until: bodyData.muted_until,
+                    },
+                  };
+                }
+
+              '''.replace('              ', '')
+              processor = processor[:generic.start()] + method + processor[generic.start():]
+
+          validation_start, validation_end = function_span(processor, 'validateEventPayload')
+          validation = processor[validation_start:validation_end]
+          if 'this.validateCurrentApiEvent' not in validation:
+              switch = '\t\tswitch (eventType) {'
+              position = validation.find(switch)
+              if position < 0:
+                  raise RuntimeError('Validation switch was not found')
+              position += len(switch)
+              cases = '''
+                case 'bot_stopped':
+                case 'dialog_cleared':
+                case 'dialog_muted':
+                case 'dialog_removed':
+                case 'dialog_unmuted':
+                case 'comment_created':
+                case 'comment_edited':
+                case 'comment_removed':
+                  this.validateCurrentApiEvent(bodyData, eventType, errors);
+                  break;
+              '''.replace('              ', '')
+              validation = validation[:position] + cases + validation[position:]
+              processor = processor[:validation_start] + validation + processor[validation_end:]
+
+          if 'private validateCurrentApiEvent' not in processor:
+              next_validator = re.search(r'(?m)^\s*private\s+validateMessageEvent\s*\(', processor)
+              if not next_validator:
+                  raise RuntimeError('Validation helper insertion point was not found')
+              method = '''
+                private validateCurrentApiEvent(
+                  bodyData: MaxWebhookEvent,
+                  eventType: string,
+                  errors: IEventValidationError[],
+                ): void {
+                  const requireValue = (field: string, value: unknown): void => {
+                    if (value === undefined || value === null || value === '') {
+                      errors.push({ field, message: `Missing required field: ${field}`, severity: 'error' });
+                    }
+                  };
+                  if (eventType === 'comment_created' || eventType === 'comment_edited') {
+                    requireValue('message', bodyData.message);
+                    return;
+                  }
+                  if (eventType === 'comment_removed') {
+                    requireValue('message_id', bodyData.message_id ?? bodyData.comment_id);
+                    requireValue('chat_id', bodyData.chat_id);
+                    requireValue('user_id', bodyData.user_id);
+                    if (!Object.prototype.hasOwnProperty.call(bodyData, 'post_id')) requireValue('post_id', undefined);
+                    return;
+                  }
+                  requireValue('chat_id', bodyData.chat_id);
+                  requireValue('user', bodyData.user);
+                  if (eventType === 'dialog_muted') requireValue('muted_until', bodyData.muted_until);
+                }
+
+              '''.replace('              ', '')
+              processor = processor[:next_validator.start()] + method + processor[next_validator.start():]
+          write(processor_path, processor)
+
+          write('nodes/Max/tests/MaxApiResilience.test.ts', '''import type { IDataObject } from 'n8n-workflow';
+          import {
+            MAX_ATTACHMENT_RETRY_DELAYS_MS,
+            stripMaxMarkdown,
+            withMaxMessageResilience,
+          } from '../MaxApiResilience';
+
+          describe('Max API message resilience', () => {
+            it('retries unsupported Markdown once as plain text', async () => {
+              const execute = jest
+                .fn()
+                .mockRejectedValueOnce(new Error('Some Markdown syntax is not supported'))
+                .mockResolvedValueOnce('ok');
+              await expect(
+                withMaxMessageResilience(
+                  { text: '**important** [docs](https://dev.max.ru)', format: 'markdown' },
+                  execute,
+                ),
+              ).resolves.toBe('ok');
+              expect(execute).toHaveBeenCalledTimes(2);
+              expect(execute.mock.calls[1][0]).toEqual({
+                text: 'important docs (https://dev.max.ru)',
+              });
+            });
+
+            it('retries media while MAX is processing an attachment', async () => {
+              const execute = jest
+                .fn()
+                .mockRejectedValueOnce(new Error('attachment.not.ready'))
+                .mockRejectedValueOnce(new Error('errors.process.attachment.file.not.processed'))
+                .mockRejectedValueOnce(new Error('file.not.processed'))
+                .mockResolvedValueOnce('ok');
+              const wait = jest.fn().mockResolvedValue(undefined);
+              await expect(
+                withMaxMessageResilience(
+                  { attachments: [{ type: 'image', payload: { token: 'token' } }] },
+                  execute,
+                  wait,
+                ),
+              ).resolves.toBe('ok');
+              expect(execute).toHaveBeenCalledTimes(4);
+              expect(wait.mock.calls.map(([delay]) => delay)).toEqual([
+                ...MAX_ATTACHMENT_RETRY_DELAYS_MS,
+              ]);
+            });
+
+            it('does not retry unrelated API errors', async () => {
+              const error = new Error('permission denied');
+              const execute = jest.fn().mockRejectedValue(error);
+              await expect(withMaxMessageResilience({ text: 'hello' }, execute)).rejects.toBe(error);
+              expect(execute).toHaveBeenCalledTimes(1);
+            });
+
+            it('keeps message content when Markdown markers are removed', () => {
+              expect(stripMaxMarkdown('## Header\n> **bold** and `code`')).toBe(
+                'Header\nbold and code',
+              );
+            });
+          });
+          '''.replace('          ', ''))
+
+          write('nodes/Max/tests/MaxApiReviewRegression.test.ts', '''import { readFileSync } from 'node:fs';
+          import { MaxApi } from '../../../credentials/MaxApi.credentials';
+          import { normalizeMaxWebhookUrl } from '../MaxWebhookManager';
+
+          describe('Max API review regressions', () => {
+            it('normalizes internationalized webhook hostnames to Punycode', () => {
+              const result = normalizeMaxWebhookUrl('https://пример.рф/webhook');
+              expect(new URL(result).hostname).toBe('xn--e1afmkfd.xn--p1ai');
+            });
+
+            it('tests credentials against the migrated host used at runtime', () => {
+              const credential = new MaxApi();
+              const baseUrl = credential.properties.find((property) => property.name === 'baseUrl');
+              expect(baseUrl?.default).toBe('https://platform-api2.max.ru');
+              expect(credential.test?.request.baseURL).toContain('platform-api2.max.ru');
+            });
+
+            it('preserves structured upstream errors and rejects zero recipients locally', () => {
+              const source = readFileSync(require.resolve('../MaxApiOperations.node'), 'utf8');
+              expect(source).toContain('error instanceof NodeApiError');
+              expect(source).toContain('Recipient ID cannot be 0');
+            });
+
+            it('keeps permanent CI scoped to master pushes', () => {
+              const ci = readFileSync('.github/workflows/ci.yml', 'utf8');
+              expect(ci).toContain('- master');
+              expect(ci).not.toContain('feature/max-api-coverage-23');
+            });
+          });
+          '''.replace('          ', ''))
+
+          processor_test_path = 'nodes/Max/tests/MaxEventProcessor.test.ts'
+          processor_test = read(processor_test_path)
+          if "describe('current MAX Bot API trigger events'" not in processor_test:
+              processor_test += '''
+
+              describe('current MAX Bot API trigger events', () => {
+                const processor = new MaxEventProcessor();
+                const user = { user_id: 42, name: 'User' };
+                const message = {
+                  timestamp: 1,
+                  sender: user,
+                  recipient: { chat_id: 99, chat_type: 'channel', post_id: 'post-1' },
+                  body: { mid: 'comment-1', text: 'Comment' },
+                };
+                const cases: Array<[string, Record<string, unknown>]> = [
+                  ['bot_stopped', { chat_id: 99, user }],
+                  ['dialog_cleared', { chat_id: 99, user }],
+                  ['dialog_muted', { chat_id: 99, user, muted_until: 123 }],
+                  ['dialog_removed', { chat_id: 99, user }],
+                  ['dialog_unmuted', { chat_id: 99, user }],
+                  ['comment_created', { message }],
+                  ['comment_edited', { message }],
+                  ['comment_removed', { message_id: 'comment-1', chat_id: 99, user_id: 42, post_id: 'post-1' }],
+                ];
+
+                it.each(cases)('marks %s as supported and validates its payload', (eventType, payload) => {
+                  const result = processor.processEventSpecificData(
+                    { update_type: eventType, timestamp: 1, ...payload } as never,
+                    eventType,
+                  );
+                  expect(result.event_context).toMatchObject({ type: eventType, is_supported: true });
+                  expect(result.validation_status.is_valid).toBe(true);
+                });
+              });
+              '''.replace('              ', '')
+          write(processor_test_path, processor_test)
+
+          readme = read('README.md')
+          if '## Нода Max API' not in readme:
+              readme += '''
+
+              ## Нода Max API
+
+              `Max API` дополняет обратно совместимые ноды `Max` и `Max Trigger` и предоставляет операции актуального публичного MAX Bot API для бота и команд, сообщений, чатов, участников, администраторов, комментариев и Webhook-подписок.
+
+              Идентификаторы `int64` передаются строками без потери точности. Сложные вложения можно задать через `Attachments JSON`, а inline-клавиатуру — собрать в интерфейсе. Временная обработка медиа получает ограниченные повторные попытки; неподдержанный Markdown один раз повторяется как обычный текст.
+
+              Для production используйте `Max Trigger` и Webhook. Long Polling намеренно не оформлен отдельным trigger, поскольку MAX ограничивает его по скорости и сроку хранения и запрещает одновременное использование с Webhook. `GET /chats` не предлагается, так как с июня 2026 года метод не поддерживается API.
+              '''.replace('              ', '')
+          write('README.md', readme)
+
+          agents = read('AGENTS.md')
+          if '## Инварианты ноды Max API' not in agents:
+              agents += '''
+
+              ## Инварианты ноды Max API
+
+              - `MaxApiOperations.node.ts` — расширенная ресурсная нода; `Max` и `Max Trigger` сохраняют совместимость старых workflow.
+              - Официальный host — `https://platform-api2.max.ru`; старое официальное значение мигрирует прозрачно, пользовательские base URL не переписываются.
+              - `int64`-идентификаторы не преобразуются в JavaScript `number`.
+              - Webhook URL с интернационализированным hostname нормализуется в Punycode.
+              - Повторы разрешены только для известных ошибок обработки медиа; Markdown получает одну попытку обычным текстом.
+              - `NodeApiError` пробрасывается без потери HTTP-кода и деталей; локальные входные ошибки оформляются как `NodeOperationError`.
+              - Каждый тип из `Max Trigger` должен возвращать `event_context.is_supported = true` и иметь regression-тест.
+              - Self-mutating workflow в репозитории запрещены; CI работает для pull request и push в `master`.
+              '''.replace('              ', '')
+          write('AGENTS.md', agents)
+
+          changelog = read('CHANGELOG.md')
+          if '## 0.1.27' not in changelog:
+              entry = '''## 0.1.27 — 2026-09-03
+
+              - Добавлена ресурсная нода `Max API` для бота, сообщений, чатов, участников, администраторов, комментариев и Webhook-подписок.
+              - `Max Trigger` дополнен событиями остановки бота, изменений диалога и комментариев.
+              - Добавлены кнопки `message` и `clipboard`, безопасные повторы для Markdown и обрабатываемых медиа.
+              - Официальный API host обновлён до `platform-api2.max.ru` с прозрачной миграцией старого значения.
+              - Сохранена точность `int64`-идентификаторов и структурированные `NodeApiError`.
+
+              '''.replace('              ', '')
+              title = re.search(r'(?m)^# .+\n+', changelog)
+              changelog = changelog[:title.end()] + entry + changelog[title.end():] if title else entry + changelog
+          write('CHANGELOG.md', changelog)
+
+          package = json.loads(read('package.json'))
+          nodes = package.setdefault('n8n', {}).setdefault('nodes', [])
+          entrypoint = 'dist/nodes/Max/MaxApiOperations.node.js'
+          if entrypoint not in nodes:
+              nodes.append(entrypoint)
+          write('package.json', json.dumps(package, ensure_ascii=False, indent='\t') + '\n')
+
+          assert not any(path.name != 'ci.yml' for path in workflows.iterdir() if path.is_file())
+          assert 'normalizeMaxWebhookUrl' in read(operations_path)
+          assert 'withMaxMessageResilience' in read(operations_path)
+          assert 'error instanceof NodeApiError' in read(operations_path)
+          assert 'Recipient ID cannot be 0' in read(operations_path)
+          assert "case 'bot_stopped':" in read(processor_path)
+          assert '## Нода Max API' in read('README.md')
+          assert '## 0.1.27' in read('CHANGELOG.md')
+          PY
+          python3 /tmp/finalize_pr24.py
+
+      - name: Set release version
+        run: npm version 0.1.27 --no-git-tag-version --allow-same-version
+
+      - name: Format changed files
+        run: |
+          npx prettier --write \
+            .github/workflows/ci.yml \
+            credentials/MaxApi.credentials.ts \
+            nodes/Max/GenericFunctions.ts \
+            nodes/Max/MaxApiOperations.node.ts \
+            nodes/Max/MaxApiOperationsDescription.ts \
+            nodes/Max/MaxApiRequest.ts \
+            nodes/Max/MaxApiResilience.ts \
+            nodes/Max/MaxEventProcessor.ts \
+            nodes/Max/MaxTriggerConfig.ts \
+            nodes/Max/MaxWebhookManager.ts \
+            nodes/Max/tests/MaxApiResilience.test.ts \
+            nodes/Max/tests/MaxApiReviewRegression.test.ts \
+            nodes/Max/tests/MaxEventProcessor.test.ts \
+            package.json package-lock.json README.md AGENTS.md CHANGELOG.md
+
+      - name: Run tests
+        run: npm test -- --runInBand
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verify package contents
+        run: |
+          npm pack --dry-run --json > /tmp/npm-pack.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = require('./package.json');
+          const result = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
+          const files = new Set(result.files.map(({ path }) => path));
+          for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
+            if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+          }
+          NODE
+          git diff --check
+
+      - name: Squash to one commit and force-push
+        env:
+          HUSKY: 0
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin master
+          git add -A
+          git diff --cached --check
+          git reset --soft origin/master
+          git commit -m 'feat: расширить покрытие актуального MAX Bot API'
+          git push --force origin HEAD:feature/max-api-coverage-23
+
+      - name: Resolve superseded review threads and request a fresh review
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sleep 10
+          owner='pfrankov'
+          repo='n8n-nodes-max'
+          pr=24
+          threads=$(gh api graphql -f query='query($owner:String!,$repo:String!,$pr:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$pr){reviewThreads(first:100){nodes{id isResolved}}}}}' -F owner="$owner" -F repo="$repo" -F pr="$pr" --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false) | .id')
+          while IFS= read -r thread; do
+            [ -z "$thread" ] && continue
+            gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{id isResolved}}}' -F id="$thread"
+          done <<< "$threads"
+          gh pr ready "$pr" --repo "$owner/$repo" || true
+          gh pr comment "$pr" --repo "$owner/$repo" --body '@codex review\n\nВетка переписана одним коммитом поверх master. Все применимые замечания предыдущего review исправлены и покрыты regression-тестами.'
