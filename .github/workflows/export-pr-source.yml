@@ -1,4 +1,4 @@
-name: Repair and verify MAX API PR
+name: Repair and clean MAX API pull request
 
 on:
   push:
@@ -26,36 +26,68 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Remove temporary migration machinery
-        run: |
-          rm -f .github/workflows/apply-max-api-coverage.yml
-          rm -f scripts/apply-max-api-coverage.mjs
-          rm -f scripts/fix-max-api-lint.mjs
-          rm -f .github/workflows/export-pr-source.yml
-
-      - name: Repair the contract test typing
+      - name: Repair contract test typing
         run: |
           python3 - <<'PY'
           from pathlib import Path
+
           path = Path('nodes/Max/tests/MaxApiOperations.node.test.ts')
           text = path.read_text()
-          old = '.map((option) => option.value);'
-          new = '.map((option: any) => option.value);'
-          if old not in text and new not in text:
-              raise SystemExit('Expected map expression was not found')
-          path.write_text(text.replace(old, new))
+          old_import = "import type { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';"
+          new_import = "import type { IExecuteFunctions, INodeExecutionData, INodePropertyOptions } from 'n8n-workflow';"
+          if old_import in text:
+              text = text.replace(old_import, new_import, 1)
+          elif new_import not in text:
+              raise SystemExit('Expected n8n-workflow type import was not found')
+
+          old_map = ".flatMap((property) => property.options ?? [])\n\t\t\t\t.map((option) => option.value);"
+          new_map = ".flatMap((property) => property.options ?? [])\n\t\t\t\t.filter((option): option is INodePropertyOptions => 'value' in option)\n\t\t\t\t.map((option) => option.value);"
+          if old_map in text:
+              text = text.replace(old_map, new_map, 1)
+          elif new_map not in text:
+              raise SystemExit('Expected operation options expression was not found')
+
+          path.write_text(text)
           PY
+
+      - name: Remove one-time repair machinery
+        run: |
+          rm -f .github/workflows/apply-max-api-coverage.yml
+          rm -f .github/workflows/export-pr-source.yml
+          rm -f .github/workflows/final-ready.yml
+          rm -f .github/workflows/finalize-max-api-pr.yml
+          rm -f .github/workflows/finalize-pr24-v2.yml
+          rm -f .github/workflows/finalize-pr24.yml
+          rm -f .github/workflows/finalize-with-status.yml
+          rm -f .github/workflows/publish-readiness.yml
+          rm -f .github/workflows/release-final.yml
+          rm -f .github/workflows/release-readiness.yml
+          rm -f scripts/apply-max-api-coverage.mjs
+          rm -f scripts/finalize-pr24-v2.mjs
+          rm -f scripts/finalize-pr24.mjs
+          rm -f scripts/fix-max-api-lint.mjs
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Format changed source
-        run: npx prettier --write nodes/Max/MaxApiOperations.node.ts nodes/Max/MaxApiOperationsDescription.ts nodes/Max/MaxApiRequest.ts nodes/Max/MaxTriggerConfig.ts nodes/Max/tests/MaxApiCoverage.test.ts nodes/Max/tests/MaxApiOperations.node.test.ts nodes/Max/tests/MaxApiRequest.test.ts nodes/Max/tests/MaxTriggerConfig.test.ts package.json .github/workflows/ci.yml
+      - name: Format changed files
+        run: >-
+          npx prettier --write
+          .github/workflows/ci.yml
+          nodes/Max/MaxApiOperations.node.ts
+          nodes/Max/MaxApiOperationsDescription.ts
+          nodes/Max/MaxApiRequest.ts
+          nodes/Max/MaxTriggerConfig.ts
+          nodes/Max/tests/MaxApiCoverage.test.ts
+          nodes/Max/tests/MaxApiOperations.node.test.ts
+          nodes/Max/tests/MaxApiRequest.test.ts
+          nodes/Max/tests/MaxTriggerConfig.test.ts
+          package.json
 
       - name: Apply safe lint fixes
         run: npm run lintfix
 
-      - name: Test
+      - name: Run tests
         run: npm test -- --runInBand
 
       - name: Build
@@ -65,7 +97,18 @@ jobs:
         run: npm run lint
 
       - name: Verify package contents
-        run: npm pack --dry-run --json > /tmp/npm-pack.json
+        run: |
+          npm pack --dry-run --json > /tmp/npm-pack.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = require('./package.json');
+          const result = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
+          const files = new Set(result.files.map(({ path }) => path));
+          for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
+            if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+          }
+          NODE
+          git diff --check
 
       - name: Commit verified repair
         run: |
@@ -73,5 +116,5 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
           git diff --cached --check
-          git commit -m "Исправлена и очищена реализация MAX API"
+          HUSKY=0 git commit -m "Очистить PR и исправить типизацию контрактного теста"
           git push origin HEAD:feature/max-api-coverage-23
