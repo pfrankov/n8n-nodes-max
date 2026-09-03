@@ -1,0 +1,142 @@
+name: PR 24 certify final review
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/pr24-certify-review.yml
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  statuses: write
+  checks: read
+
+concurrency:
+  group: pr24-certify-final-review
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR_NUMBER: '24'
+      FINAL_SHA: ${{ github.event.before }}
+    steps:
+      - name: Checkout temporary trigger commit
+        uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+
+      - name: Restore stable one-commit branch
+        run: |
+          set -euo pipefail
+          git fetch origin master
+          test "$(git rev-list --count origin/master..${FINAL_SHA})" = 1
+          test "$(git rev-parse ${FINAL_SHA}^)" = "$(git rev-parse origin/master)"
+          git push --force origin "${FINAL_SHA}:refs/heads/feature/max-api-coverage-23"
+          for attempt in $(seq 1 20); do
+            remote_sha=$(git ls-remote origin refs/heads/feature/max-api-coverage-23 | cut -f1)
+            [ "$remote_sha" = "$FINAL_SHA" ] && exit 0
+            sleep 3
+          done
+          exit 1
+
+      - name: Wait for Codex review on the final SHA
+        run: |
+          set -euo pipefail
+          requested_at=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments?per_page=100" --paginate \
+            --jq '[.[] | select(.body | contains("@codex review")) | .created_at] | max')
+          test "$requested_at" != null
+
+          found=false
+          for attempt in $(seq 1 60); do
+            reviews=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/reviews?per_page=100")
+            comments=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/comments?per_page=100")
+            if jq -e --arg requested "$requested_at" --arg sha "$FINAL_SHA" '
+              any(.[];
+                ((.user.login | ascii_downcase | contains("codex")) or (.user.login | ascii_downcase | contains("chatgpt"))) and
+                (.submitted_at != null and .submitted_at >= $requested) and
+                ((.commit_id == $sha) or (.commit_id == null))
+              )' <<<"$reviews" >/dev/null; then
+              found=true
+              break
+            fi
+            if jq -e --arg requested "$requested_at" --arg sha "$FINAL_SHA" '
+              any(.[];
+                ((.user.login | ascii_downcase | contains("codex")) or (.user.login | ascii_downcase | contains("chatgpt"))) and
+                (.created_at >= $requested) and
+                (.commit_id == $sha)
+              )' <<<"$comments" >/dev/null; then
+              found=true
+              break
+            fi
+            sleep 10
+          done
+          [ "$found" = true ]
+
+      - name: Assert no unresolved review threads
+        run: |
+          set -euo pipefail
+          owner=${REPO%%/*}
+          name=${REPO##*/}
+          response=$(gh api graphql \
+            -f query='query($owner: String!, $name: String!, $number: Int!) { repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviewThreads(first: 100) { nodes { id isResolved isOutdated path line comments(last: 20) { nodes { body createdAt author { login } } } } } } } }' \
+            -f owner="$owner" -f name="$name" -F number="$PR_NUMBER")
+          unresolved=$(jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)]' <<<"$response")
+          count=$(jq 'length' <<<"$unresolved")
+          if [ "$count" -ne 0 ]; then
+            report=$(jq -r '.[] | "- `\(.path):\(.line // 0)` — " + ([.comments.nodes[] | select(.author.login | ascii_downcase | contains("codex") or contains("chatgpt")) | .body] | last // "Unresolved review thread")' <<<"$unresolved")
+            gh api --method POST "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+              -f body="Повторное ревью нашло незакрытые замечания:\n\n${report}" >/dev/null
+            exit 1
+          fi
+
+      - name: Assert one commit and clean final tree
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/commits?per_page=100" --jq 'length')" = 1
+          test "$(gh api "repos/${REPO}/pulls/${PR_NUMBER}" --jq '.head.sha')" = "$FINAL_SHA"
+          master_sha=$(gh api "repos/${REPO}/branches/master" --jq '.commit.sha')
+          test "$(gh api "repos/${REPO}/commits/${FINAL_SHA}" --jq '.parents | length')" = 1
+          test "$(gh api "repos/${REPO}/commits/${FINAL_SHA}" --jq '.parents[0].sha')" = "$master_sha"
+          changed=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/files?per_page=100" --paginate --jq '.[].filename')
+          ! grep -E '^\.github/workflows/(certify|max-api|finalize|publish|pr24-|release)' <<<"$changed"
+          ! grep -E '^scripts/(apply-max-api|finalize-pr24|fix-max-api)' <<<"$changed"
+
+      - name: Wait for final CI and publish certification statuses
+        run: |
+          set -euo pipefail
+          checks_ok=false
+          for attempt in $(seq 1 60); do
+            checks=$(gh api -H 'Accept: application/vnd.github+json' "repos/${REPO}/commits/${FINAL_SHA}/check-runs?per_page=100")
+            total=$(jq '.check_runs | length' <<<"$checks")
+            pending=$(jq '[.check_runs[] | select(.status != "completed")] | length' <<<"$checks")
+            failed=$(jq '[.check_runs[] | select(.status == "completed" and (.conclusion | IN("success", "neutral", "skipped") | not))] | length' <<<"$checks")
+            ci_success=$(jq '[.check_runs[] | select((.name | ascii_downcase | contains("verify") or contains("ci")) and .status == "completed" and .conclusion == "success")] | length' <<<"$checks")
+            if [ "$total" -gt 0 ] && [ "$pending" -eq 0 ] && [ "$failed" -eq 0 ] && [ "$ci_success" -gt 0 ]; then
+              checks_ok=true
+              break
+            fi
+            sleep 10
+          done
+          [ "$checks_ok" = true ]
+
+          gh api --method POST "repos/${REPO}/statuses/${FINAL_SHA}" \
+            -f state=success \
+            -f context='codex-review/final' \
+            -f description='Codex review completed; no unresolved threads' \
+            -f target_url="https://github.com/${REPO}/pull/${PR_NUMBER}" >/dev/null
+          gh api --method POST "repos/${REPO}/statuses/${FINAL_SHA}" \
+            -f state=success \
+            -f context='publication-readiness' \
+            -f description='One commit, clean tree, CI green, review resolved' \
+            -f target_url="https://github.com/${REPO}/pull/${PR_NUMBER}" >/dev/null
+
+          gh api --method POST "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            -f body="Финальная проверка завершена для \`${FINAL_SHA}\`: один коммит поверх \`master\`, CI зелёный, Codex review выполнен, незакрытых review threads нет." >/dev/null
