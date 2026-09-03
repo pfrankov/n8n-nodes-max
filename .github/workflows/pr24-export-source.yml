@@ -30,3 +30,5 @@ jobs:
           path: /tmp/n8n-nodes-max-pr24.tar.gz
           if-no-files-found: error
           retention-days: 1
+
+# Refreshed for the final review-comment pass.
