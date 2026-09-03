@@ -369,6 +369,28 @@ describe('MaxEventProcessor', () => {
 			expect(result.workflowData).toEqual([]);
 		});
 
+		it('should filter comment_removed events by top-level user_id', async () => {
+			const mockBodyData: MaxWebhookEvent = {
+				update_type: 'comment_removed',
+				timestamp: Date.now(),
+				message_id: 'comment-1',
+				chat_id: -123,
+				user_id: 999,
+				post_id: 'post-1',
+			};
+
+			(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(mockBodyData);
+			(mockWebhookFunctions.getNodeParameter as jest.Mock)
+				.mockReturnValueOnce({ userIds: '456' })
+				.mockReturnValueOnce(['comment_removed']);
+
+			const result = await eventProcessor.processWebhookEvent.call(
+				mockWebhookFunctions as IWebhookFunctions,
+			);
+
+			expect(result.workflowData).toEqual([]);
+		});
+
 		it('should extract user info from message object', async () => {
 			const mockBodyData: MaxWebhookEvent = {
 				update_type: 'message_created',
@@ -2009,6 +2031,96 @@ describe('MaxEventProcessor', () => {
 					expect((eventData.event_context as any).message_length).toBeGreaterThan(0);
 				});
 			});
+		});
+	});
+
+	describe('newly exposed current API events', () => {
+		it.each([
+			[
+				'bot_stopped',
+				{ chat_id: 101, user: { user_id: 201, first_name: 'User' }, user_locale: 'ru' },
+			],
+			[
+				'dialog_cleared',
+				{ chat_id: 102, user: { user_id: 202, first_name: 'User' }, user_locale: 'ru' },
+			],
+			[
+				'dialog_muted',
+				{
+					chat_id: 103,
+					user: { user_id: 203, first_name: 'User' },
+					user_locale: 'ru',
+					muted_until: 1_700_000_000_000,
+				},
+			],
+			[
+				'dialog_removed',
+				{ chat_id: 104, user: { user_id: 204, first_name: 'User' }, user_locale: 'ru' },
+			],
+			[
+				'dialog_unmuted',
+				{ chat_id: 105, user: { user_id: 205, first_name: 'User' }, user_locale: 'ru' },
+			],
+		])('marks %s as supported and validates its documented payload', (updateType, payload) => {
+			const result = eventProcessor.processEventSpecificData(
+				{
+					update_type: updateType,
+					timestamp: 1_700_000_000_000,
+					...payload,
+				} as MaxWebhookEvent,
+				updateType,
+			);
+
+			expect(result.event_context.type).toBe(updateType);
+			expect(result.event_context['is_supported']).toBe(true);
+			expect(result.validation_status.is_valid).toBe(true);
+			expect(result.event_context['chat_id']).toBe(payload.chat_id);
+		});
+
+		it.each(['comment_created', 'comment_edited'])(
+			'marks %s as supported and exposes comment context',
+			(updateType) => {
+				const result = eventProcessor.processEventSpecificData(
+					{
+						update_type: updateType,
+						timestamp: 1_700_000_000_000,
+						message: {
+							sender: { user_id: 301, first_name: 'Author' },
+							recipient: {
+								chat_id: -401,
+								chat_type: 'channel',
+								post_id: 'post-1',
+							} as any,
+							body: { mid: 'comment-1', seq: 1, text: 'Comment' },
+						},
+					} as MaxWebhookEvent,
+					updateType,
+				);
+
+				expect(result.event_context['is_supported']).toBe(true);
+				expect(result.event_context['comment_id']).toBe('comment-1');
+				expect(result.event_context['post_id']).toBe('post-1');
+				expect(result.validation_status.is_valid).toBe(true);
+			},
+		);
+
+		it('marks comment_removed as supported and exposes deletion context', () => {
+			const result = eventProcessor.processEventSpecificData(
+				{
+					update_type: 'comment_removed',
+					timestamp: 1_700_000_000_000,
+					message_id: 'comment-2',
+					chat_id: -402,
+					user_id: 302,
+					post_id: 'post-2',
+				} as MaxWebhookEvent,
+				'comment_removed',
+			);
+
+			expect(result.event_context['is_supported']).toBe(true);
+			expect(result.event_context['deleted_comment_id']).toBe('comment-2');
+			expect(result.event_context['post_id']).toBe('post-2');
+			expect(result.validation_status.is_valid).toBe(true);
 		});
 	});
 });

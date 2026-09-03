@@ -28,6 +28,7 @@
 ### Primary Goals
 
 - Provide stable message operations (`send`, `edit`, `delete`, `answer callback`) for Max bots.
+- Cover the current Bot, Message, Chat, Chat Member, Chat Administrator, Comment, and Subscription API through the separate `Max API` node without breaking legacy workflows.
 - Provide chat operations (`get chat info`, `leave chat`) in n8n workflows.
 - Provide trigger-based event processing via webhook subscriptions, including direct (`message_created`) and group (`message_chat_created`) message events.
 - Keep node UX and backend behavior aligned with official Max API docs.
@@ -36,13 +37,15 @@
 
 | Component            | Role                                                       |
 | :------------------- | :--------------------------------------------------------- |
-| `Max` node           | Outbound actions for messages/chats                        |
+| `Max` node           | Backward-compatible outbound message/chat operations       |
+| `Max API` node       | Current advanced Bot API resources and operations          |
 | `Max Trigger` node   | Webhook subscription lifecycle + incoming event processing |
 | `MaxApi` credentials | Access token + base URL configuration + credential test    |
 
 ### Key Design Decisions
 
-- Default API base URL is `https://platform-api.max.ru`.
+- Default API base URL is `https://platform-api2.max.ru`; stored legacy official URLs are normalized at runtime and during credential testing.
+- All API identifiers remain strings and are validated against the full signed-int64 range without JavaScript number coercion.
 - Authentication is sent via `Authorization` header.
 - Message and webhook operations use direct HTTP requests for strict API-shape control.
 - Webhook processing is fail-soft: invalid events or filter issues should not crash trigger execution.
@@ -67,6 +70,11 @@
 - `credentials/tests/`: credential contract tests.
 - `nodes/Max/Max.node.ts`: main action node parameter schema + execute routing.
 - `nodes/Max/GenericFunctions.ts`: API calls, validation, attachment handling, keyboard formatting, error categorization.
+- `nodes/Max/MaxApiOperations.node.ts`: resource/operation routing for the advanced `Max API` node.
+- `nodes/Max/MaxApiOperationsDescription.ts`: user-facing fields for advanced operations.
+- `nodes/Max/MaxApiRequest.ts`: exact HTTP request construction, upstream error preservation, Markdown fallback, and bounded media-processing retries.
+- `nodes/Max/MaxApiCompatibility.ts`: shared compatibility predicates and fallback transformations.
+- `nodes/Max/MaxUrlUtils.ts`: official host migration and IDN/Punycode webhook normalization.
 - `nodes/Max/MaxTrigger.node.ts`: trigger node entry point.
 - `nodes/Max/MaxWebhookManager.ts`: subscription lifecycle (`GET/POST/DELETE /subscriptions`).
 - `nodes/Max/MaxEventProcessor.ts`: incoming webhook normalization/filtering and output shaping.
@@ -144,7 +152,7 @@
 ### Credentials
 
 - `accessToken`: issued by `@PrimeBot`.
-- `baseUrl`: defaults to `https://platform-api.max.ru`, override only for controlled environments.
+- `baseUrl`: defaults to `https://platform-api2.max.ru`, override only for controlled environments; the legacy official host is migrated transparently.
 - Keep credential test behavior aligned with official docs and current API auth expectations.
 
 ## API Alignment Protocol (Docs-First)
