@@ -18,17 +18,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: feature/max-api-coverage-23
+          fetch-depth: 0
 
-      - name: Create source archive
+      - name: Create source archives
         run: |
-          tar --exclude=.git --exclude=node_modules --exclude=dist -czf /tmp/n8n-nodes-max-pr24.tar.gz .
+          git archive --format=tar.gz --output=/tmp/n8n-nodes-max-pr24.tar.gz HEAD
+          git archive --format=tar.gz --output=/tmp/n8n-nodes-max-master.tar.gz origin/master
 
-      - name: Upload source archive
+      - name: Upload source archives
         uses: actions/upload-artifact@v4
         with:
-          name: n8n-nodes-max-pr24-source
-          path: /tmp/n8n-nodes-max-pr24.tar.gz
+          name: n8n-nodes-max-pr24-and-master
+          path: |
+            /tmp/n8n-nodes-max-pr24.tar.gz
+            /tmp/n8n-nodes-max-master.tar.gz
           if-no-files-found: error
           retention-days: 1
-
-# Refreshed for the final review-comment pass.
