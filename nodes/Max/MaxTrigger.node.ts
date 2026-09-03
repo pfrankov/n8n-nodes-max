@@ -10,6 +10,7 @@ import { NodeConnectionType } from 'n8n-workflow';
 import { MaxWebhookManager } from './MaxWebhookManager';
 import { MaxEventProcessor } from './MaxEventProcessor';
 import { MAX_TRIGGER_PROPERTIES } from './MaxTriggerConfig';
+import { parseMaxJsonLosslessly } from './MaxJsonUtils';
 
 /**
  * Max messenger trigger node for n8n
@@ -94,6 +95,18 @@ export class MaxTrigger implements INodeType {
 	 * Uses static instance to avoid context binding issues
 	 */
 	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
+		const request = this.getRequestObject?.();
+		if (request?.rawBody?.length) {
+			try {
+				const parsedBody = parseMaxJsonLosslessly(request.rawBody.toString('utf8'));
+				if (parsedBody !== null && typeof parsedBody === 'object' && !Array.isArray(parsedBody)) {
+					request.body = parsedBody;
+				}
+			} catch {
+				// Keep n8n's parsed body so malformed requests retain the trigger's fail-soft behavior.
+			}
+		}
+
 		const eventProcessor = new MaxEventProcessor();
 		return eventProcessor.processWebhookEvent.call(this);
 	}

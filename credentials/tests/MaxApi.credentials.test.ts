@@ -8,6 +8,19 @@
 
 import { MaxApi } from '../MaxApi.credentials';
 
+function evaluateBaseUrlExpression(expression: unknown, baseUrl: string): string {
+	if (
+		typeof expression !== 'string' ||
+		!expression.startsWith('={{') ||
+		!expression.endsWith('}}')
+	) {
+		throw new Error('Expected an n8n expression string');
+	}
+
+	const javascript = expression.slice(3, -2);
+	return Function('$credentials', `return (${javascript});`)({ baseUrl }) as string;
+}
+
 describe('MaxApi Credentials', () => {
 	let maxApiCredentials: MaxApi;
 
@@ -47,7 +60,7 @@ describe('MaxApi Credentials', () => {
 			expect(baseUrlProperty).toBeDefined();
 			expect(baseUrlProperty?.displayName).toBe('Base URL');
 			expect(baseUrlProperty?.type).toBe('string');
-			expect(baseUrlProperty?.default).toBe('https://platform-api.max.ru');
+			expect(baseUrlProperty?.default).toBe('https://platform-api2.max.ru');
 			expect(baseUrlProperty?.description).toContain('API URL');
 		});
 	});
@@ -56,11 +69,30 @@ describe('MaxApi Credentials', () => {
 		it('should have correct test request configuration', () => {
 			expect(maxApiCredentials.test).toBeDefined();
 			expect(maxApiCredentials.test.request).toBeDefined();
-			expect(maxApiCredentials.test.request.baseURL).toBe('={{$credentials.baseUrl}}');
+			expect(maxApiCredentials.test.request.baseURL).toBe(
+				"={{$credentials.baseUrl.replace(/^(https?:\\/\\/)platform-api\\.max\\.ru(?=[:/]|$)/i, '$1platform-api2.max.ru')}}",
+			);
 			expect(maxApiCredentials.test.request.url).toBe('/me');
 			expect(maxApiCredentials.test.request.headers).toEqual({
 				Authorization: '={{$credentials.accessToken}}',
 			});
+		});
+
+		it('should migrate only the exact legacy official host during credential testing', () => {
+			const expression = maxApiCredentials.test.request.baseURL;
+
+			expect(evaluateBaseUrlExpression(expression, 'https://platform-api.max.ru')).toBe(
+				'https://platform-api2.max.ru',
+			);
+			expect(evaluateBaseUrlExpression(expression, 'https://platform-api.max.ru:8443/custom')).toBe(
+				'https://platform-api2.max.ru:8443/custom',
+			);
+			expect(
+				evaluateBaseUrlExpression(expression, 'https://gateway.internal/platform-api.max.ru'),
+			).toBe('https://gateway.internal/platform-api.max.ru');
+			expect(
+				evaluateBaseUrlExpression(expression, 'https://platform-api.max.ru.example.test'),
+			).toBe('https://platform-api.max.ru.example.test');
 		});
 
 		it('should use Max API /me endpoint for credential validation', () => {

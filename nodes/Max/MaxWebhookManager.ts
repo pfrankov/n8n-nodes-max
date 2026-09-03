@@ -1,20 +1,6 @@
-import { URL, domainToASCII } from 'node:url';
 import type { IDataObject, IHookFunctions } from 'n8n-workflow';
 import type { MaxSubscriptionsResponse, MaxTriggerEvent } from './MaxTriggerConfig';
-
-/**
- * Convert URL hostname to punycode so MAX can validate TLS certificates
- * for internationalized domain names (IDN).
- */
-function toPunycodeUrl(urlString: string): string {
-	try {
-		const parsedUrl = new URL(urlString);
-		parsedUrl.hostname = domainToASCII(parsedUrl.hostname);
-		return parsedUrl.toString();
-	} catch {
-		return urlString;
-	}
-}
+import { normalizeMaxBaseUrl, normalizeMaxWebhookUrl } from './MaxUrlUtils';
 
 /**
  * Max webhook manager
@@ -23,8 +9,6 @@ function toPunycodeUrl(urlString: string): string {
  * Provides methods to check, create, and delete webhook subscriptions.
  */
 export class MaxWebhookManager {
-	private readonly DEFAULT_BASE_URL = 'https://platform-api.max.ru';
-
 	/**
 	 * Check if webhook subscription already exists
 	 *
@@ -166,9 +150,9 @@ export class MaxWebhookManager {
 	 */
 	public async getWebhookConfig(context: IHookFunctions) {
 		const credentials = await context.getCredentials('maxApi');
-		const baseUrl = (credentials['baseUrl'] as string) || this.DEFAULT_BASE_URL;
+		const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl']);
 		const rawWebhookUrl = context.getNodeWebhookUrl('default') as string;
-		const webhookUrl = toPunycodeUrl(rawWebhookUrl);
+		const webhookUrl = normalizeMaxWebhookUrl(rawWebhookUrl);
 		const events = context.getNodeParameter('events') as MaxTriggerEvent[];
 		const additionalFields = context.getNodeParameter('additionalFields', {}) as IDataObject;
 

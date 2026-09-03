@@ -38,7 +38,7 @@ export class MaxApi implements ICredentialType {
 			displayName: 'Base URL',
 			name: 'baseUrl',
 			type: 'string',
-			default: 'https://platform-api.max.ru',
+			default: 'https://platform-api2.max.ru',
 			description: 'The API URL. Use the default value unless you use a custom server.',
 		},
 	];
@@ -49,7 +49,8 @@ export class MaxApi implements ICredentialType {
 	 */
 	test: ICredentialTestRequest = {
 		request: {
-			baseURL: '={{$credentials.baseUrl}}',
+			baseURL:
+				"={{$credentials.baseUrl.replace(/^(https?:\\/\\/)platform-api\\.max\\.ru(?=[:/]|$)/i, '$1platform-api2.max.ru')}}",
 			url: '/me',
 			headers: {
 				Authorization: '={{$credentials.accessToken}}',

@@ -10,8 +10,8 @@ import { Bot } from '@maxhub/max-bot-api';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { basename, join } from 'path';
+import { normalizeMaxBaseUrl } from './MaxUrlUtils';
 
-const DEFAULT_MAX_BASE_URL = 'https://platform-api.max.ru';
 const ATTACHMENT_READY_RETRY_DELAYS_MS = [700, 1500, 3000];
 
 function getAuthHeaders(accessToken: string): IDataObject {
@@ -326,7 +326,7 @@ export async function createMaxBotInstance(this: IExecuteFunctions): Promise<Bot
 	// Create Bot instance with configured base URL.
 	const config = {
 		clientOptions: {
-			baseUrl: (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL,
+			baseUrl: normalizeMaxBaseUrl(credentials['baseUrl']),
 		},
 	};
 
@@ -369,7 +369,7 @@ export async function sendMessage(
 
 	try {
 		const credentials = await this.getCredentials('maxApi');
-		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl']);
 		const accessToken = credentials['accessToken'] as string;
 
 		const disableLinkPreview = options['disable_link_preview'] as boolean | undefined;
@@ -522,7 +522,7 @@ export async function editMessage(
 	try {
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
-		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl']);
 		const accessToken = credentials['accessToken'] as string;
 		const trimmedMessageId = messageId.trim();
 
@@ -605,7 +605,7 @@ export async function deleteMessage(
 	try {
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
-		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl']);
 		const accessToken = credentials['accessToken'] as string;
 
 		// Make HTTP request to delete message endpoint
@@ -654,7 +654,7 @@ export async function answerCallbackQuery(
 	try {
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
-		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl']);
 		const accessToken = credentials['accessToken'] as string;
 
 		// Build request body
@@ -1277,7 +1277,7 @@ export async function uploadFileToMax(
 	try {
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
-		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl']);
 		const accessToken = credentials['accessToken'] as string;
 
 		// Step 1: Get upload URL from Max API
@@ -1749,7 +1749,7 @@ export async function getChatInfo(
 	try {
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
-		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl']);
 		const accessToken = credentials['accessToken'] as string;
 
 		// Make HTTP request to get chat info endpoint
@@ -1791,7 +1791,7 @@ export async function leaveChat(this: IExecuteFunctions, _bot: Bot, chatId: numb
 	try {
 		// Get credentials for API calls
 		const credentials = await this.getCredentials('maxApi');
-		const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;
+		const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl']);
 		const accessToken = credentials['accessToken'] as string;
 
 		// Make HTTP request to leave chat endpoint

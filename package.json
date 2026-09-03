@@ -1,7 +1,7 @@
 {
 	"name": "n8n-nodes-max",
 	"version": "0.1.26",
-	"description": "n8n community node for Max messenger integration. Send messages, handle webhooks, manage attachments, and create interactive bot experiences using the official Max Bot API.",
+	"description": "n8n community nodes for the current MAX Bot API. Send and read messages, manage chats, members, administrators, comments, webhooks, and interactive bot experiences.",
 	"keywords": [
 		"n8n-community-node-package"
 	],
@@ -45,6 +45,7 @@
 		],
 		"nodes": [
 			"dist/nodes/Max/Max.node.js",
+			"dist/nodes/Max/MaxApiOperations.node.js",
 			"dist/nodes/Max/MaxTrigger.node.js"
 		]
 	},
@@ -60,8 +61,8 @@
 		"jest-mock-extended": "^4.0.0",
 		"lint-staged": "^16.4.0",
 		"prettier": "^3.8.1",
-		"ts-jest": "^29.4.9",
-		"typescript": "^5.9.3"
+		"typescript": "^5.9.3",
+		"ts-jest": "^29.4.9"
 	},
 	"dependencies": {
 		"@maxhub/max-bot-api": "^0.2.2"
