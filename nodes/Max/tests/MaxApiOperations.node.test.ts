@@ -1,4 +1,4 @@
-import type { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
+import type { IExecuteFunctions, INodeExecutionData, INodePropertyOptions } from 'n8n-workflow';
 import { MaxApiOperations } from '../MaxApiOperations.node';
 
 function createExecuteContext(
@@ -26,7 +26,8 @@ function createExecuteContext(
 function findOperations(node: MaxApiOperations, resource: string) {
 	return node.description.properties.find(
 		(property) =>
-			property.name === 'operation' && property.displayOptions?.show?.['resource']?.includes(resource),
+			property.name === 'operation' &&
+			property.displayOptions?.show?.['resource']?.includes(resource),
 	)?.options;
 }
 
@@ -87,6 +88,7 @@ describe('Max API Operations node', () => {
 			const allOperationValues = node.description.properties
 				.filter((property) => property.name === 'operation')
 				.flatMap((property) => property.options ?? [])
+				.filter((option): option is INodePropertyOptions => 'value' in option)
 				.map((option) => option.value);
 			expect(allOperationValues).not.toContain('getChats');
 			expect(allOperationValues).not.toContain('longPolling');
@@ -96,9 +98,9 @@ describe('Max API Operations node', () => {
 			const keyboard = node.description.properties.find(
 				(property) => property.name === 'keyboard',
 			) as any;
-			const buttonValues = keyboard.options[0].values
-				.find((value: { name: string }) => value.name === 'buttons')
-				.options[0].values;
+			const buttonValues = keyboard.options[0].values.find(
+				(value: { name: string }) => value.name === 'buttons',
+			).options[0].values;
 			const type = buttonValues.find((value: { name: string }) => value.name === 'type');
 
 			expect(type.options).toEqual(
@@ -288,13 +290,7 @@ describe('Max API Operations node', () => {
 							{
 								user_id: '9223372036854775807',
 								alias: 'Moderator',
-								permissions: [
-									'read_all_messages',
-									'edit',
-									'delete',
-									'write',
-									'edit_link',
-								],
+								permissions: ['read_all_messages', 'edit', 'delete', 'write', 'edit_link'],
 							},
 						],
 					},

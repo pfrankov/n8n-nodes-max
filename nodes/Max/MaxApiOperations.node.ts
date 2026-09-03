@@ -5,7 +5,7 @@ import type {
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
+import { ApplicationError, NodeConnectionType, NodeOperationError } from 'n8n-workflow';
 import { MAX_API_OPERATION_PROPERTIES } from './MaxApiOperationsDescription';
 import {
 	buildInlineKeyboard,
@@ -42,7 +42,7 @@ function splitStringList(value: unknown, displayName: string): string[] {
 		.map((entry) => entry.trim())
 		.filter((entry) => entry.length > 0);
 	if (result.length === 0) {
-		throw new Error(`${displayName} must contain at least one value`);
+		throw new ApplicationError(`${displayName} must contain at least one value`);
 	}
 	return Array.from(new Set(result));
 }
@@ -80,20 +80,17 @@ function buildCommands(context: IExecuteFunctions, itemIndex: number): IDataObje
 		return [];
 	}
 	if (commands.length > 32) {
-		throw new Error('Commands can contain at most 32 items');
+		throw new ApplicationError('Commands can contain at most 32 items');
 	}
 
 	return commands.map((command, index) => {
 		if (!command || typeof command !== 'object' || Array.isArray(command)) {
-			throw new Error(`Command ${index + 1} has an invalid value`);
+			throw new ApplicationError(`Command ${index + 1} has an invalid value`);
 		}
 		const commandObject = command as IDataObject;
 		return {
 			name: requireString(commandObject['name'], `Command ${index + 1} name`),
-			description: requireString(
-				commandObject['description'],
-				`Command ${index + 1} description`,
-			),
+			description: requireString(commandObject['description'], `Command ${index + 1} description`),
 		};
 	});
 }
@@ -116,7 +113,7 @@ function buildMessageBody(
 	const clearAttachments = getParameter<boolean>(context, 'clearAttachments', itemIndex, false);
 
 	if (text.length > 4000) {
-		throw new Error('Message text cannot exceed 4000 characters');
+		throw new ApplicationError('Message text cannot exceed 4000 characters');
 	}
 	if (text.length > 0) {
 		body['text'] = text;
@@ -143,7 +140,7 @@ function buildMessageBody(
 			getParameter<unknown>(context, 'forwardMessageId', itemIndex, ''),
 		);
 		if (replyMessageId && forwardMessageId) {
-			throw new Error('Use either Reply to Message ID or Forward Message ID, not both');
+			throw new ApplicationError('Use either Reply to Message ID or Forward Message ID, not both');
 		}
 		if (replyMessageId || forwardMessageId) {
 			body['link'] = {
@@ -155,7 +152,9 @@ function buildMessageBody(
 
 	const contentKeys = Object.keys(body).filter((key) => key !== 'notify');
 	if (contentKeys.length === 0) {
-		throw new Error('Provide message text, attachments, a keyboard, or a reply/forward link');
+		throw new ApplicationError(
+			'Provide message text, attachments, a keyboard, or a reply/forward link',
+		);
 	}
 
 	return body;
@@ -164,7 +163,7 @@ function buildMessageBody(
 function buildCommentBody(context: IExecuteFunctions, itemIndex: number): IDataObject {
 	const text = getParameter<string>(context, 'text', itemIndex, '');
 	if (text.length > 4000) {
-		throw new Error('Comment text cannot exceed 4000 characters');
+		throw new ApplicationError('Comment text cannot exceed 4000 characters');
 	}
 
 	const body: IDataObject = { text };
@@ -206,7 +205,7 @@ function buildChatUpdateBody(context: IExecuteFunctions, itemIndex: number): IDa
 	}
 
 	if (Object.keys(body).length === 0) {
-		throw new Error('Select at least one chat field to update');
+		throw new ApplicationError('Select at least one chat field to update');
 	}
 	return body;
 }
@@ -217,7 +216,7 @@ function validateAdminPermissions(permissions: string[]): void {
 		permissionsRequiringRead.some((permission) => permissions.includes(permission)) &&
 		!permissions.includes('read_all_messages')
 	) {
-		throw new Error(
+		throw new ApplicationError(
 			'Read All Messages is required together with Edit, Delete, Write, or Pin Message',
 		);
 	}
@@ -236,7 +235,7 @@ async function executeBotOperation(
 			commands: buildCommands(context, itemIndex),
 		});
 	}
-	throw new Error(`Unsupported Bot operation: ${operation}`);
+	throw new ApplicationError(`Unsupported Bot operation: ${operation}`);
 }
 
 async function executeChatOperation(
@@ -244,10 +243,7 @@ async function executeChatOperation(
 	operation: string,
 	itemIndex: number,
 ): Promise<unknown> {
-	const chatId = requireInt64(
-		getParameter<unknown>(context, 'chatId', itemIndex, ''),
-		'Chat ID',
-	);
+	const chatId = requireInt64(getParameter<unknown>(context, 'chatId', itemIndex, ''), 'Chat ID');
 	const basePath = `/chats/${encodePath(chatId)}`;
 
 	switch (operation) {
@@ -280,7 +276,7 @@ async function executeChatOperation(
 				buildChatUpdateBody(context, itemIndex),
 			);
 		default:
-			throw new Error(`Unsupported Chat operation: ${operation}`);
+			throw new ApplicationError(`Unsupported Chat operation: ${operation}`);
 	}
 }
 
@@ -289,27 +285,21 @@ async function executeAdminOperation(
 	operation: string,
 	itemIndex: number,
 ): Promise<unknown> {
-	const chatId = requireInt64(
-		getParameter<unknown>(context, 'chatId', itemIndex, ''),
-		'Chat ID',
-	);
+	const chatId = requireInt64(getParameter<unknown>(context, 'chatId', itemIndex, ''), 'Chat ID');
 	const basePath = `/chats/${encodePath(chatId)}/members/admins`;
 
 	if (operation === 'getMany') {
 		return await request(context, 'GET', basePath);
 	}
 
-	const userId = requireInt64(
-		getParameter<unknown>(context, 'userId', itemIndex, ''),
-		'User ID',
-	);
+	const userId = requireInt64(getParameter<unknown>(context, 'userId', itemIndex, ''), 'User ID');
 	if (operation === 'remove') {
 		return await request(context, 'DELETE', `${basePath}/${encodePath(userId)}`);
 	}
 	if (operation === 'set') {
 		const permissions = getParameter<string[]>(context, 'permissions', itemIndex, []);
 		if (permissions.length === 0) {
-			throw new Error('Select at least one administrator permission');
+			throw new ApplicationError('Select at least one administrator permission');
 		}
 		validateAdminPermissions(permissions);
 		const admin: IDataObject = { user_id: userId, permissions };
@@ -319,7 +309,7 @@ async function executeAdminOperation(
 		}
 		return await request(context, 'POST', basePath, undefined, { admins: [admin] });
 	}
-	throw new Error(`Unsupported Chat Administrator operation: ${operation}`);
+	throw new ApplicationError(`Unsupported Chat Administrator operation: ${operation}`);
 }
 
 async function executeMemberOperation(
@@ -327,10 +317,7 @@ async function executeMemberOperation(
 	operation: string,
 	itemIndex: number,
 ): Promise<unknown> {
-	const chatId = requireInt64(
-		getParameter<unknown>(context, 'chatId', itemIndex, ''),
-		'Chat ID',
-	);
+	const chatId = requireInt64(getParameter<unknown>(context, 'chatId', itemIndex, ''), 'Chat ID');
 	const path = `/chats/${encodePath(chatId)}/members`;
 
 	if (operation === 'add') {
@@ -344,10 +331,7 @@ async function executeMemberOperation(
 	}
 	if (operation === 'remove') {
 		return await request(context, 'DELETE', path, {
-			user_id: requireInt64(
-				getParameter<unknown>(context, 'userId', itemIndex, ''),
-				'User ID',
-			),
+			user_id: requireInt64(getParameter<unknown>(context, 'userId', itemIndex, ''), 'User ID'),
 			block: getParameter<boolean>(context, 'block', itemIndex, false),
 		});
 	}
@@ -368,7 +352,7 @@ async function executeMemberOperation(
 			...(marker ? { marker } : {}),
 		});
 	}
-	throw new Error(`Unsupported Chat Member operation: ${operation}`);
+	throw new ApplicationError(`Unsupported Chat Member operation: ${operation}`);
 }
 
 async function executeCommentOperation(
@@ -422,9 +406,15 @@ async function executeCommentOperation(
 		return await request(context, 'DELETE', basePath, { comment_id: commentId });
 	}
 	if (operation === 'update') {
-		return await request(context, 'PUT', basePath, { comment_id: commentId }, buildCommentBody(context, itemIndex));
+		return await request(
+			context,
+			'PUT',
+			basePath,
+			{ comment_id: commentId },
+			buildCommentBody(context, itemIndex),
+		);
 	}
-	throw new Error(`Unsupported Comment operation: ${operation}`);
+	throw new ApplicationError(`Unsupported Comment operation: ${operation}`);
 }
 
 async function executeMessageOperation(
@@ -530,7 +520,7 @@ async function executeMessageOperation(
 			});
 		}
 		if (Object.keys(body).length === 0) {
-			throw new Error('Provide a notification or enable Update Message');
+			throw new ApplicationError('Provide a notification or enable Update Message');
 		}
 		return await request(
 			context,
@@ -548,7 +538,7 @@ async function executeMessageOperation(
 			body,
 		);
 	}
-	throw new Error(`Unsupported Message operation: ${operation}`);
+	throw new ApplicationError(`Unsupported Message operation: ${operation}`);
 }
 
 async function executeSubscriptionOperation(
@@ -560,23 +550,20 @@ async function executeSubscriptionOperation(
 		return await request(context, 'GET', '/subscriptions');
 	}
 
-	const url = requireString(
-		getParameter<unknown>(context, 'url', itemIndex, ''),
-		'Webhook URL',
-	);
+	const url = requireString(getParameter<unknown>(context, 'url', itemIndex, ''), 'Webhook URL');
 	if (operation === 'delete') {
 		return await request(context, 'DELETE', '/subscriptions', { url });
 	}
 	if (operation === 'create') {
 		const updateTypes = getParameter<string[]>(context, 'updateTypes', itemIndex, []);
 		if (updateTypes.length === 0) {
-			throw new Error('Select at least one webhook update type');
+			throw new ApplicationError('Select at least one webhook update type');
 		}
 		const body: IDataObject = { url, update_types: updateTypes };
 		const secret = optionalString(getParameter<unknown>(context, 'secret', itemIndex, ''));
 		if (secret) {
 			if (secret.length < 5 || secret.length > 256) {
-				throw new Error('Webhook Secret must contain from 5 to 256 characters');
+				throw new ApplicationError('Webhook Secret must contain from 5 to 256 characters');
 			}
 			body['secret'] = secret;
 		}
@@ -586,7 +573,7 @@ async function executeSubscriptionOperation(
 		}
 		return await request(context, 'POST', '/subscriptions', undefined, body);
 	}
-	throw new Error(`Unsupported Subscription operation: ${operation}`);
+	throw new ApplicationError(`Unsupported Subscription operation: ${operation}`);
 }
 
 async function executeOperation(
@@ -611,7 +598,7 @@ async function executeOperation(
 		case 'subscription':
 			return await executeSubscriptionOperation(context, operation, itemIndex);
 		default:
-			throw new Error(`Unsupported resource: ${resource}`);
+			throw new ApplicationError(`Unsupported resource: ${resource}`);
 	}
 }
 

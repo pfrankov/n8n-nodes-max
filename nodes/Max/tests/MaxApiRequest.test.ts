@@ -85,9 +85,7 @@ describe('MaxApiRequest', () => {
 		});
 
 		it('validates required fields and documented row limits', () => {
-			expect(() => buildInlineKeyboard([[{ type: 'clipboard', text: 'Copy' }]])).toThrow(
-				'payload',
-			);
+			expect(() => buildInlineKeyboard([[{ type: 'clipboard', text: 'Copy' }]])).toThrow('payload');
 			expect(() =>
 				buildInlineKeyboard([
 					[

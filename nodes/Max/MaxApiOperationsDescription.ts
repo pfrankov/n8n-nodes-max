@@ -56,9 +56,9 @@ const keyboardButtonValues: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		displayOptions: {
-			show: { type: ['callback', 'clipboard'] },
+			show: { type: ['callback', 'clipboard', 'open_app'] },
 		},
-		description: 'The callback data or text copied to the clipboard.',
+		description: 'The callback data, clipboard text, or optional mini-app payload.',
 	},
 	{
 		displayName: 'URL',
@@ -85,14 +85,6 @@ const keyboardButtonValues: INodeProperties[] = [
 		description: 'The int64 contact ID used by the open-app button.',
 	},
 	{
-		displayName: 'Start Payload',
-		name: 'payload',
-		type: 'string',
-		default: '',
-		displayOptions: { show: { type: ['open_app'] } },
-		description: 'The optional payload passed to the mini-app.',
-	},
-	{
 		displayName: 'Quick Request',
 		name: 'quick',
 		type: 'boolean',
@@ -102,7 +94,10 @@ const keyboardButtonValues: INodeProperties[] = [
 	},
 ];
 
-function keyboardProperty(operations: string[], extraShow: Record<string, unknown> = {}): INodeProperties {
+function keyboardProperty(
+	operations: string[],
+	extraShow: Record<string, unknown> = {},
+): INodeProperties {
 	return {
 		displayName: 'Inline Keyboard',
 		name: 'keyboard',
@@ -143,7 +138,10 @@ function keyboardProperty(operations: string[], extraShow: Record<string, unknow
 	};
 }
 
-const messageFormatProperty = (operations: string[], extraShow: Record<string, unknown> = {}): INodeProperties => ({
+const messageFormatProperty = (
+	operations: string[],
+	extraShow: Record<string, unknown> = {},
+): INodeProperties => ({
 	displayName: 'Text Format',
 	name: 'format',
 	type: 'options',

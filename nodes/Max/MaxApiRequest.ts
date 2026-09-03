@@ -1,10 +1,5 @@
-import type {
-	IDataObject,
-	IExecuteFunctions,
-	IHttpRequestOptions,
-	JsonObject,
-} from 'n8n-workflow';
-import { NodeApiError, NodeOperationError } from 'n8n-workflow';
+import type { IDataObject, IExecuteFunctions, IHttpRequestOptions, JsonObject } from 'n8n-workflow';
+import { ApplicationError, NodeApiError, NodeOperationError } from 'n8n-workflow';
 
 export const MAX_API_BASE_URL = 'https://platform-api2.max.ru';
 const LEGACY_MAX_API_HOST = 'platform-api.max.ru';
@@ -124,7 +119,7 @@ export async function maxApiRequest(
 export function requireString(value: unknown, displayName: string): string {
 	const result = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
 	if (result.length === 0) {
-		throw new Error(`${displayName} is required and cannot be empty`);
+		throw new ApplicationError(`${displayName} is required and cannot be empty`);
 	}
 	return result;
 }
@@ -133,7 +128,7 @@ export function requireString(value: unknown, displayName: string): string {
 export function requireInt64(value: unknown, displayName: string): string {
 	const result = requireString(value, displayName);
 	if (!/^-?\d+$/.test(result)) {
-		throw new Error(`${displayName} must be a signed integer ID`);
+		throw new ApplicationError(`${displayName} must be a signed integer ID`);
 	}
 	return result;
 }
@@ -147,14 +142,14 @@ export function parseIdList(value: unknown, displayName: string, maximum = 100):
 		.filter((identifier) => identifier.length > 0);
 
 	if (identifiers.length === 0) {
-		throw new Error(`${displayName} must contain at least one ID`);
+		throw new ApplicationError(`${displayName} must contain at least one ID`);
 	}
 	if (identifiers.length > maximum) {
-		throw new Error(`${displayName} can contain at most ${maximum} IDs`);
+		throw new ApplicationError(`${displayName} can contain at most ${maximum} IDs`);
 	}
 	for (const identifier of identifiers) {
 		if (!/^-?\d+$/.test(identifier)) {
-			throw new Error(`${displayName} contains an invalid ID: ${identifier}`);
+			throw new ApplicationError(`${displayName} contains an invalid ID: ${identifier}`);
 		}
 	}
 
@@ -174,7 +169,7 @@ function parseJson(value: unknown, displayName: string): unknown {
 		return JSON.parse(source) as unknown;
 	} catch (error) {
 		const details = error instanceof Error ? error.message : 'invalid JSON';
-		throw new Error(`${displayName} must contain valid JSON: ${details}`);
+		throw new ApplicationError(`${displayName} must contain valid JSON: ${details}`);
 	}
 }
 
@@ -185,7 +180,7 @@ export function parseJsonObject(value: unknown, displayName: string): IDataObjec
 		return undefined;
 	}
 	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-		throw new Error(`${displayName} must be a JSON object`);
+		throw new ApplicationError(`${displayName} must be a JSON object`);
 	}
 	return parsed as IDataObject;
 }
@@ -200,10 +195,10 @@ export function parseJsonObjectArray(
 		return undefined;
 	}
 	if (!Array.isArray(parsed)) {
-		throw new Error(`${displayName} must be a JSON array`);
+		throw new ApplicationError(`${displayName} must be a JSON array`);
 	}
 	if (parsed.some((entry) => !entry || typeof entry !== 'object' || Array.isArray(entry))) {
-		throw new Error(`${displayName} must contain only JSON objects`);
+		throw new ApplicationError(`${displayName} must contain only JSON objects`);
 	}
 	return parsed as IDataObject[];
 }
@@ -237,23 +232,27 @@ export function extractKeyboardRows(value: unknown): MaxKeyboardButton[][] {
 	});
 }
 
-function validateButton(button: MaxKeyboardButton, rowIndex: number, buttonIndex: number): IDataObject {
+function validateButton(
+	button: MaxKeyboardButton,
+	rowIndex: number,
+	buttonIndex: number,
+): IDataObject {
 	const location = `Keyboard row ${rowIndex + 1}, button ${buttonIndex + 1}`;
 	const type = requireString(button.type, `${location} type`);
 	if (!ALLOWED_BUTTON_TYPES.has(type)) {
-		throw new Error(`${location} has unsupported type: ${type}`);
+		throw new ApplicationError(`${location} has unsupported type: ${type}`);
 	}
 
 	const text = requireString(button.text, `${location} text`);
 	if (text.length > 128) {
-		throw new Error(`${location} text cannot exceed 128 characters`);
+		throw new ApplicationError(`${location} text cannot exceed 128 characters`);
 	}
 
 	const result: IDataObject = { type, text };
 	if (type === 'callback' || type === 'clipboard') {
 		const payload = requireString(button.payload, `${location} payload`);
 		if (type === 'callback' && payload.length > 1024) {
-			throw new Error(`${location} payload cannot exceed 1024 characters`);
+			throw new ApplicationError(`${location} payload cannot exceed 1024 characters`);
 		}
 		result['payload'] = payload;
 	}
@@ -261,7 +260,7 @@ function validateButton(button: MaxKeyboardButton, rowIndex: number, buttonIndex
 	if (type === 'link') {
 		const url = requireString(button.url, `${location} URL`);
 		if (url.length > 2048) {
-			throw new Error(`${location} URL cannot exceed 2048 characters`);
+			throw new ApplicationError(`${location} URL cannot exceed 2048 characters`);
 		}
 		result['url'] = url;
 	}
@@ -292,15 +291,15 @@ export function buildInlineKeyboard(rows: MaxKeyboardButton[][]): IDataObject | 
 		return undefined;
 	}
 	if (nonEmptyRows.length > 30) {
-		throw new Error('Inline keyboard can contain at most 30 rows');
+		throw new ApplicationError('Inline keyboard can contain at most 30 rows');
 	}
 
 	const buttons = nonEmptyRows.map((row, rowIndex) => {
 		if (row.length > 7) {
-			throw new Error(`Keyboard row ${rowIndex + 1} can contain at most 7 buttons`);
+			throw new ApplicationError(`Keyboard row ${rowIndex + 1} can contain at most 7 buttons`);
 		}
 		if (row.length > 3 && row.some((button) => LIMITED_BUTTON_TYPES.has(button.type))) {
-			throw new Error(
+			throw new ApplicationError(
 				`Keyboard row ${rowIndex + 1} can contain at most 3 link, open app, contact, or location buttons`,
 			);
 		}
