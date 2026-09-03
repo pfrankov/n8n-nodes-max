@@ -1,0 +1,136 @@
+name: PR 24 final review fixes and squash
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/pr24-final-squash.yml
+      - scripts/pr24-finalize.py
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pr24-final-review-and-squash
+  cancel-in-progress: false
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Add regression tests first
+        run: python3 scripts/pr24-finalize.py tests
+
+      - name: Confirm the new tests fail before the fixes
+        run: |
+          set +e
+          npx jest --runInBand \
+            nodes/Max/tests/MaxApiRequestResilience.test.ts \
+            nodes/Max/tests/MaxApiReviewFixes.node.test.ts \
+            nodes/Max/tests/MaxEventProcessorCurrentEvents.test.ts
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo 'The review regression tests unexpectedly passed before implementation.' >&2
+            exit 1
+          fi
+          echo 'Red phase confirmed.'
+
+      - name: Apply review fixes
+        run: python3 scripts/pr24-finalize.py implementation
+
+      - name: Remove every temporary workflow
+        run: |
+          find .github/workflows -maxdepth 1 -type f ! -name ci.yml -delete
+          rm -f scripts/pr24-finalize.py
+
+      - name: Format changed source and documentation
+        run: |
+          npx prettier --write \
+            .github/workflows/ci.yml \
+            credentials/MaxApi.credentials.ts \
+            nodes/Max/GenericFunctions.ts \
+            nodes/Max/MaxApiOperations.node.ts \
+            nodes/Max/MaxApiOperationsDescription.ts \
+            nodes/Max/MaxApiRequest.ts \
+            nodes/Max/MaxEventProcessor.ts \
+            nodes/Max/MaxTriggerConfig.ts \
+            nodes/Max/MaxUrlUtils.ts \
+            nodes/Max/tests/MaxApiRequestResilience.test.ts \
+            nodes/Max/tests/MaxApiReviewFixes.node.test.ts \
+            nodes/Max/tests/MaxEventProcessorCurrentEvents.test.ts \
+            README.md AGENTS.md CHANGELOG.md
+
+      - name: Run unit and contract tests
+        run: npm test -- --runInBand
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verify package entry points
+        run: |
+          npm pack --dry-run --json > /tmp/npm-pack.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = require('./package.json');
+          const pack = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
+          const files = new Set(pack.files.map(({ path }) => path));
+          for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
+            if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+          }
+          NODE
+          git diff --check
+
+      - name: Cancel competing branch-mutating runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs?branch=feature/max-api-coverage-23&status=queued&per_page=100" \
+            --jq '.workflow_runs[].id' | while read -r run_id; do
+              [ -z "$run_id" ] && continue
+              [ "$run_id" = "$GITHUB_RUN_ID" ] && continue
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/cancel" || true
+            done
+          gh api "repos/${GITHUB_REPOSITORY}/actions/runs?branch=feature/max-api-coverage-23&status=in_progress&per_page=100" \
+            --jq '.workflow_runs[].id' | while read -r run_id; do
+              [ -z "$run_id" ] && continue
+              [ "$run_id" = "$GITHUB_RUN_ID" ] && continue
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/cancel" || true
+            done
+
+      - name: Replace the PR history with one verified commit
+        run: |
+          git config user.name 'Pavel Frankov'
+          git config user.email 'pavel@frankov.ru'
+          git fetch origin master
+          git reset --soft origin/master
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo 'No PR changes remain after cleanup.' >&2
+            exit 1
+          fi
+          git commit -m 'feat: расширить покрытие актуального MAX Bot API'
+          test "$(git rev-list --count origin/master..HEAD)" = '1'
+          git push --force origin HEAD:feature/max-api-coverage-23
