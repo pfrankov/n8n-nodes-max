@@ -1,0 +1,806 @@
+name: PR 24 final squash and review fixes
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/pr24-squash-final.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pr24-final-squash
+  cancel-in-progress: false
+
+jobs:
+  squash:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply review fixes through regression tests
+        env:
+          TRIGGER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch origin master
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('.')
+
+          # Shared URL policy: migrate only the legacy official host and normalize IDN webhook hosts.
+          (root / 'nodes/Max/MaxUrlUtils.ts').write_text("""import { URL, domainToASCII } from 'node:url';
+
+          export const CURRENT_MAX_BASE_URL = 'https://platform-api2.max.ru';
+          export const LEGACY_MAX_BASE_URL = 'https://platform-api.max.ru';
+
+          export function normalizeMaxBaseUrl(value: unknown): string {
+          \tconst normalized = String(value ?? '').trim().replace(/\\/+$/, '');
+          \tif (normalized.length === 0 || normalized === LEGACY_MAX_BASE_URL) {
+          \t\treturn CURRENT_MAX_BASE_URL;
+          \t}
+          \treturn normalized;
+          }
+
+          export function toPunycodeUrl(urlString: string): string {
+          \ttry {
+          \t\tconst parsedUrl = new URL(urlString);
+          \t\tparsedUrl.hostname = domainToASCII(parsedUrl.hostname);
+          \t\treturn parsedUrl.toString();
+          \t} catch {
+          \t\treturn urlString;
+          \t}
+          }
+          """)
+
+          def remove_named_function(src: str, name: str) -> str:
+              match = re.search(rf'(?:export\\s+)?function\\s+{re.escape(name)}\\s*\\(', src)
+              if not match:
+                  return src
+              brace = src.find('{', match.end())
+              depth = 0
+              end = None
+              for index in range(brace, len(src)):
+                  if src[index] == '{':
+                      depth += 1
+                  elif src[index] == '}':
+                      depth -= 1
+                      if depth == 0:
+                          end = index + 1
+                          break
+              if end is None:
+                  raise RuntimeError(f'Unclosed function {name}')
+              while end < len(src) and src[end] in '\\r\\n':
+                  end += 1
+              return src[:match.start()] + src[end:]
+
+          # Request transport: current host, structured API errors, Markdown fallback and media retry.
+          request_path = root / 'nodes/Max/MaxApiRequest.ts'
+          request = request_path.read_text()
+          import_line = "import { normalizeMaxBaseUrl } from './MaxUrlUtils';\n"
+          if import_line not in request:
+              candidates = [position for position in (request.find('export type '), request.find('const ')) if position != -1]
+              request = request[:min(candidates)] + import_line + '\n' + request[min(candidates):]
+          request = re.sub(r"const DEFAULT_MAX_BASE_URL\\s*=\\s*['\"][^'\"]+['\"];\\n", '', request)
+          request = re.sub(r"const LEGACY_MAX_BASE_URL\\s*=\\s*['\"][^'\"]+['\"];\\n", '', request)
+          request = remove_named_function(request, 'normalizeMaxBaseUrl')
+          for name in (
+              'getRequestErrorText',
+              'isUnsupportedMarkdownSyntaxError',
+              'isAttachmentNotReadyError',
+              'containsMediaAttachments',
+              'stripUnsupportedMarkdown',
+              'waitForAttachmentRetry',
+              'buildHttpRequestOptions',
+          ):
+              request = remove_named_function(request, name)
+          request = re.sub(
+              r'const ATTACHMENT_READY_RETRY_DELAYS_MS\\s*=\\s*\\[[^\\]]*\\]\\s*as const;\\n',
+              '',
+              request,
+          )
+
+          start = re.search(r'export\\s+async\\s+function\\s+maxApiRequest\\s*\\(', request)
+          if not start:
+              raise RuntimeError('maxApiRequest was not found')
+          brace = request.find('{', start.end())
+          depth = 0
+          function_end = None
+          for index in range(brace, len(request)):
+              if request[index] == '{':
+                  depth += 1
+              elif request[index] == '}':
+                  depth -= 1
+                  if depth == 0:
+                      function_end = index + 1
+                      break
+          signature = request[start.start():brace]
+          options_type = re.search(r'options\\s*:\\s*([A-Za-z0-9_]+)', signature).group(1)
+          support = r'''
+          const ATTACHMENT_READY_RETRY_DELAYS_MS = [700, 1500, 3000] as const;
+
+          function getRequestErrorText(error: unknown): string {
+          \tconst values: unknown[] = [
+          \t\t(error as { message?: unknown })?.message,
+          \t\t(error as { description?: unknown })?.description,
+          \t\t(error as { code?: unknown })?.code,
+          \t\t(error as { response?: { body?: unknown } })?.response?.body,
+          \t\t(error as { response?: { data?: unknown } })?.response?.data,
+          \t\t(error as { body?: unknown })?.body,
+          \t];
+
+          \treturn values
+          \t\t.flatMap((value) => {
+          \t\t\tif (value === undefined || value === null) return [];
+          \t\t\tif (typeof value === 'string' || typeof value === 'number') return [String(value)];
+          \t\t\ttry {
+          \t\t\t\treturn [JSON.stringify(value)];
+          \t\t\t} catch {
+          \t\t\t\treturn [];
+          \t\t\t}
+          \t\t})
+          \t\t.join(' ')
+          \t\t.toLowerCase();
+          }
+
+          function isUnsupportedMarkdownSyntaxError(error: unknown): boolean {
+          \tconst text = getRequestErrorText(error);
+          \treturn (
+          \t\ttext.includes('some markdown syntax is not supported') ||
+          \t\t(text.includes('markdown syntax') && text.includes('not supported')) ||
+          \t\ttext.includes('use basic formatting')
+          \t);
+          }
+
+          function isAttachmentNotReadyError(error: unknown): boolean {
+          \tconst text = getRequestErrorText(error);
+          \treturn (
+          \t\ttext.includes('attachment.not.ready') ||
+          \t\ttext.includes('errors.process.attachment.file.not.processed') ||
+          \t\ttext.includes('file.not.processed')
+          \t);
+          }
+
+          function containsMediaAttachments(body: IDataObject | undefined): boolean {
+          \tconst attachments = body?.['attachments'];
+          \tif (!Array.isArray(attachments)) return false;
+          \treturn attachments.some((attachment) => {
+          \t\tif (!attachment || typeof attachment !== 'object' || Array.isArray(attachment)) return false;
+          \t\tconst type = (attachment as IDataObject)['type'];
+          \t\treturn typeof type === 'string' && ['image', 'video', 'audio', 'file'].includes(type);
+          \t});
+          }
+
+          function stripUnsupportedMarkdown(text: string): string {
+          \treturn text
+          \t\t.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '$1 ($2)')
+          \t\t.replace(/```([\\s\\S]*?)```/g, '$1')
+          \t\t.replace(/`([^`]+)`/g, '$1')
+          \t\t.replace(/(\\*\\*|__|~~|\\+\\+|\\^\\^)(.*?)\\1/g, '$2')
+          \t\t.replace(/(^|[\\s(])([*_])([^*_\\n]+)\\2(?=$|[\\s).,!?:;])/g, '$1$3')
+          \t\t.replace(/^#{1,6}\\s+/gm, '')
+          \t\t.replace(/^>\\s?/gm, '');
+          }
+
+          async function waitForAttachmentRetry(delayMs: number): Promise<void> {
+          \tawait new Promise((resolve) => setTimeout(resolve, delayMs));
+          }
+
+          function buildHttpRequestOptions(
+          \taccessToken: string,
+          \tbaseURL: string,
+          \toptions: REQUEST_OPTIONS_TYPE,
+          \tbody: IDataObject | undefined,
+          ): IHttpRequestOptions {
+          \tconst requestOptions: IHttpRequestOptions = {
+          \t\tmethod: options.method,
+          \t\tbaseURL,
+          \t\turl: options.path,
+          \t\theaders: { Authorization: accessToken },
+          \t\tjson: true,
+          \t};
+          \tif (options.qs) {
+          \t\tconst qs = Object.fromEntries(
+          \t\t\tObject.entries(options.qs).filter(
+          \t\t\t\t([, value]) => value !== undefined && value !== null && value !== '',
+          \t\t\t),
+          \t\t) as IDataObject;
+          \t\tif (Object.keys(qs).length > 0) requestOptions.qs = qs;
+          \t}
+          \tif (body !== undefined) requestOptions.body = body;
+          \treturn requestOptions;
+          }
+          '''.replace('REQUEST_OPTIONS_TYPE', options_type)
+          body = r'''{
+          \tconst credentials = await context.getCredentials('maxApi');
+          \tconst baseURL = normalizeMaxBaseUrl(credentials['baseUrl'] as string);
+          \tconst accessToken = requireString(credentials['accessToken'], 'Access Token');
+          \tlet body = options.body ? ({ ...options.body } as IDataObject) : undefined;
+          \tlet markdownFallbackUsed = false;
+          \tlet attachmentRetryIndex = 0;
+
+          \tfor (;;) {
+          \t\ttry {
+          \t\t\treturn await context.helpers.httpRequest(
+          \t\t\t\tbuildHttpRequestOptions(accessToken, baseURL, options, body),
+          \t\t\t);
+          \t\t} catch (error) {
+          \t\t\tif (
+          \t\t\t\tbody?.['format'] === 'markdown' &&
+          \t\t\t\t!markdownFallbackUsed &&
+          \t\t\t\tisUnsupportedMarkdownSyntaxError(error)
+          \t\t\t) {
+          \t\t\t\tmarkdownFallbackUsed = true;
+          \t\t\t\tbody = { ...body };
+          \t\t\t\tdelete body['format'];
+          \t\t\t\tif (typeof body['text'] === 'string') body['text'] = stripUnsupportedMarkdown(body['text']);
+          \t\t\t\tcontinue;
+          \t\t\t}
+          \t\t\tif (
+          \t\t\t\tcontainsMediaAttachments(body) &&
+          \t\t\t\tisAttachmentNotReadyError(error) &&
+          \t\t\t\tattachmentRetryIndex < ATTACHMENT_READY_RETRY_DELAYS_MS.length
+          \t\t\t) {
+          \t\t\t\tconst delay = ATTACHMENT_READY_RETRY_DELAYS_MS[attachmentRetryIndex];
+          \t\t\t\tattachmentRetryIndex += 1;
+          \t\t\t\tawait waitForAttachmentRetry(delay);
+          \t\t\t\tcontinue;
+          \t\t\t}
+          \t\t\tthrow new NodeApiError(context.getNode(), error as JsonObject);
+          \t\t}
+          \t}
+          }'''
+          request = request[:start.start()] + support + '\n' + signature + body + request[function_end:]
+          request_path.write_text(request)
+
+          # Operation routing: Punycode subscriptions, reject zero recipient, preserve NodeApiError.
+          operation_path = root / 'nodes/Max/MaxApiOperations.node.ts'
+          operation = operation_path.read_text()
+          operation = operation.replace(
+              "import { ApplicationError, NodeConnectionType, NodeOperationError } from 'n8n-workflow';",
+              "import { ApplicationError, NodeApiError, NodeConnectionType, NodeOperationError } from 'n8n-workflow';",
+          )
+          anchor = "import { MAX_API_OPERATION_PROPERTIES } from './MaxApiOperationsDescription';\n"
+          if "from './MaxUrlUtils'" not in operation:
+              operation = operation.replace(anchor, anchor + "import { toPunycodeUrl } from './MaxUrlUtils';\n", 1)
+          recipient = re.compile(r"(const recipientId = requireInt64\\([\\s\\S]*?'Recipient ID',\\s*\\);)")
+          for match in reversed(list(recipient.finditer(operation))):
+              if "recipientId === '0'" not in operation[match.end():match.end() + 500]:
+                  operation = operation[:match.end()] + """
+          \t\tif (recipientId === '0') {
+          \t\t\tthrow new ApplicationError(
+          \t\t\t\t'Recipient ID cannot be 0. Use the user, chat, or channel ID from a Max Trigger event.',
+          \t\t\t);
+          \t\t}""" + operation[match.end():]
+              break
+          subscription_start = operation.find('async function executeSubscriptionOperation')
+          subscription_end = operation.find('\nasync function', subscription_start + 10)
+          if subscription_end == -1:
+              subscription_end = operation.find('\nexport class', subscription_start)
+          subscription = operation[subscription_start:subscription_end]
+          if 'toPunycodeUrl(requireString' not in subscription:
+              match = re.search(r"const url = requireString\\(([\\s\\S]*?),\\s*'Webhook URL',\\s*\\);", subscription)
+              if not match:
+                  raise RuntimeError('Subscription URL declaration was not found')
+              subscription = subscription.replace(
+                  match.group(0),
+                  f"const url = toPunycodeUrl(requireString({match.group(1)}, 'Webhook URL'));",
+                  1,
+              )
+              operation = operation[:subscription_start] + subscription + operation[subscription_end:]
+          operation = operation.replace(
+              'if (error instanceof NodeOperationError) {\n\t\t\t\tthrow error;\n\t\t\t}',
+              'if (error instanceof NodeOperationError || error instanceof NodeApiError) {\n\t\t\t\tthrow error;\n\t\t\t}',
+          )
+          operation = operation.replace(
+              'if (error instanceof NodeOperationError) throw error;',
+              'if (error instanceof NodeOperationError || error instanceof NodeApiError) throw error;',
+          )
+          operation_path.write_text(operation)
+
+          # Existing nodes and webhook manager use the same host and URL policy.
+          webhook_path = root / 'nodes/Max/MaxWebhookManager.ts'
+          webhook = webhook_path.read_text().replace("import { URL, domainToASCII } from 'node:url';\n", '')
+          anchor = "import type { MaxSubscriptionsResponse, MaxTriggerEvent } from './MaxTriggerConfig';\n"
+          if "from './MaxUrlUtils'" not in webhook:
+              webhook = webhook.replace(anchor, anchor + "import { normalizeMaxBaseUrl, toPunycodeUrl } from './MaxUrlUtils';\n", 1)
+          match = re.search(r'function\\s+toPunycodeUrl\\s*\\(', webhook)
+          if match:
+              brace = webhook.find('{', match.end())
+              depth = 0
+              end = None
+              for index in range(brace, len(webhook)):
+                  if webhook[index] == '{': depth += 1
+                  elif webhook[index] == '}':
+                      depth -= 1
+                      if depth == 0:
+                          end = index + 1
+                          break
+              start_index = match.start()
+              doc_start = webhook.rfind('/**', 0, start_index)
+              doc_end = webhook.rfind('*/', 0, start_index)
+              if doc_start != -1 and doc_end != -1 and not webhook[doc_end + 2:start_index].strip():
+                  start_index = doc_start
+              while end < len(webhook) and webhook[end] in '\\r\\n': end += 1
+              webhook = webhook[:start_index] + webhook[end:]
+          webhook = webhook.replace(
+              "private readonly DEFAULT_BASE_URL = 'https://platform-api.max.ru';",
+              "private readonly DEFAULT_BASE_URL = 'https://platform-api2.max.ru';",
+          )
+          webhook = webhook.replace(
+              "const baseUrl = (credentials['baseUrl'] as string) || this.DEFAULT_BASE_URL;",
+              "const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl'] ?? this.DEFAULT_BASE_URL);",
+          )
+          webhook_path.write_text(webhook)
+
+          generic_path = root / 'nodes/Max/GenericFunctions.ts'
+          generic = generic_path.read_text()
+          if "from './MaxUrlUtils'" not in generic:
+              imports = list(re.finditer(r'^import[\\s\\S]*?;\\n', generic, re.M))
+              generic = generic[:imports[-1].end()] + "import { normalizeMaxBaseUrl } from './MaxUrlUtils';\n" + generic[imports[-1].end():]
+          generic = re.sub(r"const DEFAULT_MAX_BASE_URL = 'https://platform-api\\.max\\.ru';\\n", '', generic)
+          generic = generic.replace(
+              "(credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL",
+              "normalizeMaxBaseUrl(credentials['baseUrl'])",
+          )
+          generic_path.write_text(generic)
+
+          credential_path = root / 'credentials/MaxApi.credentials.ts'
+          credential = credential_path.read_text().replace(
+              "default: 'https://platform-api.max.ru',",
+              "default: 'https://platform-api2.max.ru',",
+          )
+          credential = re.sub(
+              r"baseURL:\\s*['\"]=\\{\\{\\$credentials\\.baseUrl\\}\\}['\"],",
+              "baseURL:\n\t\t\t\t\"={{$credentials.baseUrl === 'https://platform-api.max.ru' ? 'https://platform-api2.max.ru' : $credentials.baseUrl}}\",",
+              credential,
+          )
+          credential_path.write_text(credential)
+
+          # Every exposed trigger event receives a supported context and validation.
+          config_path = root / 'nodes/Max/MaxTriggerConfig.ts'
+          config = config_path.read_text()
+          if 'muted_until?: number;' not in config:
+              config = config.replace('\tmessage_id?: string;\n', '\tmessage_id?: string;\n\tpost_id?: string;\n\tmuted_until?: number;\n', 1)
+          config_path.write_text(config)
+
+          processor_path = root / 'nodes/Max/MaxEventProcessor.ts'
+          processor = processor_path.read_text()
+          process_start = processor.find('public processEventSpecificData')
+          default_position = processor.find('\n\t\t\tdefault:', process_start)
+          if 'this.processSupportedUpdate(' not in processor[process_start:default_position]:
+              cases = """
+          \t\t\tcase 'bot_stopped':
+          \t\t\tcase 'dialog_cleared':
+          \t\t\tcase 'dialog_muted':
+          \t\t\tcase 'dialog_removed':
+          \t\t\tcase 'dialog_unmuted':
+          \t\t\tcase 'comment_created':
+          \t\t\tcase 'comment_edited':
+          \t\t\tcase 'comment_removed':
+          \t\t\t\t({ data: eventSpecificData, context: eventContext } = this.processSupportedUpdate(
+          \t\t\t\t\tbodyData,
+          \t\t\t\t\teventType,
+          \t\t\t\t));
+          \t\t\t\tbreak;
+          """
+              processor = processor[:default_position] + '\n' + cases.rstrip() + processor[default_position:]
+
+          validation_start = processor.find('private validateEventPayload')
+          validation_switch = processor.find('switch (eventType)', validation_start)
+          validation_default = processor.find('\n\t\t\tdefault:', validation_switch)
+          if validation_default == -1:
+              brace = processor.find('{', validation_switch)
+              depth = 0
+              for index in range(brace, len(processor)):
+                  if processor[index] == '{': depth += 1
+                  elif processor[index] == '}':
+                      depth -= 1
+                      if depth == 0:
+                          validation_default = index
+                          break
+          if 'validateCommentRemovedEvent' not in processor[validation_switch:validation_default]:
+              cases = """
+          \t\t\tcase 'comment_created':
+          \t\t\tcase 'comment_edited':
+          \t\t\t\tthis.validateCommentMessageEvent(bodyData, errors, warnings);
+          \t\t\t\tbreak;
+
+          \t\t\tcase 'comment_removed':
+          \t\t\t\tthis.validateCommentRemovedEvent(bodyData, errors, warnings);
+          \t\t\t\tbreak;
+
+          \t\t\tcase 'bot_stopped':
+          \t\t\tcase 'dialog_cleared':
+          \t\t\tcase 'dialog_removed':
+          \t\t\tcase 'dialog_unmuted':
+          \t\t\t\tthis.validateDialogLifecycleEvent(bodyData, eventType, errors, warnings);
+          \t\t\t\tbreak;
+
+          \t\t\tcase 'dialog_muted':
+          \t\t\t\tthis.validateDialogLifecycleEvent(bodyData, eventType, errors, warnings);
+          \t\t\t\tif (bodyData.muted_until === undefined) {
+          \t\t\t\t\terrors.push({ field: 'muted_until', message: 'Missing mute expiration timestamp', severity: 'error' });
+          \t\t\t\t}
+          \t\t\t\tbreak;
+          """
+              processor = processor[:validation_default] + '\n' + cases.rstrip() + processor[validation_default:]
+
+          declaration = re.search(r'\n\t(?:public|private)?\\s*processGenericEvent\\s*\\(', processor)
+          if not declaration:
+              declaration = re.search(r'\n\tprocessGenericEvent\\s*\\(', processor)
+          if 'private processSupportedUpdate(' not in processor:
+              method = r'''
+          \tprivate processSupportedUpdate(
+          \t\tbodyData: MaxWebhookEvent,
+          \t\teventType: string,
+          \t): { data: IDataObject; context: IEventContext } {
+          \t\tconst descriptions: Record<string, string> = {
+          \t\t\tbot_stopped: 'User stopped the bot',
+          \t\t\tdialog_cleared: 'User cleared the dialog history',
+          \t\t\tdialog_muted: 'User muted the dialog',
+          \t\t\tdialog_removed: 'User removed the dialog',
+          \t\t\tdialog_unmuted: 'User unmuted the dialog',
+          \t\t\tcomment_created: 'A channel comment was created',
+          \t\t\tcomment_edited: 'A channel comment was edited',
+          \t\t\tcomment_removed: 'A channel comment was removed',
+          \t\t};
+          \t\tconst messageId = bodyData.message_id ?? bodyData.message?.message_id ?? bodyData.message?.body?.mid;
+          \t\tconst userId =
+          \t\t\tbodyData.user_id ??
+          \t\t\tbodyData.user?.user_id ??
+          \t\t\tbodyData.message?.sender?.user_id ??
+          \t\t\tbodyData.callback?.user?.user_id;
+          \t\treturn {
+          \t\t\tdata: { ...bodyData } as unknown as IDataObject,
+          \t\t\tcontext: {
+          \t\t\t\ttype: eventType,
+          \t\t\t\tdescription: descriptions[eventType] ?? 'Supported MAX update',
+          \t\t\t\tis_supported: true,
+          \t\t\t\t...(bodyData.chat_id !== undefined ? { chat_id: bodyData.chat_id } : {}),
+          \t\t\t\t...(userId !== undefined ? { user_id: userId } : {}),
+          \t\t\t\t...(messageId ? { message_id: messageId } : {}),
+          \t\t\t\t...(bodyData.post_id ? { post_id: bodyData.post_id } : {}),
+          \t\t\t\t...(bodyData.muted_until !== undefined ? { muted_until: bodyData.muted_until } : {}),
+          \t\t\t\t...(bodyData.user_locale ? { user_locale: bodyData.user_locale } : {}),
+          \t\t\t},
+          \t\t};
+          \t}
+
+          '''
+              processor = processor[:declaration.start() + 1] + method + processor[declaration.start() + 1:]
+
+          helper = re.search(r'\n\tprivate validateMessageEvent\\s*\\(', processor)
+          if 'private validateDialogLifecycleEvent(' not in processor:
+              methods = r'''
+          \tprivate validateDialogLifecycleEvent(
+          \t\tbodyData: MaxWebhookEvent,
+          \t\teventType: string,
+          \t\terrors: IEventValidationError[],
+          \t\twarnings: IEventValidationError[],
+          \t): void {
+          \t\tif (bodyData.chat_id === undefined) {
+          \t\t\terrors.push({ field: 'chat_id', message: `Missing chat ID for ${eventType}`, severity: 'error' });
+          \t\t}
+          \t\tif (!bodyData.user || bodyData.user.user_id === undefined) {
+          \t\t\twarnings.push({ field: 'user', message: `Missing user details for ${eventType}`, severity: 'warning' });
+          \t\t}
+          \t}
+
+          \tprivate validateCommentMessageEvent(
+          \t\tbodyData: MaxWebhookEvent,
+          \t\terrors: IEventValidationError[],
+          \t\twarnings: IEventValidationError[],
+          \t): void {
+          \t\tif (!bodyData.message) {
+          \t\t\terrors.push({ field: 'message', message: 'Missing comment message', severity: 'error' });
+          \t\t\treturn;
+          \t\t}
+          \t\tif (!bodyData.message.body?.mid && !bodyData.message.message_id) {
+          \t\t\twarnings.push({ field: 'message.body.mid', message: 'Missing comment ID', severity: 'warning' });
+          \t\t}
+          \t}
+
+          \tprivate validateCommentRemovedEvent(
+          \t\tbodyData: MaxWebhookEvent,
+          \t\terrors: IEventValidationError[],
+          \t\twarnings: IEventValidationError[],
+          \t): void {
+          \t\tfor (const field of ['message_id', 'chat_id', 'user_id'] as const) {
+          \t\t\tif (bodyData[field] === undefined || bodyData[field] === '') {
+          \t\t\t\terrors.push({ field, message: `Missing ${field.replaceAll('_', ' ')}`, severity: 'error' });
+          \t\t\t}
+          \t\t}
+          \t\tif (!bodyData.post_id) {
+          \t\t\twarnings.push({ field: 'post_id', message: 'Missing channel post ID', severity: 'warning' });
+          \t\t}
+          \t}
+
+          '''
+              processor = processor[:helper.start() + 1] + methods + processor[helper.start() + 1:]
+          processor_path.write_text(processor)
+
+          # Regression tests for all review findings.
+          (root / 'nodes/Max/tests/ReviewFeedback.test.ts').write_text(r'''import { readFileSync } from 'node:fs';
+          import { join } from 'node:path';
+          import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
+          import { NodeApiError, NodeOperationError } from 'n8n-workflow';
+          import { MaxApi } from '../../../credentials/MaxApi.credentials';
+          import { MaxApiOperations } from '../MaxApiOperations.node';
+          import { maxApiRequest } from '../MaxApiRequest';
+          import { MaxEventProcessor } from '../MaxEventProcessor';
+          import { normalizeMaxBaseUrl, toPunycodeUrl } from '../MaxUrlUtils';
+
+          function nodeDescription() {
+          \treturn { id: '1', name: 'Max API', type: 'n8n-nodes-max.maxApiOperations', typeVersion: 1, position: [0, 0] as [number, number], parameters: {} };
+          }
+
+          function requestContext(httpRequest: jest.Mock): IExecuteFunctions {
+          \treturn {
+          \t\tgetCredentials: jest.fn().mockResolvedValue({ accessToken: 'token', baseUrl: 'https://platform-api.max.ru' }),
+          \t\tgetNode: jest.fn().mockReturnValue(nodeDescription()),
+          \t\thelpers: { httpRequest },
+          \t} as unknown as IExecuteFunctions;
+          }
+
+          function operationContext(parameters: Record<string, unknown>, httpRequest = jest.fn().mockResolvedValue({ success: true })): IExecuteFunctions {
+          \tconst input: INodeExecutionData[] = [{ json: {} }];
+          \treturn {
+          \t\tgetInputData: jest.fn().mockReturnValue(input),
+          \t\tgetNodeParameter: jest.fn((name: string, _index: number, defaultValue?: unknown) => Object.prototype.hasOwnProperty.call(parameters, name) ? parameters[name] : defaultValue),
+          \t\tgetCredentials: jest.fn().mockResolvedValue({ accessToken: 'token', baseUrl: 'https://platform-api.max.ru' }),
+          \t\tgetNode: jest.fn().mockReturnValue(nodeDescription()),
+          \t\tcontinueOnFail: jest.fn().mockReturnValue(false),
+          \t\thelpers: {
+          \t\t\thttpRequest,
+          \t\t\treturnJsonArray: jest.fn((value: IDataObject | IDataObject[]) => (Array.isArray(value) ? value : [value]).map((json) => ({ json }))),
+          \t\t\tconstructExecutionMetaData: jest.fn((items: INodeExecutionData[]) => items),
+          \t\t},
+          \t} as unknown as IExecuteFunctions;
+          }
+
+          describe('review feedback regressions', () => {
+          \tit('normalizes official and IDN URLs', () => {
+          \t\texpect(normalizeMaxBaseUrl('https://platform-api.max.ru')).toBe('https://platform-api2.max.ru');
+          \t\texpect(normalizeMaxBaseUrl('https://custom.example/api/')).toBe('https://custom.example/api');
+          \t\texpect(toPunycodeUrl('https://пример.рф/webhook')).toBe('https://xn--e1afmkfd.xn--p1ai/webhook');
+          \t});
+
+          \tit('retries rejected Markdown once as readable plain text', async () => {
+          \t\tconst httpRequest = jest.fn().mockRejectedValueOnce({ message: 'Some Markdown syntax is not supported' }).mockResolvedValueOnce({ success: true });
+          \t\tawait expect(maxApiRequest(requestContext(httpRequest), { method: 'POST', path: '/messages', body: { text: '**bold**', format: 'markdown' } })).resolves.toEqual({ success: true });
+          \t\texpect(httpRequest).toHaveBeenCalledTimes(2);
+          \t\texpect(httpRequest.mock.calls[1][0]).toEqual(expect.objectContaining({ baseURL: 'https://platform-api2.max.ru', body: { text: 'bold' } }));
+          \t});
+
+          \tit('retries media while MAX processes an attachment', async () => {
+          \t\tjest.useFakeTimers();
+          \t\tconst httpRequest = jest.fn().mockRejectedValueOnce({ response: { body: { code: 'attachment.not.ready', message: 'errors.process.attachment.file.not.processed' } } }).mockResolvedValueOnce({ success: true });
+          \t\tconst pending = maxApiRequest(requestContext(httpRequest), { method: 'POST', path: '/messages', body: { text: 'file', attachments: [{ type: 'file', payload: { token: 'token' } }] } });
+          \t\tawait jest.runAllTimersAsync();
+          \t\tawait expect(pending).resolves.toEqual({ success: true });
+          \t\texpect(httpRequest).toHaveBeenCalledTimes(2);
+          \t\tjest.useRealTimers();
+          \t});
+
+          \tit('rejects recipient ID zero locally', async () => {
+          \t\tconst httpRequest = jest.fn();
+          \t\tconst context = operationContext({ resource: 'message', operation: 'send', sendTo: 'user', recipientId: '0', text: 'hello', format: 'plain', attachmentsJson: '', keyboard: {}, clearAttachments: false, notify: true, replyToMessageId: '', forwardMessageId: '', disableLinkPreview: false }, httpRequest);
+          \t\tawait expect(new MaxApiOperations().execute.call(context)).rejects.toBeInstanceOf(NodeOperationError);
+          \t\texpect(httpRequest).not.toHaveBeenCalled();
+          \t});
+
+          \tit('preserves NodeApiError for upstream failures', async () => {
+          \t\tconst httpRequest = jest.fn().mockRejectedValue({ response: { statusCode: 503, body: { code: 'unavailable', message: 'Try later' } } });
+          \t\tawait expect(new MaxApiOperations().execute.call(operationContext({ resource: 'bot', operation: 'get' }, httpRequest))).rejects.toBeInstanceOf(NodeApiError);
+          \t});
+
+          \tit('normalizes subscription URLs before registration', async () => {
+          \t\tconst httpRequest = jest.fn().mockResolvedValue({ success: true });
+          \t\tawait new MaxApiOperations().execute.call(operationContext({ resource: 'subscription', operation: 'create', url: 'https://пример.рф/webhook', updateTypes: ['message_created'], secret: '', version: '' }, httpRequest));
+          \t\texpect(httpRequest).toHaveBeenCalledWith(expect.objectContaining({ body: expect.objectContaining({ url: 'https://xn--e1afmkfd.xn--p1ai/webhook' }) }));
+          \t});
+
+          \tit('uses the current API host in credentials', () => {
+          \t\tconst credential = new MaxApi();
+          \t\texpect(credential.properties.find((property) => property.name === 'baseUrl')?.default).toBe('https://platform-api2.max.ru');
+          \t\texpect(credential.test.request.baseURL).toContain('platform-api2.max.ru');
+          \t});
+
+          \tit.each([
+          \t\t['bot_stopped', { chat_id: 1, user: { user_id: 2 }, user_locale: 'ru' }],
+          \t\t['dialog_cleared', { chat_id: 1, user: { user_id: 2 }, user_locale: 'ru' }],
+          \t\t['dialog_muted', { chat_id: 1, user: { user_id: 2 }, muted_until: 123 }],
+          \t\t['dialog_removed', { chat_id: 1, user: { user_id: 2 }, user_locale: 'ru' }],
+          \t\t['dialog_unmuted', { chat_id: 1, user: { user_id: 2 }, user_locale: 'ru' }],
+          \t\t['comment_created', { message: { body: { mid: 'c1', text: 'new' } } }],
+          \t\t['comment_edited', { message: { body: { mid: 'c1', text: 'edited' } } }],
+          \t\t['comment_removed', { message_id: 'c1', post_id: 'p1', chat_id: 1, user_id: 2 }],
+          \t])('marks %s as supported', (eventType, body) => {
+          \t\tconst result = new MaxEventProcessor().processEventSpecificData({ update_type: eventType, timestamp: 1, ...body } as never, eventType);
+          \t\texpect(result.event_context).toEqual(expect.objectContaining({ type: eventType, is_supported: true }));
+          \t});
+
+          \tit('documents the new API surface', () => {
+          \t\tconst projectRoot = join(__dirname, '../../..');
+          \t\texpect(readFileSync(join(projectRoot, 'README.md'), 'utf8')).toContain('Chat Administrator');
+          \t\texpect(readFileSync(join(projectRoot, 'AGENTS.md'), 'utf8')).toContain('MaxApiOperations');
+          \t\texpect(readFileSync(join(projectRoot, 'CHANGELOG.md'), 'utf8')).toContain('platform-api2.max.ru');
+          \t});
+          });
+          ''')
+
+          # User-facing documentation and release notes.
+          readme_path = root / 'README.md'
+          readme = readme_path.read_text()
+          readme_section = '''
+          ## Max API: расширенные операции
+
+          Нода **Max API** дополняет обратно совместимую ноду **Max** и предоставляет актуальные методы Bot API в интерфейсе n8n:
+
+          - **Bot** — получение данных бота и полная замена списка команд.
+          - **Message** — отправка, чтение, редактирование и удаление сообщений, получение данных видео и ответ на callback.
+          - **Chat** — получение и изменение чата или канала, действия бота, pin/unpin, членство бота и выход.
+          - **Chat Member** — получение, добавление и удаление участников.
+          - **Chat Administrator** — получение администраторов, назначение прав и снятие администратора.
+          - **Comment** — полный CRUD комментариев к постам каналов.
+          - **Subscription** — получение, создание и удаление Webhook-подписок.
+
+          Идентификаторы `int64` задаются строками, поэтому большие значения не теряют точность JavaScript. Для сложных вложений доступно поле **Attachments JSON**, а inline keyboard поддерживает актуальные кнопки MAX, включая `message`, `clipboard` и `open_app`.
+
+          Официальный endpoint по умолчанию — `https://platform-api2.max.ru`. Сохранённое старое официальное значение `https://platform-api.max.ru` мигрирует автоматически; пользовательские Base URL остаются без изменений.
+
+          Для сообщений нода сохраняет защитное поведение основной интеграции: при неподдерживаемом Markdown запрос один раз повторяется как plain text, а временная ошибка обработки медиа повторяется с ограниченной возрастающей задержкой.
+
+          `GET /chats` намеренно не представлен: с июня 2026 года метод не поддерживается API. Для production-сценариев получения событий используется **Max Trigger** и Webhook; Long Polling не добавлен как отдельная production-нода.
+          '''
+          if '## Max API: расширенные операции' not in readme:
+              readme_path.write_text(readme.rstrip() + '\n\n' + readme_section.strip() + '\n')
+
+          agents_path = root / 'AGENTS.md'
+          agents = agents_path.read_text()
+          agents_section = '''
+          ## Max API node architecture
+
+          The package publishes three user-facing nodes: the compatibility node `Max`, the webhook node `MaxTrigger`, and the extended REST node `MaxApiOperations`.
+
+          `nodes/Max/MaxApiOperations.node.ts` owns resource/operation routing. `MaxApiOperationsDescription.ts` owns n8n UI metadata. `MaxApiRequest.ts` owns transport behavior, query serialization, Markdown fallback, media-processing retries, and structured `NodeApiError` propagation. Shared URL rules live in `MaxUrlUtils.ts`.
+
+          Maintain these invariants:
+
+          - Treat every MAX `int64` identifier as a string at the n8n boundary.
+          - Normalize only the legacy official host `platform-api.max.ru` to `platform-api2.max.ru`; never rewrite a custom Base URL.
+          - Normalize Webhook hostnames to Punycode before creating or deleting a subscription.
+          - Preserve `false` and `0` query values; omit only `undefined`, `null`, and empty strings.
+          - Reject recipient ID `0` locally with actionable guidance.
+          - Retry `attachment.not.ready` responses with bounded backoff when a message contains media.
+          - Retry an unsupported Markdown response once as readable plain text.
+          - Rethrow `NodeApiError` unchanged so n8n retains the upstream status and API payload.
+          - Every event offered by `MaxTriggerConfig` must be emitted by `MaxEventProcessor` with `event_context.is_supported: true` and regression coverage.
+          - Do not commit temporary workflows that mutate or force-push the feature branch. Permanent CI runs for pull requests and pushes to `master`.
+          '''
+          if '## Max API node architecture' not in agents:
+              agents_path.write_text(agents.rstrip() + '\n\n' + agents_section.strip() + '\n')
+
+          changelog_path = root / 'CHANGELOG.md'
+          changelog = changelog_path.read_text()
+          changelog_entry = '''
+          ## [Unreleased]
+
+          ### Добавлено
+
+          - Новая нода **Max API** с актуальными операциями для бота, сообщений, чатов, участников, администраторов, комментариев и Webhook-подписок.
+          - Новые события `bot_stopped`, `dialog_*` и `comment_*` в **Max Trigger**.
+          - Кнопки `message`, `clipboard` и актуальные параметры `open_app` для inline keyboard.
+          - Контрактные и регрессионные тесты для новых методов MAX Bot API.
+
+          ### Изменено
+
+          - Официальный API endpoint переведён на `https://platform-api2.max.ru` с прозрачной миграцией сохранённого старого значения.
+          - Идентификаторы `int64` передаются строками без потери точности, а query-параметры сохраняют значения `false` и `0`.
+          - Отправка сообщений повторяется при временной обработке медиа; неподдерживаемый Markdown один раз преобразуется в plain text.
+          - Ошибки MAX сохраняются как `NodeApiError` со структурированными данными ответа.
+          '''
+          if 'Новая нода **Max API**' not in changelog:
+              if '## [Unreleased]' in changelog:
+                  position = changelog.index('## [Unreleased]') + len('## [Unreleased]')
+                  changelog = changelog[:position] + '\n' + changelog_entry.split('## [Unreleased]', 1)[1].lstrip('\n') + changelog[position:]
+              else:
+                  lines = changelog.splitlines()
+                  position = 1 if lines and lines[0].startswith('#') else 0
+                  lines[position:position] = ['', changelog_entry.strip(), '']
+                  changelog = '\n'.join(lines)
+              changelog_path.write_text(changelog)
+
+          # Permanent CI runs on PRs and master, and can be dispatched to verify the force-pushed SHA.
+          ci_path = root / '.github/workflows/ci.yml'
+          ci = ci_path.read_text()
+          ci = ci.replace('      - feature/max-api-coverage-23', '      - master')
+          ci = ci.replace('    branches: [feature/max-api-coverage-23]', '    branches: [master]')
+          if 'workflow_dispatch:' not in ci:
+              ci = ci.replace('on:\n', 'on:\n  workflow_dispatch:\n', 1)
+          ci_path.write_text(ci)
+          PY
+
+          # Remove every temporary branch-mutating workflow and migration script from the final tree.
+          mapfile -t MASTER_WORKFLOWS < <(git ls-tree -r --name-only origin/master -- .github/workflows)
+          for workflow in .github/workflows/*; do
+            [ -f "$workflow" ] || continue
+            if [ "$workflow" = '.github/workflows/ci.yml' ]; then
+              continue
+            fi
+            keep=false
+            for master_workflow in "${MASTER_WORKFLOWS[@]}"; do
+              if [ "$workflow" = "$master_workflow" ]; then keep=true; break; fi
+            done
+            if [ "$keep" = false ]; then rm -f "$workflow"; fi
+          done
+          rm -f scripts/apply-max-api-coverage.mjs \
+            scripts/finalize-pr24-v2.mjs \
+            scripts/finalize-pr24.mjs \
+            scripts/fix-max-api-lint.mjs
+
+          npm ci
+          npx prettier --write \
+            credentials/MaxApi.credentials.ts \
+            nodes/Max/GenericFunctions.ts \
+            nodes/Max/MaxApiOperations.node.ts \
+            nodes/Max/MaxApiOperationsDescription.ts \
+            nodes/Max/MaxApiRequest.ts \
+            nodes/Max/MaxEventProcessor.ts \
+            nodes/Max/MaxTriggerConfig.ts \
+            nodes/Max/MaxUrlUtils.ts \
+            nodes/Max/MaxWebhookManager.ts \
+            nodes/Max/tests/ReviewFeedback.test.ts \
+            README.md AGENTS.md CHANGELOG.md .github/workflows/ci.yml
+          npm test -- --runInBand
+          npm run build
+          npm run lint
+          npm pack --dry-run --json > /tmp/npm-pack.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = require('./package.json');
+          const result = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
+          const files = new Set(result.files.map((entry) => entry.path));
+          for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
+            if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+          }
+          NODE
+
+          git config user.name 'Pavel Frankov'
+          git config user.email 'pavel@frankov.ru'
+          git reset --soft origin/master
+          git add -A
+          git diff --cached --check
+          test -n "$(git diff --cached --name-only)"
+          git commit -m 'feat: расширить покрытие актуального MAX Bot API'
+          test "$(git rev-list --count origin/master..HEAD)" = 1
+
+          FINAL_SHA=$(git rev-parse HEAD)
+          for attempt in 1 2 3 4; do
+            git push --force origin HEAD:refs/heads/feature/max-api-coverage-23
+            sleep 30
+            REMOTE_SHA=$(git ls-remote origin refs/heads/feature/max-api-coverage-23 | cut -f1)
+            if [ "$REMOTE_SHA" = "$FINAL_SHA" ]; then
+              sleep 15
+              REMOTE_SHA=$(git ls-remote origin refs/heads/feature/max-api-coverage-23 | cut -f1)
+              if [ "$REMOTE_SHA" = "$FINAL_SHA" ]; then exit 0; fi
+            fi
+          done
+          echo 'The final branch head did not stabilize' >&2
+          exit 1
