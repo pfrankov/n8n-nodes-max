@@ -1,0 +1,77 @@
+name: Snapshot PR 24 state
+
+on:
+  push:
+    branches:
+      - automation/pr24-review-fix-squash
+    paths:
+      - .github/workflows/snapshot-pr24-state.yml
+
+permissions:
+  contents: write
+  pull-requests: read
+  statuses: read
+  checks: read
+  issues: read
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  TARGET_REPO: pfrankov/n8n-nodes-max
+  TARGET_PR: '24'
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout technical branch
+        uses: actions/checkout@v4
+        with:
+          ref: automation/pr24-review-fix-squash
+          fetch-depth: 0
+
+      - name: Collect exact GitHub state
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api "repos/$TARGET_REPO/pulls/$TARGET_PR" > /tmp/pr.json
+          head_sha=$(jq -r '.head.sha' /tmp/pr.json)
+          gh api "repos/$TARGET_REPO/commits/$head_sha/status" > /tmp/statuses.json
+          gh api "repos/$TARGET_REPO/commits/$head_sha/check-runs" \
+            -H 'Accept: application/vnd.github+json' > /tmp/checks.json
+          gh api --paginate "repos/$TARGET_REPO/issues/$TARGET_PR/comments?per_page=100" --slurp > /tmp/comment-pages.json
+          jq 'add' /tmp/comment-pages.json > /tmp/comments.json
+          gh api graphql \
+            -F owner=pfrankov \
+            -F name=n8n-nodes-max \
+            -F number=24 \
+            -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{id isResolved isOutdated path line comments(first:20){nodes{body url createdAt author{login}}}}}}}}' \
+            > /tmp/threads.json
+
+          jq -n \
+            --arg collected_at "$(date -u +%FT%TZ)" \
+            --slurpfile pr /tmp/pr.json \
+            --slurpfile statuses /tmp/statuses.json \
+            --slurpfile checks /tmp/checks.json \
+            --slurpfile comments /tmp/comments.json \
+            --slurpfile threads /tmp/threads.json \
+            '{
+              collected_at: $collected_at,
+              pr: $pr[0],
+              statuses: $statuses[0],
+              checks: $checks[0],
+              comments: $comments[0],
+              threads: $threads[0]
+            }' > PR24_STATUS.json
+
+      - name: Commit snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add PR24_STATUS.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'chore: snapshot PR 24 state'
+          git push origin HEAD:automation/pr24-review-fix-squash
