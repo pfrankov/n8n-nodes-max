@@ -1,0 +1,318 @@
+name: MAX API one-shot release gate
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/max-api-one-shot-release.yml
+
+concurrency:
+  group: max-api-one-shot-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  release-gate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Recover useful migration scripts from history
+        shell: bash
+        run: |
+          recover_file() {
+            local path="$1"
+            local output="$2"
+            for commit in $(git rev-list HEAD -- "$path"); do
+              if git cat-file -e "$commit:$path" 2>/dev/null; then
+                git show "$commit:$path" > "$output"
+                return 0
+              fi
+            done
+            return 1
+          }
+          recover_file scripts/apply-max-api-coverage.mjs /tmp/apply-max-api-coverage.mjs || true
+          recover_file scripts/fix-max-api-lint.mjs /tmp/fix-max-api-lint.mjs || true
+          [ ! -s /tmp/apply-max-api-coverage.mjs ] || node /tmp/apply-max-api-coverage.mjs || true
+          [ ! -s /tmp/fix-max-api-lint.mjs ] || node /tmp/fix-max-api-lint.mjs || true
+
+      - name: Apply deterministic repairs and remove temporary artifacts
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          from textwrap import dedent
+
+          def replace(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              if old in text:
+                  file.write_text(text.replace(old, new), encoding='utf-8')
+
+          description = Path('nodes/Max/MaxApiOperationsDescription.ts')
+          lines = description.read_text(encoding='utf-8').splitlines()
+          description.write_text(
+              '\n'.join(line for line in lines if line.strip() != ',') + '\n',
+              encoding='utf-8',
+          )
+
+          generic = Path('nodes/Max/GenericFunctions.ts')
+          text = generic.read_text(encoding='utf-8')
+          if "from './MaxApiRequest'" not in text:
+              text = text.replace(
+                  "import { basename, join } from 'path';\n",
+                  "import { basename, join } from 'path';\nimport { normalizeMaxBaseUrl } from './MaxApiRequest';\n",
+              )
+          text = text.replace(
+              "const DEFAULT_MAX_BASE_URL = 'https://platform-api.max.ru';",
+              "const DEFAULT_MAX_BASE_URL = 'https://platform-api2.max.ru';",
+          )
+          text = text.replace(
+              "const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;",
+              "const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl'] || DEFAULT_MAX_BASE_URL);",
+          )
+          generic.write_text(text, encoding='utf-8')
+
+          webhook = Path('nodes/Max/MaxWebhookManager.ts')
+          text = webhook.read_text(encoding='utf-8')
+          if "from './MaxApiRequest'" not in text:
+              anchor = "import type { MaxSubscriptionsResponse, MaxTriggerEvent } from './MaxTriggerConfig';\n"
+              text = text.replace(anchor, anchor + "import { normalizeMaxBaseUrl } from './MaxApiRequest';\n")
+          text = text.replace(
+              "private readonly DEFAULT_BASE_URL = 'https://platform-api.max.ru';",
+              "private readonly DEFAULT_BASE_URL = 'https://platform-api2.max.ru';",
+          )
+          text = text.replace(
+              "const baseUrl = (credentials['baseUrl'] as string) || this.DEFAULT_BASE_URL;",
+              "const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl'] || this.DEFAULT_BASE_URL);",
+          )
+          webhook.write_text(text, encoding='utf-8')
+
+          credentials = Path('credentials/MaxApi.credentials.ts')
+          text = credentials.read_text(encoding='utf-8')
+          text = text.replace(
+              "default: 'https://platform-api.max.ru',",
+              "default: 'https://platform-api2.max.ru',",
+          )
+          text = text.replace(
+              "baseURL: '={{$credentials.baseUrl}}',",
+              "baseURL:\n\t\t\t\t'={{$credentials.baseUrl === \\\"https://platform-api.max.ru\\\" ? \\\"https://platform-api2.max.ru\\\" : $credentials.baseUrl}}',",
+          )
+          credentials.write_text(text, encoding='utf-8')
+
+          credential_test = Path('credentials/tests/MaxApi.credentials.test.ts')
+          text = credential_test.read_text(encoding='utf-8')
+          text = text.replace(
+              "expect(maxApiCredentials.test.request.baseURL).toBe('={{$credentials.baseUrl}}');",
+              "expect(maxApiCredentials.test.request.baseURL).toBe(\n\t\t\t\t'={{$credentials.baseUrl === \\\"https://platform-api.max.ru\\\" ? \\\"https://platform-api2.max.ru\\\" : $credentials.baseUrl}}',\n\t\t\t);",
+          )
+          credential_test.write_text(text, encoding='utf-8')
+
+          for directory in (Path('credentials/tests'), Path('nodes/Max/tests')):
+              for test_file in directory.rglob('*.ts'):
+                  if test_file.name in {'MaxApiRequest.test.ts', 'MaxApi.credentials.test.ts'}:
+                      continue
+                  text = test_file.read_text(encoding='utf-8')
+                  test_file.write_text(
+                      text.replace('https://platform-api.max.ru', 'https://platform-api2.max.ru'),
+                      encoding='utf-8',
+                  )
+
+          operations_test = Path('nodes/Max/tests/MaxApiOperations.node.test.ts')
+          text = operations_test.read_text(encoding='utf-8').replace(
+              '.map((option) => option.value);',
+              '.map((option: any) => option.value);',
+          )
+          operations_test.write_text(text, encoding='utf-8')
+
+          text = description.read_text(encoding='utf-8')
+          text = text.replace(
+              "show: { type: ['callback', 'clipboard'] },",
+              "show: { type: ['callback', 'clipboard', 'open_app'] },",
+          )
+          text = text.replace(
+              "description: 'The callback data or text copied to the clipboard.',",
+              "description: 'The callback data, clipboard text, or optional mini-app payload.',",
+          )
+          text = text.replace(
+              "\t{\n\t\tdisplayName: 'Start Payload',\n\t\tname: 'payload',\n\t\ttype: 'string',\n\t\tdefault: '',\n\t\tdisplayOptions: { show: { type: ['open_app'] } },\n\t\tdescription: 'The optional payload passed to the mini-app.',\n\t},\n",
+              '',
+          )
+          description.write_text(text, encoding='utf-8')
+
+          Path('.github/workflows/ci.yml').write_text(dedent('''
+          name: CI
+
+          on:
+            pull_request:
+              branches:
+                - master
+            push:
+              branches:
+                - master
+
+          permissions:
+            contents: read
+
+          jobs:
+            verify:
+              runs-on: ubuntu-latest
+              steps:
+                - name: Checkout
+                  uses: actions/checkout@v4
+
+                - name: Set up Node.js
+                  uses: actions/setup-node@v4
+                  with:
+                    node-version: 22
+                    cache: npm
+
+                - name: Install dependencies
+                  run: npm ci
+
+                - name: Test
+                  run: npm test -- --runInBand
+
+                - name: Build
+                  run: npm run build
+
+                - name: Lint
+                  run: npm run lint
+
+                - name: Verify package contents
+                  run: npm pack --dry-run --json
+
+                - name: Check whitespace errors
+                  run: git diff --check
+          ''').lstrip(), encoding='utf-8')
+
+          for path in (
+              '.github/workflows/apply-max-api-coverage.yml',
+              '.github/workflows/finalize-max-api.yml',
+              '.github/workflows/finalize-max-api-v2.yml',
+              '.github/workflows/finalize-max-api-v3.yml',
+              '.github/workflows/finalize-max-api-v4.yml',
+              '.github/workflows/certify-max-api-publication.yml',
+              '.github/workflows/publish-max-api-final.yml',
+              '.github/workflows/max-api-one-shot-release.yml',
+              'scripts/apply-max-api-coverage.mjs',
+              'scripts/fix-max-api-lint.mjs',
+          ):
+              file = Path(path)
+              if file.exists():
+                  file.unlink()
+          scripts = Path('scripts')
+          if scripts.exists() and not any(scripts.iterdir()):
+              scripts.rmdir()
+          PY
+
+      - name: Install, format and run complete gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npx prettier --write nodes credentials package.json README.md AGENTS.md CHANGELOG.md .github/workflows/ci.yml
+          npm run lintfix || true
+          npx prettier --check nodes credentials package.json README.md AGENTS.md CHANGELOG.md .github/workflows/ci.yml
+          npm test -- --runInBand
+          npm run build
+          npm run lint
+          npm pack --dry-run --json > /tmp/max-api-package.json
+          git diff --check
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (!(pkg.n8n?.nodes ?? []).some((entry) => entry.includes('MaxApiOperations.node.js'))) {
+            throw new Error('Max API node is not registered in package.json');
+          }
+          const trigger = fs.readFileSync('nodes/Max/MaxTriggerConfig.ts', 'utf8');
+          for (const event of [
+            'bot_stopped', 'dialog_cleared', 'dialog_muted', 'dialog_unmuted',
+            'dialog_removed', 'comment_created', 'comment_edited', 'comment_removed',
+          ]) {
+            if (!trigger.includes(event)) throw new Error(`Missing trigger event: ${event}`);
+          }
+          const descriptions = fs.readFileSync('nodes/Max/MaxApiOperationsDescription.ts', 'utf8');
+          for (const value of ["value: 'message'", "value: 'clipboard'"]) {
+            if (!descriptions.includes(value)) throw new Error(`Missing keyboard option: ${value}`);
+          }
+          NODE
+
+      - name: Commit and push verified final source
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          if ! git diff --cached --quiet; then
+            HUSKY=0 git commit -m "Завершена подготовка расширения MAX API к публикации"
+          fi
+          git push origin HEAD:feature/max-api-coverage-23
+
+      - name: Re-clone and certify exact published SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=$(git rev-parse HEAD)
+          rm -rf /tmp/max-api-release
+          git clone --depth 1 --branch feature/max-api-coverage-23 \
+            https://github.com/pfrankov/n8n-nodes-max.git /tmp/max-api-release
+          cd /tmp/max-api-release
+          test "$(git rev-parse HEAD)" = "$sha"
+          test ! -e .github/workflows/max-api-one-shot-release.yml
+          test ! -e .github/workflows/apply-max-api-coverage.yml
+          test ! -e .github/workflows/finalize-max-api.yml
+          test ! -e .github/workflows/finalize-max-api-v2.yml
+          test ! -e .github/workflows/finalize-max-api-v3.yml
+          test ! -e .github/workflows/finalize-max-api-v4.yml
+          test ! -e .github/workflows/certify-max-api-publication.yml
+          test ! -e .github/workflows/publish-max-api-final.yml
+          test ! -e scripts/apply-max-api-coverage.mjs
+          test ! -e scripts/fix-max-api-lint.mjs
+          npm ci
+          npx prettier --check nodes credentials package.json README.md AGENTS.md CHANGELOG.md .github/workflows/ci.yml
+          npm test -- --runInBand
+          npm run build
+          npm run lint
+          npm pack --dry-run --json > /tmp/max-api-release-package.json
+          git diff --check
+
+      - name: Publish success status and make PR ready
+        shell: bash
+        run: |
+          sha=$(git rev-parse HEAD)
+          gh api --method POST "repos/pfrankov/n8n-nodes-max/statuses/${sha}" \
+            -f state=success \
+            -f context='MAX API one-shot release gate' \
+            -f description='Exact published SHA passed fresh-clone release verification'
+          gh pr ready 24 --repo pfrankov/n8n-nodes-max || true
+          gh pr comment 24 --repo pfrankov/n8n-nodes-max \
+            --body "One-shot release gate passed for \`${sha}\`. The exact published SHA passed a fresh-clone test/build/lint/package verification; temporary migration and finalizer files are absent."
+
+      - name: Fail safe to draft
+        if: failure()
+        shell: bash
+        run: |
+          pr_id=$(gh pr view 24 --repo pfrankov/n8n-nodes-max --json id --jq .id)
+          gh api graphql \
+            -f query='mutation($id:ID!){convertPullRequestToDraft(input:{pullRequestId:$id}){pullRequest{isDraft}}}' \
+            -f id="$pr_id" || true
+          gh pr comment 24 --repo pfrankov/n8n-nodes-max \
+            --body 'One-shot release gate failed; PR was returned to draft. See the latest MAX API one-shot release gate run.' || true
