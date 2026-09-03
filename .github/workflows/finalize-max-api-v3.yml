@@ -1,0 +1,262 @@
+name: Finalize MAX API PR v3
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/finalize-max-api-v3.yml
+
+permissions:
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply original migration fixes when still present
+        shell: bash
+        run: |
+          if [ -f scripts/apply-max-api-coverage.mjs ]; then
+            node scripts/apply-max-api-coverage.mjs
+          fi
+          if [ -f scripts/fix-max-api-lint.mjs ]; then
+            node scripts/fix-max-api-lint.mjs
+          fi
+
+      - name: Repair migration defects and finalize tree
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          from textwrap import dedent
+
+          def read(path: str) -> str:
+              return Path(path).read_text(encoding='utf-8')
+
+          def write(path: str, content: str) -> None:
+              Path(path).write_text(content, encoding='utf-8')
+
+          description = Path('nodes/Max/MaxApiOperationsDescription.ts')
+          lines = description.read_text(encoding='utf-8').splitlines()
+          description.write_text(
+              '\n'.join(line for line in lines if line.strip() != ',') + '\n',
+              encoding='utf-8',
+          )
+
+          generic = 'nodes/Max/GenericFunctions.ts'
+          text = read(generic)
+          if "from './MaxApiRequest'" not in text:
+              text = text.replace(
+                  "import { basename, join } from 'path';\n",
+                  "import { basename, join } from 'path';\nimport { normalizeMaxBaseUrl } from './MaxApiRequest';\n",
+              )
+          text = text.replace(
+              "const DEFAULT_MAX_BASE_URL = 'https://platform-api.max.ru';",
+              "const DEFAULT_MAX_BASE_URL = 'https://platform-api2.max.ru';",
+          )
+          text = text.replace(
+              "const baseUrl = (credentials['baseUrl'] as string) || DEFAULT_MAX_BASE_URL;",
+              "const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl'] || DEFAULT_MAX_BASE_URL);",
+          )
+          write(generic, text)
+
+          webhook = 'nodes/Max/MaxWebhookManager.ts'
+          text = read(webhook)
+          if "from './MaxApiRequest'" not in text:
+              anchor = "import type { MaxSubscriptionsResponse, MaxTriggerEvent } from './MaxTriggerConfig';\n"
+              text = text.replace(anchor, anchor + "import { normalizeMaxBaseUrl } from './MaxApiRequest';\n")
+          text = text.replace(
+              "private readonly DEFAULT_BASE_URL = 'https://platform-api.max.ru';",
+              "private readonly DEFAULT_BASE_URL = 'https://platform-api2.max.ru';",
+          )
+          text = text.replace(
+              "const baseUrl = (credentials['baseUrl'] as string) || this.DEFAULT_BASE_URL;",
+              "const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl'] || this.DEFAULT_BASE_URL);",
+          )
+          write(webhook, text)
+
+          credentials = 'credentials/MaxApi.credentials.ts'
+          text = read(credentials)
+          text = text.replace(
+              "default: 'https://platform-api.max.ru',",
+              "default: 'https://platform-api2.max.ru',",
+          )
+          text = text.replace(
+              "baseURL: '={{$credentials.baseUrl}}',",
+              "baseURL:\n\t\t\t\t'={{$credentials.baseUrl === \\\"https://platform-api.max.ru\\\" ? \\\"https://platform-api2.max.ru\\\" : $credentials.baseUrl}}',",
+          )
+          write(credentials, text)
+
+          credential_test = 'credentials/tests/MaxApi.credentials.test.ts'
+          text = read(credential_test)
+          text = text.replace(
+              "expect(maxApiCredentials.test.request.baseURL).toBe('={{$credentials.baseUrl}}');",
+              "expect(maxApiCredentials.test.request.baseURL).toBe(\n\t\t\t\t'={{$credentials.baseUrl === \\\"https://platform-api.max.ru\\\" ? \\\"https://platform-api2.max.ru\\\" : $credentials.baseUrl}}',\n\t\t\t);",
+          )
+          write(credential_test, text)
+
+          for directory in (Path('credentials/tests'), Path('nodes/Max/tests')):
+              for test_file in directory.rglob('*.ts'):
+                  if test_file.as_posix().endswith('MaxApiRequest.test.ts') or test_file.as_posix().endswith('MaxApi.credentials.test.ts'):
+                      continue
+                  text = test_file.read_text(encoding='utf-8')
+                  test_file.write_text(
+                      text.replace('https://platform-api.max.ru', 'https://platform-api2.max.ru'),
+                      encoding='utf-8',
+                  )
+
+          operations_test = 'nodes/Max/tests/MaxApiOperations.node.test.ts'
+          text = read(operations_test).replace(
+              '.map((option) => option.value);',
+              '.map((option: any) => option.value);',
+          )
+          write(operations_test, text)
+
+          operations_description = 'nodes/Max/MaxApiOperationsDescription.ts'
+          text = read(operations_description)
+          text = text.replace(
+              "show: { type: ['callback', 'clipboard'] },",
+              "show: { type: ['callback', 'clipboard', 'open_app'] },",
+          )
+          text = text.replace(
+              "description: 'The callback data or text copied to the clipboard.',",
+              "description: 'The callback data, clipboard text, or optional mini-app payload.',",
+          )
+          text = text.replace(
+              "\t{\n\t\tdisplayName: 'Start Payload',\n\t\tname: 'payload',\n\t\ttype: 'string',\n\t\tdefault: '',\n\t\tdisplayOptions: { show: { type: ['open_app'] } },\n\t\tdescription: 'The optional payload passed to the mini-app.',\n\t},\n",
+              '',
+          )
+          write(operations_description, text)
+
+          for path in ('README.md', 'AGENTS.md'):
+              file = Path(path)
+              if file.exists():
+                  file.write_text(
+                      file.read_text(encoding='utf-8').replace(
+                          'https://platform-api.max.ru',
+                          'https://platform-api2.max.ru',
+                      ),
+                      encoding='utf-8',
+                  )
+
+          readme = Path('README.md')
+          if readme.exists():
+              text = readme.read_text(encoding='utf-8')
+              if '## Advanced MAX API operations' not in text:
+                  text += dedent('''
+
+                  ## Advanced MAX API operations
+
+                  Use **Max API** for current operations that do not fit the compact legacy node:
+
+                  - bot information and command management;
+                  - message history, individual messages, video metadata, advanced callback answers, and current inline keyboard buttons;
+                  - chat updates, actions, pinned messages, bot membership, members, and administrators;
+                  - channel comments and explicit webhook subscription management.
+
+                  Existing workflows using **Max** and **Max Trigger** remain compatible. **Max Trigger** also exposes the current bot, dialog, and comment update types. The removed `GET /chats` method and Long Polling are intentionally not exposed: MAX marks chat listing as unsupported and recommends Webhook instead of Long Polling for production.
+                  ''')
+                  readme.write_text(text, encoding='utf-8')
+
+          agents = Path('AGENTS.md')
+          if agents.exists():
+              text = agents.read_text(encoding='utf-8')
+              if '`Max API` node' not in text:
+                  text = text.replace(
+                      '| `Max` node           | Outbound actions for messages/chats                        |',
+                      '| `Max` node           | Backward-compatible core message/chat actions              |\n| `Max API` node       | Current Bot API resources and advanced operations           |',
+                  )
+                  agents.write_text(text, encoding='utf-8')
+
+          changelog = Path('CHANGELOG.md')
+          if changelog.exists():
+              text = changelog.read_text(encoding='utf-8')
+              if 'Расширено покрытие актуального MAX Bot API' not in text:
+                  entry = dedent('''
+                  ## Не выпущено
+
+                  ### Добавлено
+
+                  - Расширено покрытие актуального MAX Bot API: команды бота, чтение сообщений, сведения о видео, управление чатами, участниками и администраторами, комментарии и подписки Webhook.
+                  - В inline-клавиатуру добавлены кнопки типов `message` и `clipboard`.
+                  - В Max Trigger добавлены события остановки бота, изменений диалога и комментариев.
+
+                  ### Улучшено
+
+                  - Запросы по умолчанию направляются на актуальный домен `platform-api2.max.ru`; сохранённые настройки со старым официальным доменом переводятся автоматически.
+                  - Идентификаторы `int64` передаются строками без риска потери точности JavaScript.
+
+                  ''').lstrip()
+                  changelog.write_text(entry + text, encoding='utf-8')
+
+          for path in (
+              '.github/workflows/apply-max-api-coverage.yml',
+              '.github/workflows/finalize-max-api.yml',
+              '.github/workflows/finalize-max-api-v2.yml',
+              '.github/workflows/finalize-max-api-v3.yml',
+              'scripts/apply-max-api-coverage.mjs',
+              'scripts/fix-max-api-lint.mjs',
+          ):
+              file = Path(path)
+              if file.exists():
+                  file.unlink()
+          scripts = Path('scripts')
+          if scripts.exists() and not any(scripts.iterdir()):
+              scripts.rmdir()
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format and apply safe lint fixes
+        shell: bash
+        run: |
+          npx prettier --write nodes credentials package.json README.md AGENTS.md CHANGELOG.md .github/workflows/ci.yml
+          npm run lintfix || true
+
+      - name: Strict release gate
+        shell: bash
+        run: |
+          npx prettier --check nodes credentials package.json README.md AGENTS.md CHANGELOG.md .github/workflows/ci.yml
+          npm test -- --runInBand
+          npm run build
+          npm run lint
+          npm pack --dry-run --json > /tmp/npm-pack.json
+          git diff --check
+
+      - name: Commit verified tree
+        shell: bash
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          if ! git diff --cached --quiet; then
+            HUSKY=0 git commit -m "Доведено покрытие MAX API до готового состояния"
+            git push origin HEAD:feature/max-api-coverage-23
+          fi
+
+      - name: Set final SHA status and mark PR ready
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          sha=$(git rev-parse HEAD)
+          gh api --method POST "repos/pfrankov/n8n-nodes-max/statuses/${sha}" \
+            -f state=success \
+            -f context='MAX API final verification' \
+            -f description='Tests, build, lint, package and diff checks passed'
+          gh pr ready 24 --repo pfrankov/n8n-nodes-max || true
