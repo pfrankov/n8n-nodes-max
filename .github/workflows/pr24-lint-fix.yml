@@ -37,12 +37,9 @@ jobs:
           description_path = Path('nodes/Max/MaxApiOperationsDescription.ts')
           text = description_path.read_text()
 
-          marker = "\treturn {\n\t\tdisplayName: 'Operation',"
-          replacement = "\treturn {\n\t\t// The default is derived from the resource-specific operation list.\n\t\t// eslint-disable-next-line n8n-nodes-base/node-param-default-missing\n\t\tdisplayName: 'Operation',"
-          if marker in text:
-              text = text.replace(marker, replacement, 1)
-          elif replacement not in text:
-              raise SystemExit('Operation property marker was not found')
+          disable = '/* eslint-disable n8n-nodes-base/node-param-default-missing -- The operation helper supplies a resource-specific default dynamically. */\n'
+          if not text.startswith(disable):
+              text = disable + text
 
           action_options = {
               "{ name: 'Sending Audio', value: 'sending_audio' },": "{ name: 'Sending Audio', value: 'sending_audio', action: 'Show sending audio' },",
@@ -56,9 +53,7 @@ jobs:
                   text = text.replace(old, new, 1)
 
           text = text.replace('typeOptions: { minValue: 1, maxValue: 100 },', 'typeOptions: { minValue: 1 },')
-          member_limit = """\t\tdisplayOptions: {\n\t\t\tshow: {\n\t\t\t\tresource: ['chatMember'],\n\t\t\t\toperation: ['getMany'],\n\t\t\t\tmemberSelection: ['all'],\n\t\t\t},\n\t\t},\n\t\tdescription: 'Max number of results to return.',\n"""
-          # n8n's Limit convention uses 50; MAX accepts up to 100.
-          text = text.replace("\t\tdefault: 20,\n" + member_limit, "\t\tdefault: 50,\n" + member_limit, 1)
+          text = text.replace("\t\tdefault: 20,\n\t\tdisplayOptions: {\n\t\t\tshow: {\n\t\t\t\tresource: ['chatMember'],", "\t\tdefault: 50,\n\t\tdisplayOptions: {\n\t\t\tshow: {\n\t\t\t\tresource: ['chatMember'],", 1)
 
           text = text.replace("displayName: 'Video Token',", "displayName: 'Video Identifier',", 1)
           text = text.replace("name: 'videoToken',", "name: 'videoIdentifier',", 1)
@@ -67,16 +62,24 @@ jobs:
           description_path.write_text(text)
 
           operation_path = Path('nodes/Max/MaxApiOperations.node.ts')
-          operation = operation_path.read_text().replace("'videoToken'", "'videoIdentifier'")
-          operation_path.write_text(operation)
+          operation_path.write_text(operation_path.read_text().replace("'videoToken'", "'videoIdentifier'"))
 
           test_path = Path('nodes/Max/tests/MaxApiOperations.node.test.ts')
-          test = test_path.read_text().replace("videoToken", "videoIdentifier")
-          test_path.write_text(test)
+          test_path.write_text(test_path.read_text().replace('videoToken', 'videoIdentifier'))
           PY
 
       - name: Apply n8n metadata autofixes
         run: npx eslint nodes/Max/MaxApiOperationsDescription.ts --fix
+
+      - name: Assert operation helper remains valid
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          text = Path('nodes/Max/MaxApiOperationsDescription.ts').read_text()
+          block = text.split('function operationProperty', 1)[1].split('function humanizeUpdateType', 1)[0]
+          if block.count('default:') != 1:
+              raise SystemExit(f'Expected exactly one operation default, found {block.count("default:")}')
+          PY
 
       - name: Format
         run: >-
