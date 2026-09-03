@@ -1,0 +1,31 @@
+name: Export PR source
+
+on:
+  push:
+    branches:
+      - feature/max-api-coverage-23
+    paths:
+      - .github/workflows/export-pr-source.yml
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Pack source
+        run: tar --exclude=.git --exclude=node_modules -czf /tmp/n8n-nodes-max-source.tgz .
+
+      - name: Upload source
+        uses: actions/upload-artifact@v4
+        with:
+          name: n8n-nodes-max-source
+          path: /tmp/n8n-nodes-max-source.tgz
+          if-no-files-found: error
+          retention-days: 1
