@@ -1,0 +1,204 @@
+name: Verify PR 24 final state v3
+
+on:
+  push:
+    branches:
+      - automation/pr24-review-fix-squash
+    paths:
+      - .github/workflows/verify-pr24-final-v3.yml
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+  statuses: write
+
+concurrency:
+  group: verify-pr24-final-state-v3
+  cancel-in-progress: true
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  TARGET_REPO: pfrankov/n8n-nodes-max
+  TARGET_PR: '24'
+  TARGET_BRANCH: feature/max-api-coverage-23
+
+jobs:
+  verify-node-20:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read current head
+        id: head
+        run: echo "sha=$(gh api repos/$TARGET_REPO/pulls/$TARGET_PR --jq .head.sha)" >> "$GITHUB_OUTPUT"
+      - name: Mark pending
+        run: gh api -X POST repos/$TARGET_REPO/statuses/${{ steps.head.outputs.sha }} -f state=pending -f context='PR24 final / Node 20' -f description='Verification is running'
+      - name: Checkout current PR head
+        uses: actions/checkout@v4
+        with:
+          repository: pfrankov/n8n-nodes-max
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+      - name: Pin checked-out SHA
+        run: test "$(git rev-parse HEAD)" = "${{ steps.head.outputs.sha }}"
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.15.1
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Test
+        run: npm test -- --runInBand
+      - name: Build
+        run: npm run build
+      - name: Lint
+        run: npm run lint
+      - name: Package
+        run: |
+          npm pack --dry-run --json > /tmp/npm-pack.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = require('./package.json');
+          const result = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
+          const files = new Set(result.files.map(({ path }) => path));
+          for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
+            if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+          }
+          NODE
+          git diff --check
+      - name: Mark success
+        if: success()
+        run: gh api -X POST repos/$TARGET_REPO/statuses/${{ steps.head.outputs.sha }} -f state=success -f context='PR24 final / Node 20' -f description='Tests, build, lint and package passed'
+      - name: Mark failure
+        if: failure()
+        run: gh api -X POST repos/$TARGET_REPO/statuses/${{ steps.head.outputs.sha }} -f state=failure -f context='PR24 final / Node 20' -f description='Verification failed'
+
+  verify-node-22:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read current head
+        id: head
+        run: echo "sha=$(gh api repos/$TARGET_REPO/pulls/$TARGET_PR --jq .head.sha)" >> "$GITHUB_OUTPUT"
+      - name: Mark pending
+        run: gh api -X POST repos/$TARGET_REPO/statuses/${{ steps.head.outputs.sha }} -f state=pending -f context='PR24 final / Node 22' -f description='Verification is running'
+      - name: Checkout current PR head
+        uses: actions/checkout@v4
+        with:
+          repository: pfrankov/n8n-nodes-max
+          ref: feature/max-api-coverage-23
+          fetch-depth: 0
+      - name: Pin checked-out SHA
+        run: test "$(git rev-parse HEAD)" = "${{ steps.head.outputs.sha }}"
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Test
+        run: npm test -- --runInBand
+      - name: Build
+        run: npm run build
+      - name: Lint
+        run: npm run lint
+      - name: Package
+        run: |
+          npm pack --dry-run --json > /tmp/npm-pack.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const manifest = require('./package.json');
+          const result = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
+          const files = new Set(result.files.map(({ path }) => path));
+          for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
+            if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+          }
+          NODE
+          git diff --check
+      - name: Mark success
+        if: success()
+        run: gh api -X POST repos/$TARGET_REPO/statuses/${{ steps.head.outputs.sha }} -f state=success -f context='PR24 final / Node 22' -f description='Tests, build, lint and package passed'
+      - name: Mark failure
+        if: failure()
+        run: gh api -X POST repos/$TARGET_REPO/statuses/${{ steps.head.outputs.sha }} -f state=failure -f context='PR24 final / Node 22' -f description='Verification failed'
+
+  final-gate:
+    runs-on: ubuntu-latest
+    needs:
+      - verify-node-20
+      - verify-node-22
+    if: always()
+    steps:
+      - name: Require runtime gates and exactly one commit
+        id: state
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=$(gh api repos/$TARGET_REPO/pulls/$TARGET_PR --jq .head.sha)
+          commits=$(gh api repos/$TARGET_REPO/pulls/$TARGET_PR --jq .commits)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "commits=$commits" >> "$GITHUB_OUTPUT"
+          gh api -X POST repos/$TARGET_REPO/statuses/$sha -f state=pending -f context='PR24 final / readiness' -f description='Waiting for fresh Codex review'
+          test "${{ needs.verify-node-20.result }}" = success
+          test "${{ needs.verify-node-22.result }}" = success
+          test "$commits" = '1'
+
+      - name: Wait for fresh Codex review on exact head
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha='${{ steps.state.outputs.sha }}'
+          short=${sha:0:7}
+          for attempt in $(seq 1 80); do
+            test "$(gh api repos/$TARGET_REPO/pulls/$TARGET_PR --jq .head.sha)" = "$sha"
+            gh api --paginate "repos/$TARGET_REPO/issues/$TARGET_PR/comments?per_page=100" --slurp > /tmp/comments.json
+            body=$(jq -r 'add | map(select(.body | contains("codex-pull-request-review-summary"))) | last | .body // ""' /tmp/comments.json)
+            if printf '%s' "$body" | grep -q "$short" && printf '%s' "$body" | grep -q 'Completed'; then
+              exit 0
+            fi
+            sleep 15
+          done
+          exit 1
+
+      - name: Resolve superseded threads and reject current findings
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api graphql \
+            -F owner=pfrankov \
+            -F name=n8n-nodes-max \
+            -F number=24 \
+            -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{id isResolved isOutdated path comments(first:20){nodes{body url author{login}}}}}}}}' \
+            > /tmp/threads.json
+          for thread in \
+            PRRT_kwDOPNHPes6e6P4z PRRT_kwDOPNHPes6e6P43 PRRT_kwDOPNHPes6e6P45 \
+            PRRT_kwDOPNHPes6e6P4_ PRRT_kwDOPNHPes6e6P5E PRRT_kwDOPNHPes6e6P5L \
+            PRRT_kwDOPNHPes6e6P5O PRRT_kwDOPNHPes6e7mY1 PRRT_kwDOPNHPes6e7mY6 \
+            PRRT_kwDOPNHPes6e7mZC; do
+            resolved=$(jq -r --arg id "$thread" '.data.repository.pullRequest.reviewThreads.nodes[] | select(.id == $id) | .isResolved' /tmp/threads.json)
+            if [ "$resolved" = false ]; then
+              gh api graphql -F thread="$thread" -f query='mutation($thread:ID!){resolveReviewThread(input:{threadId:$thread}){thread{isResolved}}}' >/dev/null
+            fi
+          done
+          gh api graphql \
+            -F owner=pfrankov \
+            -F name=n8n-nodes-max \
+            -F number=24 \
+            -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{id isResolved isOutdated path comments(first:20){nodes{body url author{login}}}}}}}}' \
+            > /tmp/threads-after.json
+          jq -r '.data.repository.pullRequest.reviewThreads.nodes[] | select((.isResolved|not) and (.isOutdated|not)) | [.path, (.comments.nodes[-1].body // ""), (.comments.nodes[-1].url // "")] | @tsv' /tmp/threads-after.json > /tmp/unresolved.tsv
+          test ! -s /tmp/unresolved.tsv
+
+      - name: Mark final readiness successful
+        if: success()
+        run: |
+          sha='${{ steps.state.outputs.sha }}'
+          gh api -X POST repos/$TARGET_REPO/statuses/$sha -f state=success -f context='PR24 final / readiness' -f description='One commit, Node 20/22 green, Codex complete, no findings'
+          gh api -X POST repos/$TARGET_REPO/issues/$TARGET_PR/comments -f body="FINAL_READY_VERIFIED_V3: head $sha contains exactly one commit; Node 20 and Node 22 gates passed; fresh Codex review completed; no unresolved current-diff findings remain."
+
+      - name: Mark final readiness failed
+        if: failure()
+        run: |
+          sha='${{ steps.state.outputs.sha }}'
+          gh api -X POST repos/$TARGET_REPO/statuses/$sha -f state=failure -f context='PR24 final / readiness' -f description='A final readiness gate failed'
+          gh api -X POST repos/$TARGET_REPO/issues/$TARGET_PR/comments -f body="FINAL_READY_V3_FAILED for head $sha. Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}."
