@@ -1,0 +1,48 @@
+name: Export current PR 24 tree
+
+on:
+  push:
+    branches:
+      - automation/pr24-current-export
+    paths:
+      - .github/workflows/export-pr24-current.yml
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout helper branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Archive source and dependencies
+        run: |
+          tar --exclude=.git --exclude=node_modules --exclude=dist -czf /tmp/pr24-source.tar.gz .
+          tar -czf /tmp/pr24-node-modules.tar.gz node_modules
+
+      - name: Upload source
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr24-current-source
+          path: /tmp/pr24-source.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Upload dependencies
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr24-current-node-modules
+          path: /tmp/pr24-node-modules.tar.gz
+          retention-days: 1
+          if-no-files-found: error
