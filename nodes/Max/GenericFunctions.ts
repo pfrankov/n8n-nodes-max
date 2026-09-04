@@ -353,7 +353,7 @@ export async function sendMessage(
 	this: IExecuteFunctions,
 	_bot: Bot,
 	recipientType: 'user' | 'chat',
-	recipientId: number,
+	recipientId: string | number,
 	text: string,
 	options: IDataObject = {},
 ): Promise<any> {
@@ -994,7 +994,7 @@ export async function handleMaxApiError(
  */
 export function validateInputParameters(
 	recipientType: 'user' | 'chat',
-	recipientId: number,
+	recipientId: string | number,
 	text: string,
 	format?: string,
 	validationOptions: {
@@ -1002,7 +1002,7 @@ export function validateInputParameters(
 	} = {},
 ): void {
 	// Validate recipient ID
-	if (recipientId === undefined || recipientId === null || isNaN(recipientId)) {
+	if (recipientId === undefined || recipientId === null || Number.isNaN(Number(recipientId))) {
 		throw new Error(`Invalid ${recipientType} ID: must be a number`);
 	}
 
@@ -1074,7 +1074,15 @@ export interface IMaxAttachment {
  */
 export interface IMaxKeyboardButton {
 	text: string;
-	type: 'callback' | 'link' | 'open_app' | 'request_contact' | 'request_geo_location' | 'chat';
+	type:
+		| 'callback'
+		| 'chat'
+		| 'clipboard'
+		| 'link'
+		| 'message'
+		| 'open_app'
+		| 'request_contact'
+		| 'request_geo_location';
 	payload?: string;
 	url?: string;
 	chat_title?: string;
@@ -1602,7 +1610,15 @@ const KEYBOARD_LIMITS = {
  */
 export interface IButtonConfig {
 	text: string;
-	type: 'callback' | 'link' | 'open_app' | 'request_contact' | 'request_geo_location' | 'chat';
+	type:
+		| 'callback'
+		| 'chat'
+		| 'clipboard'
+		| 'link'
+		| 'message'
+		| 'open_app'
+		| 'request_contact'
+		| 'request_geo_location';
 	payload?: string;
 	url?: string;
 	chat_title?: string;
@@ -1640,7 +1656,9 @@ export function validateKeyboardButton(button: IButtonConfig): void {
 	// Validate button type
 	const validTypes = [
 		'callback',
+		'clipboard',
 		'link',
+		'message',
 		'open_app',
 		'request_contact',
 		'request_geo_location',
@@ -1651,7 +1669,7 @@ export function validateKeyboardButton(button: IButtonConfig): void {
 	}
 
 	// Validate type-specific fields
-	if (button.type === 'callback') {
+	if (button.type === 'callback' || button.type === 'clipboard') {
 		if (!button.payload || typeof button.payload !== 'string') {
 			throw new Error('Callback buttons must have a payload string');
 		}
@@ -1739,10 +1757,10 @@ export function validateKeyboardButton(button: IButtonConfig): void {
 export async function getChatInfo(
 	this: IExecuteFunctions,
 	_bot: Bot,
-	chatId: number,
+	chatId: string | number,
 ): Promise<any> {
 	// Validate chat ID
-	if (!chatId || isNaN(chatId)) {
+	if (!chatId || Number.isNaN(Number(chatId))) {
 		throw new Error('Chat ID is required and must be a number');
 	}
 
@@ -1782,9 +1800,13 @@ export async function getChatInfo(
  * @returns Promise resolving to the API response confirming chat exit
  * @throws {NodeApiError} When Max API request fails or bot cannot leave chat
  */
-export async function leaveChat(this: IExecuteFunctions, _bot: Bot, chatId: number): Promise<any> {
+export async function leaveChat(
+	this: IExecuteFunctions,
+	_bot: Bot,
+	chatId: string | number,
+): Promise<any> {
 	// Validate chat ID
-	if (!chatId || isNaN(chatId)) {
+	if (!chatId || Number.isNaN(Number(chatId))) {
 		throw new Error('Chat ID is required and must be a number');
 	}
 
@@ -1907,7 +1929,7 @@ export function formatInlineKeyboard(buttons: IButtonConfig[][]): IMaxKeyboard {
 			};
 
 			// Add type-specific fields
-			if (button.type === 'callback' && button.payload) {
+			if ((button.type === 'callback' || button.type === 'clipboard') && button.payload) {
 				maxButton.payload = button.payload;
 			}
 

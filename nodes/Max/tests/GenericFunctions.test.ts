@@ -2138,6 +2138,13 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(() => validateKeyboardButton(button)).not.toThrow();
 		});
 
+		it('should validate current clipboard and message buttons', () => {
+			expect(() =>
+				validateKeyboardButton({ text: 'Copy', type: 'clipboard', payload: 'copied' }),
+			).not.toThrow();
+			expect(() => validateKeyboardButton({ text: 'Send this', type: 'message' })).not.toThrow();
+		});
+
 		it('should validate link buttons', () => {
 			const button = KeyboardButtonFactory.createLinkButton();
 			expect(() => validateKeyboardButton(button)).not.toThrow();
@@ -2380,6 +2387,20 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			const result = formatInlineKeyboard([[button]]);
 
 			expect(result.payload.buttons[0]![0]!.intent).toBe('positive');
+		});
+
+		it('should preserve clipboard payload and message button type', () => {
+			const result = formatInlineKeyboard([
+				[
+					{ text: 'Copy', type: 'clipboard', payload: 'copied' },
+					{ text: 'Send', type: 'message' },
+				],
+			]);
+
+			expect(result.payload.buttons[0]).toEqual([
+				expect.objectContaining({ type: 'clipboard', payload: 'copied' }),
+				expect.objectContaining({ type: 'message' }),
+			]);
 		});
 
 		it('should exclude default intent', () => {

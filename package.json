@@ -1,7 +1,7 @@
 {
 	"name": "n8n-nodes-max",
 	"version": "0.2.1",
-	"description": "n8n community nodes for the current MAX Bot API. Send and read messages, manage chats, members, administrators, comments, webhooks, and interactive bot experiences.",
+	"description": "Focused n8n community nodes for the current MAX Bot API: bot, chat, administrator, member, comment, message, video, subscription, and trigger nodes.",
 	"keywords": [
 		"n8n-community-node-package"
 	],
@@ -44,8 +44,14 @@
 			"dist/credentials/MaxApi.credentials.js"
 		],
 		"nodes": [
-			"dist/nodes/Max/Max.node.js",
-			"dist/nodes/Max/MaxApiOperations.node.js",
+			"dist/nodes/Max/MaxBot.node.js",
+			"dist/nodes/Max/MaxChat.node.js",
+			"dist/nodes/Max/MaxChatAdministrator.node.js",
+			"dist/nodes/Max/MaxChatMember.node.js",
+			"dist/nodes/Max/MaxComment.node.js",
+			"dist/nodes/Max/MaxMessage.node.js",
+			"dist/nodes/Max/MaxSubscription.node.js",
+			"dist/nodes/Max/MaxVideo.node.js",
 			"dist/nodes/Max/MaxTrigger.node.js"
 		]
 	},

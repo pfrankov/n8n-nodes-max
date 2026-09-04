@@ -1,4 +1,4 @@
-import { Max } from '../Max.node';
+import { MaxLegacyExecution } from '../MaxLegacyExecution';
 import type { IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { SAMPLE_MESSAGES, TEST_MESSAGE_ID, WORKFLOW_TEST_DATA } from './fixtures/testData';
 
@@ -45,10 +45,10 @@ const getExecuteFunctionsMock = (parameters: Record<string, any>): IExecuteFunct
 	}) as any;
 
 describe('Max Node', () => {
-	let maxNode: Max;
+	let maxNode: MaxLegacyExecution;
 
 	beforeEach(() => {
-		maxNode = new Max();
+		maxNode = new MaxLegacyExecution();
 		jest.clearAllMocks();
 	});
 
@@ -196,7 +196,13 @@ describe('Max Node', () => {
 				};
 				const executeFunctions = getExecuteFunctionsMock(params);
 				await maxNode.execute.call(executeFunctions);
-				expect(sendMessage).toHaveBeenCalledWith(expect.anything(), 'user', 123, 'Hello user', {});
+				expect(sendMessage).toHaveBeenCalledWith(
+					expect.anything(),
+					'user',
+					'123',
+					'Hello user',
+					{},
+				);
 			});
 
 			it('should call sendMessage for a chat', async () => {
@@ -211,7 +217,7 @@ describe('Max Node', () => {
 				};
 				const executeFunctions = getExecuteFunctionsMock(params);
 				await maxNode.execute.call(executeFunctions);
-				expect(sendMessage).toHaveBeenCalledWith(expect.anything(), 'chat', 456, 'Hello chat', {
+				expect(sendMessage).toHaveBeenCalledWith(expect.anything(), 'chat', '456', 'Hello chat', {
 					format: 'markdown',
 				});
 			});
@@ -320,7 +326,7 @@ describe('Max Node', () => {
 				expect(sendMessage).toHaveBeenCalledWith(
 					expect.anything(),
 					'user',
-					-98765,
+					'-98765',
 					'Hello from a negative user',
 					{},
 				);
@@ -341,8 +347,31 @@ describe('Max Node', () => {
 				expect(sendMessage).toHaveBeenCalledWith(
 					expect.anything(),
 					'user',
-					98765,
+					'98765',
 					'Hello from a positive user',
+					{},
+				);
+			});
+
+			it('should preserve a full signed-int64 user_id as a string', async () => {
+				const params = {
+					resource: 'message',
+					operation: 'sendMessage',
+					sendTo: 'user',
+					userId: '9223372036854775807',
+					text: 'No precision loss',
+					format: 'plain',
+					additionalFields: {},
+				};
+				const executeFunctions = getExecuteFunctionsMock(params);
+
+				await maxNode.execute.call(executeFunctions);
+
+				expect(sendMessage).toHaveBeenCalledWith(
+					expect.anything(),
+					'user',
+					'9223372036854775807',
+					'No precision loss',
 					{},
 				);
 			});
@@ -359,7 +388,7 @@ describe('Max Node', () => {
 				};
 				const executeFunctions = getExecuteFunctionsMock(params);
 				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow(
-					'Invalid User ID: "xyz". Must be a number.',
+					'User ID must be a signed integer ID',
 				);
 			});
 
@@ -396,7 +425,7 @@ describe('Max Node', () => {
 				expect(sendMessage).toHaveBeenCalledWith(
 					expect.anything(),
 					'chat',
-					-12345,
+					'-12345',
 					'Hello from a negative chat',
 					{},
 				);
@@ -417,7 +446,7 @@ describe('Max Node', () => {
 				expect(sendMessage).toHaveBeenCalledWith(
 					expect.anything(),
 					'chat',
-					12345,
+					'12345',
 					'Hello from a positive chat',
 					{},
 				);
@@ -435,7 +464,7 @@ describe('Max Node', () => {
 				};
 				const executeFunctions = getExecuteFunctionsMock(params);
 				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow(
-					'Invalid Chat ID: "abc". Must be a number.',
+					'Chat ID must be a signed integer ID',
 				);
 			});
 
@@ -461,21 +490,21 @@ describe('Max Node', () => {
 				const params = { resource: 'chat', operation: 'getChatInfo', chatId: '123' };
 				const executeFunctions = getExecuteFunctionsMock(params);
 				await maxNode.execute.call(executeFunctions);
-				expect(getChatInfo).toHaveBeenCalledWith(expect.anything(), 123);
+				expect(getChatInfo).toHaveBeenCalledWith(expect.anything(), '123');
 			});
 
 			it('should call getChatInfo with a negative ID', async () => {
 				const params = { resource: 'chat', operation: 'getChatInfo', chatId: '-123' };
 				const executeFunctions = getExecuteFunctionsMock(params);
 				await maxNode.execute.call(executeFunctions);
-				expect(getChatInfo).toHaveBeenCalledWith(expect.anything(), -123);
+				expect(getChatInfo).toHaveBeenCalledWith(expect.anything(), '-123');
 			});
 
 			it('should throw for invalid chat ID in getChatInfo', async () => {
 				const params = { resource: 'chat', operation: 'getChatInfo', chatId: 'invalid-id' };
 				const executeFunctions = getExecuteFunctionsMock(params);
 				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow(
-					'Invalid Chat ID: "invalid-id". Must be a number.',
+					'Chat ID must be a signed integer ID',
 				);
 			});
 
@@ -483,7 +512,7 @@ describe('Max Node', () => {
 				const params = { resource: 'chat', operation: 'leaveChat', chatId: '123' };
 				const executeFunctions = getExecuteFunctionsMock(params);
 				const returnData = await maxNode.execute.call(executeFunctions);
-				expect(leaveChat).toHaveBeenCalledWith(expect.anything(), 123);
+				expect(leaveChat).toHaveBeenCalledWith(expect.anything(), '123');
 				expect(returnData).toEqual([
 					[
 						{
@@ -498,7 +527,7 @@ describe('Max Node', () => {
 				const params = { resource: 'chat', operation: 'leaveChat', chatId: '-123' };
 				const executeFunctions = getExecuteFunctionsMock(params);
 				const returnData = await maxNode.execute.call(executeFunctions);
-				expect(leaveChat).toHaveBeenCalledWith(expect.anything(), -123);
+				expect(leaveChat).toHaveBeenCalledWith(expect.anything(), '-123');
 				expect(returnData).toEqual([
 					[
 						{
@@ -513,7 +542,7 @@ describe('Max Node', () => {
 				const params = { resource: 'chat', operation: 'leaveChat', chatId: 'invalid-id' };
 				const executeFunctions = getExecuteFunctionsMock(params);
 				await expect(maxNode.execute.call(executeFunctions)).rejects.toThrow(
-					'Invalid Chat ID: "invalid-id". Must be a number.',
+					'Chat ID must be a signed integer ID',
 				);
 			});
 		});
@@ -565,7 +594,7 @@ describe('Max Node', () => {
 				expect(sendMessage).toHaveBeenCalledWith(
 					expect.anything(),
 					'chat',
-					12345,
+					'12345',
 					'Test message with attachment and keyboard',
 					expect.any(Object),
 				);
@@ -601,7 +630,7 @@ describe('Max Node', () => {
 				expect(sendMessage).toHaveBeenCalledWith(
 					expect.anything(),
 					'chat',
-					12345,
+					'12345',
 					'',
 					expect.objectContaining({
 						attachments: expect.any(Array),
@@ -660,7 +689,7 @@ describe('Max Node', () => {
 				expect(sendMessage).toHaveBeenCalledWith(
 					expect.anything(),
 					'chat',
-					12345,
+					'12345',
 					'Test message with token attachment',
 					expect.objectContaining({
 						attachments: [
@@ -694,7 +723,7 @@ describe('Max Node', () => {
 				expect(sendMessage).toHaveBeenCalledWith(
 					expect.anything(),
 					'chat',
-					12345,
+					'12345',
 					'This is a reply message',
 					expect.objectContaining({
 						link: {
@@ -721,7 +750,7 @@ describe('Max Node', () => {
 
 				await maxNode.execute.call(executeFunctions);
 
-				expect(sendMessage).toHaveBeenCalledWith(expect.anything(), 'chat', 12345, '', {
+				expect(sendMessage).toHaveBeenCalledWith(expect.anything(), 'chat', '12345', '', {
 					link: {
 						type: 'forward',
 						mid: 'msg-456',
@@ -748,7 +777,7 @@ describe('Max Node', () => {
 				expect(sendMessage).toHaveBeenCalledWith(
 					expect.anything(),
 					'user',
-					789,
+					'789',
 					'Regular message without reply',
 					expect.not.objectContaining({
 						link: expect.anything(),
@@ -775,7 +804,7 @@ describe('Max Node', () => {
 				expect(sendMessage).toHaveBeenCalledWith(
 					expect.anything(),
 					'chat',
-					12345,
+					'12345',
 					'This should not link',
 					expect.not.objectContaining({
 						link: expect.anything(),
@@ -837,7 +866,7 @@ describe('Max Node', () => {
 				expect(result).toEqual([
 					[
 						{
-							json: { error: 'Invalid Chat ID: "invalid-id". Must be a number.' },
+							json: { error: 'Chat ID must be a signed integer ID' },
 							pairedItem: { item: 0 },
 						},
 					],

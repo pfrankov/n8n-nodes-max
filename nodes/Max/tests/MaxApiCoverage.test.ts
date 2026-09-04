@@ -14,19 +14,32 @@ const NEW_UPDATE_TYPES = [
 ] as const;
 
 describe('current MAX API coverage', () => {
-	it('registers the advanced Max API node in the published package', () => {
-		expect(packageJson.n8n.nodes).toContain('dist/nodes/Max/MaxApiOperations.node.js');
+	it('registers focused API nodes and removes both universal nodes', () => {
+		expect(packageJson.n8n.nodes).toEqual(
+			expect.arrayContaining([
+				'dist/nodes/Max/MaxBot.node.js',
+				'dist/nodes/Max/MaxChat.node.js',
+				'dist/nodes/Max/MaxChatAdministrator.node.js',
+				'dist/nodes/Max/MaxChatMember.node.js',
+				'dist/nodes/Max/MaxComment.node.js',
+				'dist/nodes/Max/MaxMessage.node.js',
+				'dist/nodes/Max/MaxSubscription.node.js',
+				'dist/nodes/Max/MaxVideo.node.js',
+			]),
+		);
+		expect(packageJson.n8n.nodes).not.toContain('dist/nodes/Max/Max.node.js');
+		expect(packageJson.n8n.nodes).not.toContain('dist/nodes/Max/MaxApiOperations.node.js');
 	});
 
 	it('uses connection descriptors that load with current n8n-workflow', async () => {
-		const { Max } = await import('../Max.node');
-		const { MaxApiOperations } = await import('../MaxApiOperations.node');
+		const { MaxBot } = await import('../MaxBot.node');
+		const { MaxMessage } = await import('../MaxMessage.node');
 		const { MaxTrigger } = await import('../MaxTrigger.node');
 
-		expect(new Max().description.inputs).toEqual(['main']);
-		expect(new Max().description.outputs).toEqual(['main']);
-		expect(new MaxApiOperations().description.inputs).toEqual(['main']);
-		expect(new MaxApiOperations().description.outputs).toEqual(['main']);
+		expect(new MaxBot().description.inputs).toEqual(['main']);
+		expect(new MaxBot().description.outputs).toEqual(['main']);
+		expect(new MaxMessage().description.inputs).toEqual(['main']);
+		expect(new MaxMessage().description.outputs).toEqual(['main']);
 		expect(new MaxTrigger().description.outputs).toEqual(['main']);
 	});
 
@@ -40,28 +53,29 @@ describe('current MAX API coverage', () => {
 		expect(configuredValues).toEqual(expect.arrayContaining(NEW_UPDATE_TYPES));
 	});
 
-	it('documents the published Max API node for users and maintainers', () => {
+	it('documents focused nodes and the breaking migration for users and maintainers', () => {
 		const readme = readFileSync('README.md', 'utf8');
 		const agents = readFileSync('AGENTS.md', 'utf8');
 		const changelog = readFileSync('CHANGELOG.md', 'utf8');
 		const scenarios = readFileSync('SCENARIOS.md', 'utf8');
 
-		expect(readme).toContain('### Max API');
-		expect(readme).toContain('Chat Administrator');
-		expect(agents).toContain('MaxApiOperations.node.ts');
+		expect(readme).toContain('### Функциональные ноды');
+		expect(readme).toContain('Max Chat Administrator');
+		expect(agents).toContain('MaxApiExecution.ts');
 		expect(agents).toContain('platform-api2.max.ru');
-		expect(changelog).toContain('Max API');
+		expect(changelog).toContain('Max Message');
 		expect(changelog).toContain('комментар');
 		expect(changelog).toContain('### Несовместимость');
 		expect(scenarios).toContain('**Действие:**');
 		expect(scenarios).toContain('**Результат:**');
 
-		expect(packageJson.version).toBe('0.2.1');
-		expect(changelog).toContain('## v0.2.1 - 2026-09-04');
+		expect(['0.2.1', '1.0.0']).toContain(packageJson.version);
+		expect(changelog).toContain('## v1.0.0 - 2026-09-04');
 		expect(changelog).not.toContain('## v0.1.27 - 2026-09-03');
-		const releaseEntry = changelog.split(/^## v0\.2\.0/m)[0] ?? '';
+		const releaseEntry = changelog.split(/^## v0\.2\.1/m)[0] ?? '';
 		expect(releaseEntry).toContain('### Кому важно');
 		expect(releaseEntry).toContain('### Что проверить после обновления');
+		expect(releaseEntry).toContain('не загружаются');
 	});
 
 	it('keeps only permanent workflows and verifies pushes to master', () => {

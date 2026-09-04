@@ -1,13 +1,5 @@
-import type {
-	IDataObject,
-	IExecuteFunctions,
-	INodeExecutionData,
-	INodeType,
-	INodeTypeDescription,
-} from 'n8n-workflow';
+import type { IDataObject, IExecuteFunctions, INodeExecutionData } from 'n8n-workflow';
 import { ApplicationError, NodeApiError, NodeOperationError } from 'n8n-workflow';
-import { MAX_API_OPERATION_PROPERTIES } from './MaxApiOperationsDescription';
-import { MAIN_CONNECTION } from './MaxNodeTypes';
 import {
 	buildInlineKeyboard,
 	extractKeyboardRows,
@@ -633,56 +625,37 @@ async function executeOperation(
 	}
 }
 
-/**
- * Advanced, docs-first operations that do not fit the compact legacy Max node.
- * Keeping these operations separate avoids breaking existing n8n workflows while
- * presenting the broader API as coherent resources.
- */
-export class MaxApiOperations implements INodeType {
-	description: INodeTypeDescription = {
-		displayName: 'Max API',
-		name: 'maxApiOperations',
-		icon: 'file:max.svg',
-		group: ['output'],
-		version: 1,
-		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
-		description: 'Use advanced operations from the current MAX Bot API',
-		defaults: { name: 'Max API' },
-		inputs: [MAIN_CONNECTION],
-		outputs: [MAIN_CONNECTION],
-		credentials: [{ name: 'maxApi', required: true }],
-		properties: MAX_API_OPERATION_PROPERTIES,
-	};
+export async function executeMaxApiNode(
+	context: IExecuteFunctions,
+	resource: string,
+	mapOperation: (operation: string) => string = (operation) => operation,
+): Promise<INodeExecutionData[][]> {
+	const items = context.getInputData();
+	const returnData: INodeExecutionData[] = [];
+	const operation = mapOperation(context.getNodeParameter('operation', 0) as string);
 
-	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
-		const items = this.getInputData();
-		const returnData: INodeExecutionData[] = [];
-		const resource = this.getNodeParameter('resource', 0) as string;
-		const operation = this.getNodeParameter('operation', 0) as string;
-
-		for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
-			try {
-				const result = await executeOperation(this, resource, operation, itemIndex);
-				returnData.push({ json: asOutputJson(result), pairedItem: { item: itemIndex } });
-			} catch (error) {
-				if (this.continueOnFail()) {
-					returnData.push({
-						json: { error: error instanceof Error ? error.message : String(error) },
-						pairedItem: { item: itemIndex },
-					});
-					continue;
-				}
-				if (error instanceof NodeOperationError || error instanceof NodeApiError) {
-					throw error;
-				}
-				throw new NodeOperationError(
-					this.getNode(),
-					error instanceof Error ? error.message : String(error),
-					{ itemIndex },
-				);
+	for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
+		try {
+			const result = await executeOperation(context, resource, operation, itemIndex);
+			returnData.push({ json: asOutputJson(result), pairedItem: { item: itemIndex } });
+		} catch (error) {
+			if (context.continueOnFail()) {
+				returnData.push({
+					json: { error: error instanceof Error ? error.message : String(error) },
+					pairedItem: { item: itemIndex },
+				});
+				continue;
 			}
+			if (error instanceof NodeOperationError || error instanceof NodeApiError) {
+				throw error;
+			}
+			throw new NodeOperationError(
+				context.getNode(),
+				error instanceof Error ? error.message : String(error),
+				{ itemIndex },
+			);
 		}
-
-		return [returnData];
 	}
+
+	return [returnData];
 }

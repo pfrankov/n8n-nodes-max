@@ -988,3 +988,39 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		description: 'The optional API version requested for webhook payloads',
 	},
 ];
+
+export function maxApiPropertiesFor(
+	resource: string,
+	allowedOperations?: string[],
+): INodeProperties[] {
+	return MAX_API_OPERATION_PROPERTIES.filter((property) => property.name !== 'resource')
+		.filter((property) => property.displayOptions?.show?.['resource']?.includes(resource))
+		.filter((property) => {
+			const operations = property.displayOptions?.show?.['operation'];
+			return (
+				!allowedOperations ||
+				!operations ||
+				operations.some((operation) => allowedOperations.includes(String(operation)))
+			);
+		})
+		.map((property) => {
+			const copy = structuredClone(property);
+			if (copy.displayOptions?.show) {
+				delete copy.displayOptions.show['resource'];
+				const operations = copy.displayOptions.show['operation'];
+				if (allowedOperations && operations) {
+					copy.displayOptions.show['operation'] = operations.filter((operation) =>
+						allowedOperations.includes(String(operation)),
+					);
+				}
+			}
+			if (copy.name === 'operation' && allowedOperations && Array.isArray(copy.options)) {
+				copy.options = copy.options.filter(
+					(option) => 'value' in option && allowedOperations.includes(String(option.value)),
+				);
+				const firstOption = copy.options[0];
+				copy.default = firstOption && 'value' in firstOption ? firstOption.value : '';
+			}
+			return copy;
+		});
+}

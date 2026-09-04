@@ -28,19 +28,18 @@
 ### Primary Goals
 
 - Provide stable message operations (`send`, `edit`, `delete`, `answer callback`) for Max bots.
-- Cover the current Bot, Message, Chat, Chat Member, Chat Administrator, Comment, and Subscription API through the separate `Max API` node without breaking legacy workflows.
+- Cover each current Bot API resource through a focused node with no resource selector.
 - Provide chat operations (`get chat info`, `leave chat`) in n8n workflows.
 - Provide trigger-based event processing via webhook subscriptions, including direct (`message_created`) and group (`message_chat_created`) message events.
 - Keep node UX and backend behavior aligned with official Max API docs.
 
 ### Integration Surface
 
-| Component            | Role                                                       |
-| :------------------- | :--------------------------------------------------------- |
-| `Max` node           | Backward-compatible outbound message/chat operations       |
-| `Max API` node       | Current advanced Bot API resources and operations          |
-| `Max Trigger` node   | Webhook subscription lifecycle + incoming event processing |
-| `MaxApi` credentials | Access token + base URL configuration + credential test    |
+| Component               | Role                                                                                   |
+| :---------------------- | :------------------------------------------------------------------------------------- |
+| Functional action nodes | Bot, message, video, chat, member, administrator, comment, and subscription operations |
+| `Max Trigger` node      | Webhook subscription lifecycle + incoming event processing                             |
+| `MaxApi` credentials    | Access token + base URL configuration + credential test                                |
 
 ### Key Design Decisions
 
@@ -68,10 +67,12 @@
 
 - `credentials/MaxApi.credentials.ts`: credential definition, docs URL, base URL default, `/me` credential test.
 - `credentials/tests/`: credential contract tests.
-- `nodes/Max/Max.node.ts`: main action node parameter schema + execute routing.
+- `nodes/Max/MaxLegacyExecution.ts`: internal executor and parameter source for migrated message/chat operations; it is not a published n8n node entry point.
 - `nodes/Max/GenericFunctions.ts`: API calls, validation, attachment handling, keyboard formatting, error categorization.
-- `nodes/Max/MaxApiOperations.node.ts`: resource/operation routing for the advanced `Max API` node.
-- `nodes/Max/MaxApiOperationsDescription.ts`: user-facing fields for advanced operations.
+- `nodes/Max/MaxApiExecution.ts`: shared resource/operation execution used by focused nodes.
+- `nodes/Max/MaxApiOperationsDescription.ts`: shared user-facing fields selected by each focused node.
+- `nodes/Max/MaxBot.node.ts`, `MaxChat*.node.ts`, `MaxComment.node.ts`, `MaxMessage.node.ts`, `MaxVideo.node.ts`, `MaxSubscription.node.ts`: published focused action nodes.
+- `nodes/Max/MaxResourceNode.ts`: shared focused-node description, migration adapter, and execution helpers.
 - `nodes/Max/MaxApiRequest.ts`: exact HTTP request construction, upstream error preservation, Markdown fallback, and bounded media-processing retries.
 - `nodes/Max/MaxApiCompatibility.ts`: shared compatibility predicates and fallback transformations.
 - `nodes/Max/MaxJsonUtils.ts`: lossless MAX JSON parsing and stable string IDs.
@@ -127,7 +128,7 @@
 - Coverage thresholds are enforced globally (see `jest.config.js`); do not lower thresholds to pass changes.
 - For API-facing changes, add or update regression tests in:
   - `nodes/Max/tests/GenericFunctions.test.ts`
-  - `nodes/Max/tests/Max.node.test.ts`
+  - `nodes/Max/tests/MaxApiOperations.node.test.ts`
   - `nodes/Max/tests/MaxWebhookManager.test.ts`
   - `credentials/tests/MaxApi.credentials.test.ts`
 

@@ -1,12 +1,13 @@
+/* eslint-disable n8n-nodes-base/node-filename-against-convention -- Internal migration executor; not a published n8n node. */
 import type {
 	IExecuteFunctions,
 	IDataObject,
 	INodeExecutionData,
-	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 import { MAIN_CONNECTION } from './MaxNodeTypes';
+import { requireInt64 } from './MaxApiRequest';
 
 import {
 	createMaxBotInstance,
@@ -40,7 +41,7 @@ import {
  *
  * @implements {INodeType}
  */
-export class Max implements INodeType {
+export class MaxLegacyExecution {
 	description: INodeTypeDescription = {
 		displayName: 'Max',
 		name: 'max',
@@ -426,6 +427,11 @@ export class Max implements INodeType {
 																description: 'Sends data back to the bot',
 															},
 															{
+																name: 'Clipboard',
+																value: 'clipboard',
+																description: 'Copies the payload to the clipboard',
+															},
+															{
 																name: 'Create Chat',
 																value: 'chat',
 																description: 'Creates a new chat',
@@ -434,6 +440,11 @@ export class Max implements INodeType {
 																name: 'Link',
 																value: 'link',
 																description: 'Opens a URL',
+															},
+															{
+																name: 'Message',
+																value: 'message',
+																description: 'Sends the button text as a message',
 															},
 															{
 																name: 'Open App',
@@ -460,7 +471,7 @@ export class Max implements INodeType {
 														required: true,
 														displayOptions: {
 															show: {
-																type: ['callback'],
+																type: ['callback', 'clipboard'],
 															},
 														},
 														default: '',
@@ -712,6 +723,11 @@ export class Max implements INodeType {
 														description: 'Button that sends callback data when pressed',
 													},
 													{
+														name: 'Clipboard',
+														value: 'clipboard',
+														description: 'Copies the payload to the clipboard',
+													},
+													{
 														name: 'Create Chat',
 														value: 'chat',
 														description: 'Button that creates a new chat when clicked',
@@ -720,6 +736,11 @@ export class Max implements INodeType {
 														name: 'Link',
 														value: 'link',
 														description: 'Button that opens a URL when pressed',
+													},
+													{
+														name: 'Message',
+														value: 'message',
+														description: 'Sends the button text as a message',
 													},
 													{
 														name: 'Open App',
@@ -747,7 +768,7 @@ export class Max implements INodeType {
 												required: true,
 												displayOptions: {
 													show: {
-														type: ['callback'],
+														type: ['callback', 'clipboard'],
 													},
 												},
 												default: '',
@@ -962,7 +983,7 @@ export class Max implements INodeType {
 						const formattedText = validateAndFormatText(text, format);
 
 						// Get recipient ID with enhanced validation
-						let recipientId: number;
+						let recipientId: string;
 						if (sendTo === 'user') {
 							const userId = this.getNodeParameter('userId', i);
 							// Handle both string and number inputs
@@ -974,15 +995,8 @@ export class Max implements INodeType {
 									{ itemIndex: i },
 								);
 							}
-							recipientId = parseInt(userIdStr.trim(), 10);
-							if (isNaN(recipientId)) {
-								throw new NodeOperationError(
-									this.getNode(),
-									`Invalid User ID: "${userIdStr}". Must be a number.`,
-									{ itemIndex: i },
-								);
-							}
-							if (recipientId === 0) {
+							recipientId = requireInt64(userIdStr, 'User ID');
+							if (/^-?0+$/.test(recipientId)) {
 								throw new NodeOperationError(
 									this.getNode(),
 									'User ID cannot be 0. For Max Trigger workflows use message.sender.user_id when sending to a user.',
@@ -1000,15 +1014,8 @@ export class Max implements INodeType {
 									{ itemIndex: i },
 								);
 							}
-							recipientId = parseInt(chatIdStr.trim(), 10);
-							if (isNaN(recipientId)) {
-								throw new NodeOperationError(
-									this.getNode(),
-									`Invalid Chat ID: "${chatIdStr}". Must be a number.`,
-									{ itemIndex: i },
-								);
-							}
-							if (recipientId === 0) {
+							recipientId = requireInt64(chatIdStr, 'Chat ID');
+							if (/^-?0+$/.test(recipientId)) {
 								throw new NodeOperationError(
 									this.getNode(),
 									'Chat ID cannot be 0. For Max Trigger workflows use message.recipient.chat_id when sending to a chat.',
@@ -1246,20 +1253,13 @@ export class Max implements INodeType {
 							);
 						}
 
-						const chatIdNumber = parseInt(chatId.trim(), 10);
-						if (isNaN(chatIdNumber)) {
-							throw new NodeOperationError(
-								this.getNode(),
-								`Invalid Chat ID: "${chatId}". Must be a number.`,
-								{ itemIndex: i },
-							);
-						}
+						const chatIdValue = requireInt64(chatId, 'Chat ID');
 
 						// Create Max Bot instance
 						const bot = await createMaxBotInstance.call(this);
 
 						// Get chat info using Max Bot API
-						const responseData = await getChatInfo.call(this, bot, chatIdNumber);
+						const responseData = await getChatInfo.call(this, bot, chatIdValue);
 
 						returnData.push({
 							json: responseData,
@@ -1280,20 +1280,13 @@ export class Max implements INodeType {
 							);
 						}
 
-						const chatIdNumber = parseInt(chatId.trim(), 10);
-						if (isNaN(chatIdNumber)) {
-							throw new NodeOperationError(
-								this.getNode(),
-								`Invalid Chat ID: "${chatId}". Must be a number.`,
-								{ itemIndex: i },
-							);
-						}
+						const chatIdValue = requireInt64(chatId, 'Chat ID');
 
 						// Create Max Bot instance
 						const bot = await createMaxBotInstance.call(this);
 
 						// Leave chat using Max Bot API
-						const responseData = await leaveChat.call(this, bot, chatIdNumber);
+						const responseData = await leaveChat.call(this, bot, chatIdValue);
 
 						returnData.push({
 							json: responseData,

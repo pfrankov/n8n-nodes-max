@@ -1,6 +1,15 @@
-import type { IExecuteFunctions, INodeExecutionData, INodePropertyOptions } from 'n8n-workflow';
+import type { IExecuteFunctions, INodeExecutionData, INodeType } from 'n8n-workflow';
 import { NodeApiError } from 'n8n-workflow';
-import { MaxApiOperations } from '../MaxApiOperations.node';
+import { executeMaxApiNode } from '../MaxApiExecution';
+import { MaxBot } from '../MaxBot.node';
+import { MaxChat } from '../MaxChat.node';
+import { MaxChatAdministrator } from '../MaxChatAdministrator.node';
+import { MaxChatMember } from '../MaxChatMember.node';
+import { MaxComment } from '../MaxComment.node';
+import { MaxMessage } from '../MaxMessage.node';
+import { MaxSubscription } from '../MaxSubscription.node';
+import { MaxVideo } from '../MaxVideo.node';
+import { MaxLegacyExecution } from '../MaxLegacyExecution';
 
 function createExecuteContext(
 	parameters: Record<string, unknown>,
@@ -24,96 +33,107 @@ function createExecuteContext(
 	return { context, httpRequest };
 }
 
-function findOperations(node: MaxApiOperations, resource: string) {
-	return node.description.properties.find(
-		(property) =>
-			property.name === 'operation' &&
-			property.displayOptions?.show?.['resource']?.includes(resource),
-	)?.options;
+async function execute(context: IExecuteFunctions) {
+	const resource = context.getNodeParameter('resource', 0) as string;
+	return await executeMaxApiNode(context, resource);
 }
 
-describe('Max API Operations node', () => {
-	let node: MaxApiOperations;
-
-	beforeEach(() => {
-		node = new MaxApiOperations();
-	});
-
+describe('focused MAX API nodes', () => {
 	describe('description', () => {
-		it('exposes the complete supported resource split without obsolete chat listing or long polling', () => {
-			expect(node.description.displayName).toBe('Max API');
-			expect(node.description.name).toBe('maxApiOperations');
+		it('exposes one node per supported resource without a resource selector', () => {
+			const nodes: INodeType[] = [
+				new MaxBot(),
+				new MaxChat(),
+				new MaxChatAdministrator(),
+				new MaxChatMember(),
+				new MaxComment(),
+				new MaxMessage(),
+				new MaxSubscription(),
+				new MaxVideo(),
+			];
+			expect(nodes.map((node) => node.description.name)).toEqual([
+				'maxBot',
+				'maxChat',
+				'maxChatAdministrator',
+				'maxChatMember',
+				'maxComment',
+				'maxMessage',
+				'maxSubscription',
+				'maxVideo',
+			]);
+			expect(
+				nodes.every((node) => !node.description.properties.some((p) => p.name === 'resource')),
+			).toBe(true);
 
-			const resources = node.description.properties.find(
-				(property) => property.name === 'resource',
-			)?.options;
-			expect(resources).toEqual(
-				expect.arrayContaining([
-					{ name: 'Bot', value: 'bot' },
-					{ name: 'Chat', value: 'chat' },
-					{ name: 'Chat Administrator', value: 'chatAdmin' },
-					{ name: 'Chat Member', value: 'chatMember' },
-					{ name: 'Comment', value: 'comment' },
-					{ name: 'Message', value: 'message' },
-					{ name: 'Subscription', value: 'subscription' },
-				]),
+			const allOperationValues = nodes.flatMap((node) =>
+				node.description.properties
+					.filter((property) => property.name === 'operation')
+					.flatMap((property) => property.options ?? [])
+					.map((option) => ('value' in option ? option.value : undefined)),
 			);
-
-			expect(findOperations(node, 'bot')).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({ value: 'get' }),
-					expect.objectContaining({ value: 'setCommands' }),
-				]),
-			);
-			expect(findOperations(node, 'message')).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({ value: 'answerCallback' }),
-					expect.objectContaining({ value: 'get' }),
-					expect.objectContaining({ value: 'getMany' }),
-					expect.objectContaining({ value: 'getVideo' }),
-					expect.objectContaining({ value: 'send' }),
-					expect.objectContaining({ value: 'update' }),
-				]),
-			);
-			expect(findOperations(node, 'chat')).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({ value: 'getMembership' }),
-					expect.objectContaining({ value: 'getPinnedMessage' }),
-					expect.objectContaining({ value: 'pinMessage' }),
-					expect.objectContaining({ value: 'sendAction' }),
-					expect.objectContaining({ value: 'unpinMessage' }),
-					expect.objectContaining({ value: 'update' }),
-				]),
-			);
-
-			const allOperationValues = node.description.properties
-				.filter((property) => property.name === 'operation')
-				.flatMap((property) => property.options ?? [])
-				.filter((option): option is INodePropertyOptions => 'value' in option)
-				.map((option) => option.value);
 			expect(allOperationValues).not.toContain('getChats');
 			expect(allOperationValues).not.toContain('longPolling');
+			expect(
+				new MaxMessage().description.properties.find((p) => p.name === 'operation')?.options,
+			).not.toContainEqual(expect.objectContaining({ value: 'getVideo' }));
+			expect(
+				new MaxVideo().description.properties.find((p) => p.name === 'operation')?.options,
+			).toEqual([expect.objectContaining({ value: 'getVideo' })]);
 		});
 
 		it('offers current message and clipboard inline keyboard buttons', () => {
-			const keyboard = node.description.properties.find(
-				(property) => property.name === 'keyboard',
+			const keyboard = new MaxMessage().description.properties.find(
+				(property) => property.name === 'additionalFields',
 			) as any;
-			const buttonValues = keyboard.options[0].values.find(
-				(value: { name: string }) => value.name === 'buttons',
-			).options[0].values;
+			const inlineKeyboard = keyboard.options.find(
+				(value: { name: string }) => value.name === 'inlineKeyboard',
+			);
+			const buttonValues = inlineKeyboard.options[0].values[0].options[0].values;
 			const type = buttonValues.find((value: { name: string }) => value.name === 'type');
 
 			expect(type.options).toEqual(
 				expect.arrayContaining([
-					{ name: 'Clipboard', value: 'clipboard' },
-					{ name: 'Message', value: 'message' },
+					expect.objectContaining({ name: 'Clipboard', value: 'clipboard' }),
+					expect.objectContaining({ name: 'Message', value: 'message' }),
 				]),
 			);
 		});
 	});
 
 	describe('execute', () => {
+		it('injects the removed resource parameter for migrated operations', async () => {
+			const { context } = createExecuteContext({
+				operation: 'sendMessage',
+			});
+			const executeLegacy = jest
+				.spyOn(MaxLegacyExecution.prototype, 'execute')
+				.mockImplementation(async function (this: IExecuteFunctions) {
+					return [[{ json: { resource: this.getNodeParameter('resource', 0) } }]];
+				});
+
+			const result = await new MaxMessage().execute.call(context);
+
+			expect(result).toEqual([[{ json: { resource: 'message' } }]]);
+			expect(executeLegacy).toHaveBeenCalledTimes(1);
+			executeLegacy.mockRestore();
+		});
+
+		it('runs current API operations without a resource parameter', async () => {
+			const { context, httpRequest } = createExecuteContext({
+				operation: 'get',
+				messageId: 'mid.1',
+			});
+
+			await new MaxMessage().execute.call(context);
+
+			expect(httpRequest).toHaveBeenCalledWith(
+				expect.objectContaining({
+					method: 'GET',
+					url: 'https://platform-api2.max.ru/messages/mid.1',
+				}),
+			);
+		});
+
 		it('updates bot commands and allows an empty list to clear them', async () => {
 			const { context, httpRequest } = createExecuteContext({
 				resource: 'bot',
@@ -126,7 +146,7 @@ describe('Max API Operations node', () => {
 				},
 			});
 
-			await node.execute.call(context);
+			await execute(context);
 
 			expect(httpRequest).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -153,7 +173,7 @@ describe('Max API Operations node', () => {
 				limit: 75,
 			});
 
-			await node.execute.call(context);
+			await execute(context);
 
 			expect(httpRequest).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -194,7 +214,7 @@ describe('Max API Operations node', () => {
 				},
 			});
 
-			await node.execute.call(context);
+			await execute(context);
 
 			expect(httpRequest).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -236,7 +256,7 @@ describe('Max API Operations node', () => {
 				keyboard: {},
 			});
 
-			await node.execute.call(context);
+			await execute(context);
 
 			expect(httpRequest).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -259,7 +279,7 @@ describe('Max API Operations node', () => {
 				updateFields: { description: '', notify: false, title: 'New title' },
 			});
 
-			await node.execute.call(context);
+			await execute(context);
 
 			expect(httpRequest).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -280,7 +300,7 @@ describe('Max API Operations node', () => {
 				permissions: ['read_all_messages', 'edit', 'delete', 'write', 'edit_link'],
 			});
 
-			await node.execute.call(context);
+			await execute(context);
 
 			expect(httpRequest).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -308,7 +328,7 @@ describe('Max API Operations node', () => {
 				block: false,
 			});
 
-			await node.execute.call(context);
+			await execute(context);
 
 			expect(httpRequest).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -330,7 +350,7 @@ describe('Max API Operations node', () => {
 				replyToCommentId: '',
 			});
 
-			await node.execute.call(context);
+			await execute(context);
 
 			expect(httpRequest).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -352,7 +372,7 @@ describe('Max API Operations node', () => {
 				version: '0.0.1',
 			});
 
-			await node.execute.call(context);
+			await execute(context);
 
 			expect(httpRequest).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -377,7 +397,7 @@ describe('Max API Operations node', () => {
 				secret: 'not valid!',
 			});
 
-			await expect(node.execute.call(context)).rejects.toThrow(
+			await expect(execute(context)).rejects.toThrow(
 				'Webhook Secret can contain only letters, numbers, underscores, and hyphens',
 			);
 			expect(httpRequest).not.toHaveBeenCalled();
@@ -404,7 +424,7 @@ describe('Max API Operations node', () => {
 				keyboard: {},
 			});
 
-			await expect(node.execute.call(context)).rejects.toThrow(expectedMessage);
+			await expect(execute(context)).rejects.toThrow(expectedMessage);
 			expect(httpRequest).not.toHaveBeenCalled();
 		});
 
@@ -422,7 +442,7 @@ describe('Max API Operations node', () => {
 					keyboard: {},
 				});
 
-				await expect(node.execute.call(context)).rejects.toThrow(
+				await expect(execute(context)).rejects.toThrow(
 					'User ID cannot be 0. For Max Trigger workflows use message.sender.user_id when sending to a user.',
 				);
 				expect(httpRequest).not.toHaveBeenCalled();
@@ -445,7 +465,7 @@ describe('Max API Operations node', () => {
 				forwardMessageId: '',
 			});
 
-			await expect(node.execute.call(context)).rejects.toThrow(
+			await expect(execute(context)).rejects.toThrow(
 				'Provide message text, attachments, a keyboard, or a reply/forward link',
 			);
 			expect(httpRequest).not.toHaveBeenCalled();
@@ -464,7 +484,7 @@ describe('Max API Operations node', () => {
 				},
 			});
 
-			const error = await node.execute.call(context).catch((caught: unknown) => caught);
+			const error = await execute(context).catch((caught: unknown) => caught);
 
 			expect(error).toBeInstanceOf(NodeApiError);
 			expect(error).not.toEqual(expect.objectContaining({ name: 'NodeOperationError' }));
