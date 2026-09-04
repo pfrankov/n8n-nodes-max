@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-max",
-	"version": "0.2.1",
+	"version": "1.0.0",
 	"description": "Focused n8n community nodes for the current MAX Bot API: bot, chat, administrator, member, comment, message, video, subscription, and trigger nodes.",
 	"keywords": [
 		"n8n-community-node-package"
