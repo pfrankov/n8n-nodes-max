@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-max",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "n8n community nodes for the current MAX Bot API. Send and read messages, manage chats, members, administrators, comments, webhooks, and interactive bot experiences.",
 	"keywords": [
 		"n8n-community-node-package"
