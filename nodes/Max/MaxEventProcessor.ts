@@ -162,7 +162,11 @@ export class MaxEventProcessor {
 						type: bodyData.message.recipient?.chat_type,
 					}
 				: { chat_id: bodyData.chat_id });
-		const userInfo = bodyData.user || bodyData.message?.sender || bodyData.callback?.user;
+		const userInfo =
+			bodyData.user ||
+			bodyData.message?.sender ||
+			bodyData.callback?.user ||
+			(bodyData.user_id !== undefined ? { user_id: bodyData.user_id } : undefined);
 
 		return { chatInfo, userInfo };
 	}
@@ -320,6 +324,34 @@ export class MaxEventProcessor {
 					this.processBotStartedEvent(bodyData));
 				break;
 
+			case 'bot_stopped':
+				({ data: eventSpecificData, context: eventContext } =
+					this.processBotStoppedEvent(bodyData));
+				break;
+
+			case 'comment_created':
+			case 'comment_edited':
+				({ data: eventSpecificData, context: eventContext } = this.processCommentEvent(
+					bodyData,
+					eventType,
+				));
+				break;
+
+			case 'comment_removed':
+				({ data: eventSpecificData, context: eventContext } =
+					this.processCommentRemovedEvent(bodyData));
+				break;
+
+			case 'dialog_cleared':
+			case 'dialog_muted':
+			case 'dialog_removed':
+			case 'dialog_unmuted':
+				({ data: eventSpecificData, context: eventContext } = this.processDialogEvent(
+					bodyData,
+					eventType,
+				));
+				break;
+
 			default:
 				({ data: eventSpecificData, context: eventContext } = this.processGenericEvent(
 					bodyData,
@@ -417,8 +449,31 @@ export class MaxEventProcessor {
 				this.validateBotStartedEvent(bodyData, errors, warnings);
 				break;
 
-			case 'message_chat_created':
-				this.validateMessageChatCreatedEvent(bodyData, errors, warnings);
+			case 'bot_stopped':
+			case 'dialog_cleared':
+			case 'dialog_removed':
+			case 'dialog_unmuted':
+				this.validateDialogActorEvent(bodyData, eventType, errors);
+				break;
+
+			case 'dialog_muted':
+				this.validateDialogActorEvent(bodyData, eventType, errors);
+				if (bodyData.muted_until === undefined) {
+					errors.push({
+						field: 'muted_until',
+						message: 'muted_until is required for dialog_muted events',
+						severity: 'error',
+					});
+				}
+				break;
+
+			case 'comment_created':
+			case 'comment_edited':
+				this.validateMessageEvent(bodyData, errors, warnings);
+				break;
+
+			case 'comment_removed':
+				this.validateCommentRemovedEvent(bodyData, errors, warnings);
 				break;
 		}
 
@@ -450,7 +505,7 @@ export class MaxEventProcessor {
 		// Check for attachments - prioritize official API structure
 		const hasAttachments = Boolean(
 			(bodyData.message.body?.attachments && bodyData.message.body.attachments.length) ||
-				(bodyData.message.attachments && bodyData.message.attachments.length),
+			(bodyData.message.attachments && bodyData.message.attachments.length),
 		);
 
 		if (!hasText && !hasAttachments) {
@@ -731,6 +786,62 @@ export class MaxEventProcessor {
 		// start_payload is optional, no validation needed
 	}
 
+	private validateDialogActorEvent(
+		bodyData: MaxWebhookEvent,
+		eventType: string,
+		errors: IEventValidationError[],
+	): void {
+		if (bodyData.chat_id === undefined) {
+			errors.push({
+				field: 'chat_id',
+				message: `chat_id is required for ${eventType} events`,
+				severity: 'error',
+			});
+		}
+		if (!bodyData.user) {
+			errors.push({
+				field: 'user',
+				message: `User information is required for ${eventType} events`,
+				severity: 'error',
+			});
+		}
+	}
+
+	private validateCommentRemovedEvent(
+		bodyData: MaxWebhookEvent,
+		errors: IEventValidationError[],
+		warnings: IEventValidationError[],
+	): void {
+		if (!bodyData.message_id) {
+			errors.push({
+				field: 'message_id',
+				message: 'message_id is required for comment_removed events',
+				severity: 'error',
+			});
+		}
+		if (bodyData.chat_id === undefined) {
+			errors.push({
+				field: 'chat_id',
+				message: 'chat_id is required for comment_removed events',
+				severity: 'error',
+			});
+		}
+		if (bodyData.user_id === undefined) {
+			errors.push({
+				field: 'user_id',
+				message: 'user_id is required for comment_removed events',
+				severity: 'error',
+			});
+		}
+		if (bodyData.post_id === undefined) {
+			warnings.push({
+				field: 'post_id',
+				message: 'post_id was not provided for comment_removed event',
+				severity: 'warning',
+			});
+		}
+	}
+
 	/**
 	 * Generate unique event ID
 	 *
@@ -980,6 +1091,86 @@ export class MaxEventProcessor {
 		return {
 			data: { ...bodyData },
 			context,
+		};
+	}
+
+	private processBotStoppedEvent(bodyData: MaxWebhookEvent): {
+		data: IDataObject;
+		context: IEventContext;
+	} {
+		return {
+			data: { ...bodyData },
+			context: {
+				type: 'bot_stopped',
+				description: 'User stopped or removed the bot from the dialog',
+				is_supported: true,
+				chat_id: bodyData.chat_id,
+				user: bodyData.user,
+				user_locale: bodyData.user_locale,
+			},
+		};
+	}
+
+	private processDialogEvent(
+		bodyData: MaxWebhookEvent,
+		eventType: string,
+	): { data: IDataObject; context: IEventContext } {
+		const descriptions: Record<string, string> = {
+			dialog_cleared: 'User cleared the dialog history with the bot',
+			dialog_muted: 'User muted notifications in the dialog with the bot',
+			dialog_removed: 'User removed the dialog with the bot',
+			dialog_unmuted: 'User enabled notifications in the dialog with the bot',
+		};
+		return {
+			data: { ...bodyData },
+			context: {
+				type: eventType,
+				description: descriptions[eventType] ?? `Dialog event: ${eventType}`,
+				is_supported: true,
+				chat_id: bodyData.chat_id,
+				user: bodyData.user,
+				user_locale: bodyData.user_locale,
+				muted_until: bodyData.muted_until,
+			},
+		};
+	}
+
+	private processCommentEvent(
+		bodyData: MaxWebhookEvent,
+		eventType: string,
+	): { data: IDataObject; context: IEventContext } {
+		const isCreated = eventType === 'comment_created';
+		return {
+			data: { ...bodyData },
+			context: {
+				type: eventType,
+				description: isCreated ? 'A channel comment was created' : 'A channel comment was edited',
+				is_supported: true,
+				comment_id: bodyData.message?.body?.mid || bodyData.message_id,
+				post_id: bodyData.message?.recipient?.post_id || bodyData.post_id,
+				chat_id: bodyData.message?.recipient?.chat_id || bodyData.chat_id,
+				author_user_id: bodyData.message?.sender?.user_id,
+				text: bodyData.message?.body?.text || bodyData.message?.text,
+			},
+		};
+	}
+
+	private processCommentRemovedEvent(bodyData: MaxWebhookEvent): {
+		data: IDataObject;
+		context: IEventContext;
+	} {
+		return {
+			data: { ...bodyData },
+			context: {
+				type: 'comment_removed',
+				description: 'A channel comment was removed',
+				is_supported: true,
+				deleted_comment_id: bodyData.message_id,
+				post_id: bodyData.post_id,
+				chat_id: bodyData.chat_id,
+				deleted_by_user_id: bodyData.user_id,
+				deleted_at: bodyData.timestamp,
+			},
 		};
 	}
 

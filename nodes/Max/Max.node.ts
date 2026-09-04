@@ -5,7 +5,8 @@ import type {
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import { NodeConnectionType, NodeOperationError } from 'n8n-workflow';
+import { NodeOperationError } from 'n8n-workflow';
+import { MAIN_CONNECTION } from './MaxNodeTypes';
 
 import {
 	createMaxBotInstance,
@@ -51,8 +52,8 @@ export class Max implements INodeType {
 		defaults: {
 			name: 'Max',
 		},
-		inputs: [NodeConnectionType.Main],
-		outputs: [NodeConnectionType.Main],
+		inputs: [MAIN_CONNECTION],
+		outputs: [MAIN_CONNECTION],
 		credentials: [
 			{
 				name: 'maxApi',

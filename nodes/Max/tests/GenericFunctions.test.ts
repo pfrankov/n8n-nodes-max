@@ -598,7 +598,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(result).toEqual(expectedResponse);
 			expect(mockExecuteFunctions.helpers!.httpRequest).toHaveBeenCalledWith({
 				method: 'POST',
-				url: 'https://platform-api.max.ru/messages',
+				url: 'https://platform-api2.max.ru/messages',
 				qs: {
 					user_id: 123,
 				},
@@ -629,7 +629,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(result).toEqual(expectedResponse);
 			expect(mockExecuteFunctions.helpers!.httpRequest).toHaveBeenCalledWith({
 				method: 'POST',
-				url: 'https://platform-api.max.ru/messages',
+				url: 'https://platform-api2.max.ru/messages',
 				qs: {
 					chat_id: 456,
 				},
@@ -1077,7 +1077,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(result).toEqual(expectedResponse);
 			expect(mockHttpRequest).toHaveBeenCalledWith({
 				method: 'PUT',
-				url: 'https://platform-api.max.ru/messages',
+				url: 'https://platform-api2.max.ru/messages',
 				qs: {
 					message_id: '123',
 				},
@@ -1109,7 +1109,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(result).toEqual(expectedResponse);
 			expect(mockHttpRequest).toHaveBeenCalledWith({
 				method: 'PUT',
-				url: 'https://platform-api.max.ru/messages',
+				url: 'https://platform-api2.max.ru/messages',
 				qs: {
 					message_id: '456',
 				},
@@ -1142,7 +1142,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(mockHttpRequest).toHaveBeenCalledWith(
 				expect.objectContaining({
 					method: 'PUT',
-					url: 'https://platform-api.max.ru/messages',
+					url: 'https://platform-api2.max.ru/messages',
 					qs: {
 						message_id: '456',
 					},
@@ -1342,7 +1342,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(result).toEqual(expectedResponse);
 			expect(mockHttpRequest).toHaveBeenCalledWith({
 				method: 'DELETE',
-				url: 'https://platform-api.max.ru/messages',
+				url: 'https://platform-api2.max.ru/messages',
 				qs: {
 					message_id: '123',
 				},
@@ -1369,7 +1369,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(result).toEqual({ success: true, message_id: '123' });
 			expect(mockHttpRequest).toHaveBeenCalledWith({
 				method: 'DELETE',
-				url: 'https://platform-api.max.ru/messages',
+				url: 'https://platform-api2.max.ru/messages',
 				qs: {
 					message_id: '123',
 				},
@@ -1396,7 +1396,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(result).toEqual({ success: true, message_id: '456' });
 			expect(mockHttpRequest).toHaveBeenCalledWith({
 				method: 'DELETE',
-				url: 'https://platform-api.max.ru/messages',
+				url: 'https://platform-api2.max.ru/messages',
 				qs: {
 					message_id: '456',
 				},
@@ -1455,7 +1455,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(result.success).toBe(true);
 			AssertionHelpers.expectHttpRequest(mockExecuteFunctions.helpers!.httpRequest as jest.Mock, {
 				method: 'POST',
-				url: 'https://platform-api.max.ru/answers',
+				url: 'https://platform-api2.max.ru/answers',
 				qs: {
 					callback_id: 'callback_123',
 				},
@@ -1499,7 +1499,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 
 			AssertionHelpers.expectHttpRequest(mockExecuteFunctions.helpers!.httpRequest as jest.Mock, {
 				method: 'POST',
-				url: 'https://platform-api.max.ru/answers',
+				url: 'https://platform-api2.max.ru/answers',
 				qs: {
 					callback_id: 'callback_123',
 				},
@@ -1768,7 +1768,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 				1,
 				expect.objectContaining({
 					method: 'POST',
-					url: 'https://platform-api.max.ru/uploads',
+					url: 'https://platform-api2.max.ru/uploads',
 					qs: { type: 'image' },
 					headers: { Authorization: 'test-token' },
 				}),
@@ -2456,7 +2456,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(result.title).toBe('Test Chat');
 			AssertionHelpers.expectHttpRequest(mockExecuteFunctions.helpers!.httpRequest as jest.Mock, {
 				method: 'GET',
-				url: `https://platform-api.max.ru/chats/${TEST_CONSTANTS.IDS.VALID_CHAT}`,
+				url: `https://platform-api2.max.ru/chats/${TEST_CONSTANTS.IDS.VALID_CHAT}`,
 			});
 		});
 
@@ -2464,7 +2464,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			await getChatInfo.call(mockExecuteFunctions as IExecuteFunctions, {} as any, -12345);
 			AssertionHelpers.expectHttpRequest(mockExecuteFunctions.helpers!.httpRequest as jest.Mock, {
 				method: 'GET',
-				url: `https://platform-api.max.ru/chats/-12345`,
+				url: `https://platform-api2.max.ru/chats/-12345`,
 			});
 		});
 
@@ -2518,7 +2518,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(result.success).toBe(true);
 			AssertionHelpers.expectHttpRequest(mockExecuteFunctions.helpers!.httpRequest as jest.Mock, {
 				method: 'DELETE',
-				url: `https://platform-api.max.ru/chats/${TEST_CONSTANTS.IDS.VALID_CHAT}/members/me`,
+				url: `https://platform-api2.max.ru/chats/${TEST_CONSTANTS.IDS.VALID_CHAT}/members/me`,
 			});
 		});
 
@@ -2543,7 +2543,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			await leaveChat.call(mockExecuteFunctions as IExecuteFunctions, {} as any, -12345);
 			AssertionHelpers.expectHttpRequest(mockExecuteFunctions.helpers!.httpRequest as jest.Mock, {
 				method: 'DELETE',
-				url: `https://platform-api.max.ru/chats/-12345/members/me`,
+				url: `https://platform-api2.max.ru/chats/-12345/members/me`,
 			});
 		});
 

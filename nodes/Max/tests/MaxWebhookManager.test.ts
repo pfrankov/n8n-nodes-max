@@ -43,7 +43,7 @@ describe('MaxWebhookManager', () => {
 
 			expect(result).toEqual({
 				credentials: mockCredentials,
-				baseUrl: 'https://platform-api.max.ru',
+				baseUrl: 'https://platform-api2.max.ru',
 				webhookUrl: 'https://xn--e1afmkfd.xn--p1ai/webhook',
 				events: mockEvents,
 				additionalFields,
@@ -91,7 +91,7 @@ describe('MaxWebhookManager', () => {
 			expect(result).toBe(true);
 			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledWith({
 				method: 'GET',
-				url: 'https://platform-api.max.ru/subscriptions',
+				url: 'https://platform-api2.max.ru/subscriptions',
 				headers: {
 					Authorization: 'test-token',
 				},
@@ -172,7 +172,7 @@ describe('MaxWebhookManager', () => {
 
 			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledWith({
 				method: 'GET',
-				url: 'https://platform-api.max.ru/subscriptions',
+				url: 'https://platform-api2.max.ru/subscriptions',
 				headers: {
 					Authorization: 'test-token',
 				},
@@ -208,7 +208,7 @@ describe('MaxWebhookManager', () => {
 			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledTimes(2);
 			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenNthCalledWith(2, {
 				method: 'POST',
-				url: 'https://platform-api.max.ru/subscriptions',
+				url: 'https://platform-api2.max.ru/subscriptions',
 				headers: {
 					Authorization: 'test-token',
 					'Content-Type': 'application/json',
@@ -249,7 +249,7 @@ describe('MaxWebhookManager', () => {
 			expect(result).toBe(true);
 			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenNthCalledWith(2, {
 				method: 'POST',
-				url: 'https://platform-api.max.ru/subscriptions',
+				url: 'https://platform-api2.max.ru/subscriptions',
 				headers: {
 					Authorization: 'test-token',
 					'Content-Type': 'application/json',
@@ -330,7 +330,7 @@ describe('MaxWebhookManager', () => {
 			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenCalledTimes(2);
 			expect(mockHookFunctions.helpers!.httpRequest).toHaveBeenNthCalledWith(2, {
 				method: 'DELETE',
-				url: 'https://platform-api.max.ru/subscriptions',
+				url: 'https://platform-api2.max.ru/subscriptions',
 				qs: {
 					url: mockWebhookUrl,
 				},

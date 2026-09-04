@@ -1,28 +1,36 @@
 import { MAX_TRIGGER_EVENTS, MAX_TRIGGER_PROPERTIES } from '../MaxTriggerConfig';
 
+const expectedEvents = [
+	'bot_added',
+	'bot_removed',
+	'bot_started',
+	'bot_stopped',
+	'chat_title_changed',
+	'comment_created',
+	'comment_edited',
+	'comment_removed',
+	'dialog_cleared',
+	'dialog_muted',
+	'dialog_removed',
+	'dialog_unmuted',
+	'message_callback',
+	'message_chat_created',
+	'message_created',
+	'message_edited',
+	'message_removed',
+	'user_added',
+	'user_removed',
+];
+
 describe('MaxTriggerConfig', () => {
 	describe('MAX_TRIGGER_EVENTS', () => {
 		it('should contain all expected event types', () => {
-			const expectedEvents = [
-				'bot_added',
-				'bot_removed',
-				'bot_started',
-				'chat_title_changed',
-				'message_callback',
-				'message_chat_created',
-				'message_created',
-				'message_edited',
-				'message_removed',
-				'user_added',
-				'user_removed',
-			];
-
 			expect(MAX_TRIGGER_EVENTS).toEqual(expectedEvents);
 		});
 
 		it('should include only unique event values', () => {
 			expect(new Set(MAX_TRIGGER_EVENTS).size).toBe(MAX_TRIGGER_EVENTS.length);
-			expect(MAX_TRIGGER_EVENTS.length).toBe(11);
+			expect(MAX_TRIGGER_EVENTS).toHaveLength(expectedEvents.length);
 		});
 	});
 
@@ -37,13 +45,11 @@ describe('MaxTriggerConfig', () => {
 			expect((eventsProperty as any).default).toEqual(['message_created']);
 		});
 
-		it('should have all event options with correct structure', () => {
+		it('should have one option for every supported event', () => {
 			const eventsProperty = MAX_TRIGGER_PROPERTIES.find((prop) => prop.name === 'events');
 			const options = (eventsProperty as any).options;
 
-			expect(options).toHaveLength(11);
-
-			// Check each option has required fields
+			expect(options).toHaveLength(expectedEvents.length);
 			options.forEach((option: any) => {
 				expect(option).toHaveProperty('name');
 				expect(option).toHaveProperty('value');
@@ -53,19 +59,18 @@ describe('MaxTriggerConfig', () => {
 				expect(typeof option.description).toBe('string');
 			});
 
-			// Check specific options
 			const messageCreatedOption = options.find((opt: any) => opt.value === 'message_created');
 			expect(messageCreatedOption).toEqual({
 				name: 'Message Received (Direct)',
 				value: 'message_created',
-				description: 'Trigger on new direct message (update_type: message_created)',
+				description: 'Trigger on a new direct message (update_type: message_created)',
 			});
 
-			const botStartedOption = options.find((opt: any) => opt.value === 'bot_started');
-			expect(botStartedOption).toEqual({
-				name: 'Bot Started',
-				value: 'bot_started',
-				description: 'Trigger when a user starts the bot (update_type: bot_started)',
+			const commentCreatedOption = options.find((opt: any) => opt.value === 'comment_created');
+			expect(commentCreatedOption).toEqual({
+				name: 'Comment Created',
+				value: 'comment_created',
+				description: 'Trigger when a channel comment is created (update_type: comment_created)',
 			});
 		});
 
@@ -112,9 +117,7 @@ describe('MaxTriggerConfig', () => {
 				displayName: 'Webhook Secret',
 				name: 'secret',
 				type: 'string',
-				typeOptions: {
-					password: true,
-				},
+				typeOptions: { password: true },
 				default: '',
 				description: 'A secret for the X-Max-Bot-Api-Secret header. Optional. 5-256 chars.',
 			});
