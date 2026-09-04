@@ -48,10 +48,12 @@ jobs:
           npm pack --dry-run --json > /tmp/npm-pack.json
           node <<'NODE'
           const fs = require('node:fs');
+          const path = require('node:path');
           const manifest = require('./package.json');
           const result = JSON.parse(fs.readFileSync('/tmp/npm-pack.json', 'utf8'))[0];
           const files = new Set(result.files.map(({ path }) => path));
           for (const entry of [...manifest.n8n.nodes, ...manifest.n8n.credentials]) {
             if (!files.has(entry)) throw new Error(`Missing npm entry point: ${entry}`);
+            require(path.resolve(entry));
           }
           NODE

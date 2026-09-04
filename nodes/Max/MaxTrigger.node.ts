@@ -5,12 +5,11 @@ import type {
 	INodeTypeDescription,
 	IWebhookResponseData,
 } from 'n8n-workflow';
-import { NodeConnectionType } from 'n8n-workflow';
-
 import { MaxWebhookManager } from './MaxWebhookManager';
 import { MaxEventProcessor } from './MaxEventProcessor';
 import { MAX_TRIGGER_PROPERTIES } from './MaxTriggerConfig';
 import { parseMaxJsonLosslessly } from './MaxJsonUtils';
+import { MAIN_CONNECTION } from './MaxNodeTypes';
 
 /**
  * Max messenger trigger node for n8n
@@ -40,7 +39,7 @@ export class MaxTrigger implements INodeType {
 			name: 'Max Trigger',
 		},
 		inputs: [],
-		outputs: [NodeConnectionType.Main],
+		outputs: [MAIN_CONNECTION],
 		credentials: [
 			{
 				name: 'maxApi',

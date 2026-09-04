@@ -74,12 +74,15 @@
 - `nodes/Max/MaxApiOperationsDescription.ts`: user-facing fields for advanced operations.
 - `nodes/Max/MaxApiRequest.ts`: exact HTTP request construction, upstream error preservation, Markdown fallback, and bounded media-processing retries.
 - `nodes/Max/MaxApiCompatibility.ts`: shared compatibility predicates and fallback transformations.
+- `nodes/Max/MaxJsonUtils.ts`: lossless MAX JSON parsing and stable string IDs.
+- `nodes/Max/MaxNodeTypes.ts`: runtime-free n8n connection descriptors shared by all nodes.
 - `nodes/Max/MaxUrlUtils.ts`: official host migration and IDN/Punycode webhook normalization.
 - `nodes/Max/MaxTrigger.node.ts`: trigger node entry point.
 - `nodes/Max/MaxWebhookManager.ts`: subscription lifecycle (`GET/POST/DELETE /subscriptions`).
 - `nodes/Max/MaxEventProcessor.ts`: incoming webhook normalization/filtering and output shaping.
 - `nodes/Max/MaxTriggerConfig.ts`: trigger events and additional trigger fields.
 - `nodes/Max/tests/`: behavior and regression tests for node, trigger, webhook manager, error handling, and utility functions.
+- `SCENARIOS.md`: concise Russian action/result acceptance scenarios for user-visible releases.
 
 ## Build, Test, and Development Commands
 

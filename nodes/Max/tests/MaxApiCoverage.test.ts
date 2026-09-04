@@ -18,6 +18,18 @@ describe('current MAX API coverage', () => {
 		expect(packageJson.n8n.nodes).toContain('dist/nodes/Max/MaxApiOperations.node.js');
 	});
 
+	it('uses connection descriptors that load with current n8n-workflow', async () => {
+		const { Max } = await import('../Max.node');
+		const { MaxApiOperations } = await import('../MaxApiOperations.node');
+		const { MaxTrigger } = await import('../MaxTrigger.node');
+
+		expect(new Max().description.inputs).toEqual(['main']);
+		expect(new Max().description.outputs).toEqual(['main']);
+		expect(new MaxApiOperations().description.inputs).toEqual(['main']);
+		expect(new MaxApiOperations().description.outputs).toEqual(['main']);
+		expect(new MaxTrigger().description.outputs).toEqual(['main']);
+	});
+
 	it('exposes all current webhook update types requested in issue #23', () => {
 		expect(MAX_TRIGGER_EVENTS).toEqual(expect.arrayContaining(NEW_UPDATE_TYPES));
 
@@ -32,6 +44,7 @@ describe('current MAX API coverage', () => {
 		const readme = readFileSync('README.md', 'utf8');
 		const agents = readFileSync('AGENTS.md', 'utf8');
 		const changelog = readFileSync('CHANGELOG.md', 'utf8');
+		const scenarios = readFileSync('SCENARIOS.md', 'utf8');
 
 		expect(readme).toContain('### Max API');
 		expect(readme).toContain('Chat Administrator');
@@ -39,6 +52,9 @@ describe('current MAX API coverage', () => {
 		expect(agents).toContain('platform-api2.max.ru');
 		expect(changelog).toContain('Max API');
 		expect(changelog).toContain('комментар');
+		expect(changelog).toContain('### Несовместимость');
+		expect(scenarios).toContain('**Действие:**');
+		expect(scenarios).toContain('**Результат:**');
 
 		expect(packageJson.version).toBe('0.1.26');
 		expect(changelog).toContain('## Не выпущено');

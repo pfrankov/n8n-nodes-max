@@ -5,13 +5,9 @@ import type {
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import {
-	ApplicationError,
-	NodeApiError,
-	NodeConnectionType,
-	NodeOperationError,
-} from 'n8n-workflow';
+import { ApplicationError, NodeApiError, NodeOperationError } from 'n8n-workflow';
 import { MAX_API_OPERATION_PROPERTIES } from './MaxApiOperationsDescription';
+import { MAIN_CONNECTION } from './MaxNodeTypes';
 import {
 	buildInlineKeyboard,
 	extractKeyboardRows,
@@ -652,8 +648,8 @@ export class MaxApiOperations implements INodeType {
 		subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
 		description: 'Use advanced operations from the current MAX Bot API',
 		defaults: { name: 'Max API' },
-		inputs: [NodeConnectionType.Main],
-		outputs: [NodeConnectionType.Main],
+		inputs: [MAIN_CONNECTION],
+		outputs: [MAIN_CONNECTION],
 		credentials: [{ name: 'maxApi', required: true }],
 		properties: MAX_API_OPERATION_PROPERTIES,
 	};
