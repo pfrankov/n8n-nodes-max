@@ -56,12 +56,12 @@ describe('current MAX API coverage', () => {
 		expect(scenarios).toContain('**Действие:**');
 		expect(scenarios).toContain('**Результат:**');
 
-		expect(packageJson.version).toBe('0.1.26');
-		expect(changelog).toContain('## Не выпущено');
+		expect(packageJson.version).toBe('0.2.0');
+		expect(changelog).toContain('## v0.2.0 - 2026-09-04');
 		expect(changelog).not.toContain('## v0.1.27 - 2026-09-03');
-		const unreleasedEntry = changelog.split(/^## v0\.1\.26/m)[0] ?? '';
-		expect(unreleasedEntry).toContain('### Кому важно');
-		expect(unreleasedEntry).toContain('### Что проверить после обновления');
+		const releaseEntry = changelog.split(/^## v0\.1\.26/m)[0] ?? '';
+		expect(releaseEntry).toContain('### Кому важно');
+		expect(releaseEntry).toContain('### Что проверить после обновления');
 	});
 
 	it('keeps only permanent workflows and verifies pushes to master', () => {
