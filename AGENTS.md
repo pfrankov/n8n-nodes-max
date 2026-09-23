@@ -47,6 +47,7 @@
 - All API identifiers remain strings and are validated against the full signed-int64 range without JavaScript number coercion.
 - Authentication is sent via `Authorization` header.
 - Message and webhook operations use direct HTTP requests for strict API-shape control.
+- SSL verification is enabled by default. `ignoreSslIssues` opts out only when it is boolean `true`, using n8n's per-request `skipSslCertificateValidation` for credential testing, MAX API calls, webhook subscription management, and both upload steps. Never change global TLS settings or retry certificate failures insecurely. External attachment downloads do not inherit this opt-out; incoming webhook TLS is outside its scope. Prefer a trusted CA over disabling verification.
 - Webhook processing is fail-soft: invalid events or filter issues should not crash trigger execution.
 - Webhook subscription URLs are normalized to ASCII/Punycode hostnames before registration to avoid TLS issues on IDN domains.
 - Upload flow is two-step (`POST /uploads` then multipart upload to returned URL). For `image`, attachment payload is normalized from upload-step JSON response (`token`, `url`, `photos`). For `file`, the node uses `token` from the upload response. For `video`/`audio`, the node also supports the documented flow where `POST /uploads` returns `token` and the multipart upload responds with `retval`.
@@ -77,6 +78,7 @@
 - `nodes/Max/MaxApiCompatibility.ts`: shared compatibility predicates and fallback transformations.
 - `nodes/Max/MaxJsonUtils.ts`: lossless MAX JSON parsing and stable string IDs.
 - `nodes/Max/MaxNodeTypes.ts`: runtime-free n8n connection descriptors shared by all nodes.
+- `nodes/Max/MaxTlsOptions.ts`: credential-scoped TLS opt-out for outgoing MAX requests; excludes external attachment downloads.
 - `nodes/Max/MaxUrlUtils.ts`: official host migration and IDN/Punycode webhook normalization.
 - `nodes/Max/MaxTrigger.node.ts`: trigger node entry point.
 - `nodes/Max/MaxWebhookManager.ts`: subscription lifecycle (`GET/POST/DELETE /subscriptions`).
@@ -131,6 +133,7 @@
   - `nodes/Max/tests/MaxApiOperations.node.test.ts`
   - `nodes/Max/tests/MaxWebhookManager.test.ts`
   - `credentials/tests/MaxApi.credentials.test.ts`
+- `nodes/Max/tests/MaxTlsOptions.test.ts` covers TLS propagation, defaults, retries, credential isolation, and the download/upload boundary.
 
 ## Commit & Pull Request Guidelines
 
@@ -157,6 +160,7 @@
 
 - `accessToken`: issued by `@PrimeBot`.
 - `baseUrl`: defaults to `https://platform-api2.max.ru`, override only for controlled environments; the legacy official host is migrated transparently.
+- `ignoreSslIssues`: `Ignore SSL Issues (Insecure)`, boolean, default `false`. Missing values and non-boolean values do not enable the opt-out. The UI warns about token/data interception and recommends a trusted CA.
 - Keep credential test behavior aligned with official docs and current API auth expectations.
 
 ## API Alignment Protocol (Docs-First)

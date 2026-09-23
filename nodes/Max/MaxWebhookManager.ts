@@ -1,5 +1,6 @@
 import type { IDataObject, IHookFunctions } from 'n8n-workflow';
 import type { MaxSubscriptionsResponse, MaxTriggerEvent } from './MaxTriggerConfig';
+import { getMaxTlsOptions } from './MaxTlsOptions';
 import { normalizeMaxBaseUrl, normalizeMaxWebhookUrl } from './MaxUrlUtils';
 
 /**
@@ -175,6 +176,7 @@ export class MaxWebhookManager {
 		const credentials = await context.getCredentials('maxApi');
 
 		return context.helpers.httpRequest({
+			...getMaxTlsOptions(credentials),
 			method: 'GET',
 			url: `${baseUrl}/subscriptions`,
 			headers: {
@@ -211,6 +213,7 @@ export class MaxWebhookManager {
 		}
 
 		await context.helpers.httpRequest({
+			...getMaxTlsOptions(credentials),
 			method: 'POST',
 			url: `${baseUrl}/subscriptions`,
 			headers: {
@@ -232,6 +235,7 @@ export class MaxWebhookManager {
 		credentials: any,
 	): Promise<void> {
 		await context.helpers.httpRequest({
+			...getMaxTlsOptions(credentials),
 			method: 'DELETE',
 			url: `${baseUrl}/subscriptions`,
 			qs: {

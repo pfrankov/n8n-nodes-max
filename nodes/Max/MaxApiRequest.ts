@@ -9,6 +9,7 @@ import {
 	sleep,
 } from './MaxApiCompatibility';
 import { parseMaxJsonLosslessly } from './MaxJsonUtils';
+import { getMaxTlsOptions } from './MaxTlsOptions';
 import { normalizeMaxBaseUrl } from './MaxUrlUtils';
 
 export { MAX_API_BASE_URL, normalizeMaxBaseUrl, normalizeMaxWebhookUrl } from './MaxUrlUtils';
@@ -76,6 +77,7 @@ export async function maxApiRequest(
 	const baseUrl = normalizeMaxBaseUrl(credentials['baseUrl']);
 	const path = options.path.startsWith('/') ? options.path : `/${options.path}`;
 	const requestOptions: IHttpRequestOptions = {
+		...getMaxTlsOptions(credentials),
 		method: options.method,
 		url: `${baseUrl}${path}`,
 		headers: {
