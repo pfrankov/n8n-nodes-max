@@ -41,6 +41,14 @@ export class MaxApi implements ICredentialType {
 			default: 'https://platform-api2.max.ru',
 			description: 'The API URL. Use the default value unless you use a custom server.',
 		},
+		{
+			displayName: 'Ignore SSL Issues (Insecure)',
+			name: 'ignoreSslIssues',
+			type: 'boolean',
+			default: false,
+			description:
+				'Whether to skip SSL certificate validation for MAX API and upload requests. Insecure: exposes the bot token and data to interception. Prefer configuring a trusted CA certificate.',
+		},
 	];
 
 	/**
@@ -55,6 +63,7 @@ export class MaxApi implements ICredentialType {
 			headers: {
 				Authorization: '={{$credentials.accessToken}}',
 			},
+			skipSslCertificateValidation: '={{$credentials.ignoreSslIssues === true}}',
 		},
 	};
 }

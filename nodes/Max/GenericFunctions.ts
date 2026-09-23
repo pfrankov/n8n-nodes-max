@@ -10,6 +10,7 @@ import { Bot } from '@maxhub/max-bot-api';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 import { basename, join } from 'path';
+import { getMaxTlsOptions } from './MaxTlsOptions';
 import { normalizeMaxBaseUrl } from './MaxUrlUtils';
 
 const ATTACHMENT_READY_RETRY_DELAYS_MS = [700, 1500, 3000];
@@ -395,6 +396,7 @@ export async function sendMessage(
 		}
 
 		const requestOptions: IHttpRequestOptions = {
+			...getMaxTlsOptions(credentials),
 			method: 'POST',
 			url: `${baseUrl}/messages`,
 			qs,
@@ -558,6 +560,7 @@ export async function editMessage(
 
 		// Edit message contract: message_id is sent in query params.
 		const requestOptions: IHttpRequestOptions = {
+			...getMaxTlsOptions(credentials),
 			method: 'PUT',
 			url: `${baseUrl}/messages`,
 			qs: {
@@ -610,6 +613,7 @@ export async function deleteMessage(
 
 		// Make HTTP request to delete message endpoint
 		const result = await this.helpers.httpRequest({
+			...getMaxTlsOptions(credentials),
 			method: 'DELETE',
 			url: `${baseUrl}/messages`,
 			qs: {
@@ -665,6 +669,7 @@ export async function answerCallbackQuery(
 
 		// Make HTTP request to answer callback query endpoint
 		const result = await this.helpers.httpRequest({
+			...getMaxTlsOptions(credentials),
 			method: 'POST',
 			url: `${baseUrl}/answers`,
 			qs: {
@@ -779,7 +784,7 @@ export function addAdditionalFields(
  * to enable appropriate error handling and user guidance.
  *
  * @param error - The error object from Max API containing error codes and messages
- * @returns The categorized error type for appropriate handling
+ * @returns The categorized error type for appropriate messaging
  */
 export function categorizeMaxError(error: IMaxError): MaxErrorCategory {
 	// Authentication errors
@@ -1290,6 +1295,7 @@ export async function uploadFileToMax(
 
 		// Step 1: Get upload URL from Max API
 		const uploadUrlResponse = (await this.helpers.httpRequest({
+			...getMaxTlsOptions(credentials),
 			method: 'POST',
 			url: `${baseUrl}/uploads`,
 			qs: {
@@ -1322,6 +1328,7 @@ export async function uploadFileToMax(
 
 		// Step 3: Upload file to the provided URL
 		const uploadResponse = await this.helpers.httpRequest({
+			...getMaxTlsOptions(credentials),
 			method: 'POST',
 			url: uploadUrlResponse.url,
 			body: multipartBody,
@@ -1772,6 +1779,7 @@ export async function getChatInfo(
 
 		// Make HTTP request to get chat info endpoint
 		const result = await this.helpers.httpRequest({
+			...getMaxTlsOptions(credentials),
 			method: 'GET',
 			url: `${baseUrl}/chats/${chatId}`,
 			headers: {
@@ -1818,6 +1826,7 @@ export async function leaveChat(
 
 		// Make HTTP request to leave chat endpoint
 		const result = await this.helpers.httpRequest({
+			...getMaxTlsOptions(credentials),
 			method: 'DELETE',
 			url: `${baseUrl}/chats/${chatId}/members/me`,
 			headers: getAuthHeaders(accessToken),
@@ -1977,7 +1986,7 @@ export function formatInlineKeyboard(buttons: IButtonConfig[][]): IMaxKeyboard {
  *
  * @param buttons - Two-dimensional array of button configurations representing keyboard layout
  * @returns Max attachment object containing the formatted inline keyboard
- * @throws {Error} When keyboard layout validation fails
+ * @throws {Error} When keyboard configuration is invalid or exceeds limits
  */
 export function createInlineKeyboardAttachment(buttons: IButtonConfig[][]): IMaxAttachment {
 	const keyboard = formatInlineKeyboard(buttons);

@@ -63,6 +63,17 @@ describe('MaxApi Credentials', () => {
 			expect(baseUrlProperty?.default).toBe('https://platform-api2.max.ru');
 			expect(baseUrlProperty?.description).toContain('API URL');
 		});
+
+		it('should keep SSL verification enabled by default and warn about the opt-out', () => {
+			const property = maxApiCredentials.properties.find((prop) => prop.name === 'ignoreSslIssues');
+
+			expect(property).toMatchObject({
+				displayName: 'Ignore SSL Issues (Insecure)',
+				type: 'boolean',
+				default: false,
+			});
+			expect(property?.description).toContain('interception');
+		});
 	});
 
 	describe('Credential Test Configuration', () => {
@@ -77,6 +88,18 @@ describe('MaxApi Credentials', () => {
 				Authorization: '={{$credentials.accessToken}}',
 			});
 		});
+
+		it.each([undefined, false, true, 'false', 'true', 0, 1])(
+			'should disable SSL verification in the credential test only for boolean true (%p)',
+			(ignoreSslIssues) => {
+				const expression = maxApiCredentials.test.request.skipSslCertificateValidation;
+				expect(expression).toBe('={{$credentials.ignoreSslIssues === true}}');
+				const evaluate = Function('$credentials', `return (${String(expression).slice(3, -2)});`);
+
+				expect(evaluate({ ignoreSslIssues })).toBe(ignoreSslIssues === true);
+				expect(evaluate({})).toBe(false);
+			},
+		);
 
 		it('should migrate only the exact legacy official host during credential testing', () => {
 			const expression = maxApiCredentials.test.request.baseURL;
