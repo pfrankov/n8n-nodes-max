@@ -69,7 +69,8 @@ describe('current MAX API coverage', () => {
 		expect(scenarios).toContain('**Действие:**');
 		expect(scenarios).toContain('**Результат:**');
 
-		expect(['0.2.1', '1.0.0']).toContain(packageJson.version);
+		const latestRelease = changelog.match(/^## v(\d+\.\d+\.\d+) - \d{4}-\d{2}-\d{2}$/m);
+		expect(latestRelease?.[1]).toBe(packageJson.version);
 		expect(changelog).toContain('## v1.0.0 - 2026-09-04');
 		expect(changelog).not.toContain('## v0.1.27 - 2026-09-03');
 		const releaseEntry = changelog.split(/^## v0\.2\.1/m)[0] ?? '';
