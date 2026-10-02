@@ -44,11 +44,15 @@
 ### Key Design Decisions
 
 - Default API base URL is `https://platform-api2.max.ru`; stored legacy official URLs are normalized at runtime and during credential testing.
-- All API identifiers remain strings and are validated against the full signed-int64 range without JavaScript number coercion.
+- Recipient validation must inspect the original parameter value before string conversion, rejecting unsafe JavaScript numbers.
+- API input identifiers are validated against the full signed-int64 range without JavaScript number coercion. Trigger and newer resource responses normalize IDs to strings. Legacy message operations and Get Chat Info/Leave Chat preserve safe numeric response IDs for compatibility, but parse unsafe integer literals as exact decimal strings; never let the HTTP client round them first.
 - Authentication is sent via `Authorization` header.
 - Message and webhook operations use direct HTTP requests for strict API-shape control.
 - SSL verification is enabled by default. `ignoreSslIssues` opts out only when it is boolean `true`, using n8n's per-request `skipSslCertificateValidation` for credential testing, MAX API calls, webhook subscription management, and both upload steps. Never change global TLS settings or retry certificate failures insecurely. External attachment downloads do not inherit this opt-out; incoming webhook TLS is outside its scope. Prefer a trusted CA over disabling verification.
 - Webhook processing is fail-soft: invalid events or filter issues should not crash trigger execution.
+- When `Webhook Secret` is nonblank, authenticate `X-Max-Bot-Api-Secret` before raw-body parsing and event dispatch. Trim only the configured secret, matching registration; compare the single incoming string exactly with `node:crypto` timing-safe comparison. Missing, mismatched, or multivalue headers return HTTP 403 with `noWebhookResponse: true` and no workflow data. Never log secrets. Absent/blank secrets preserve previous behavior.
+- Callback user filters, metadata, and event identity select `callback.user` before the original message sender. The original message payload stays intact.
+- Webhook event IDs hash the complete existing identity fields (event type, timestamp, chat, user, message, callback), rather than a truncated encoded prefix; identical identity fields remain deterministic. Explicit `success: false` subscription responses are failures, including HTTP 200 responses.
 - Webhook subscription URLs are normalized to ASCII/Punycode hostnames before registration to avoid TLS issues on IDN domains.
 - Upload flow is two-step (`POST /uploads` then multipart upload to returned URL). For `image`, attachment payload is normalized from upload-step JSON response (`token`, `url`, `photos`). For `file`, the node uses `token` from the upload response. For `video`/`audio`, the node also supports the documented flow where `POST /uploads` returns `token` and the multipart upload responds with `retval`.
 - `Send Message` attachments support three input modes: `Binary Data`, `URL`, and `Token`. In `Token` mode, the node reuses an existing Max attachment token and sends `{ payload: { token } }` without a new upload.

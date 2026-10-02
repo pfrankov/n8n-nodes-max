@@ -74,6 +74,7 @@ describe('MaxTrigger Node', () => {
 
 	describe('Webhook Endpoint', () => {
 		const mockWebhookFunctions = {
+			getNodeParameter: jest.fn().mockReturnValue({}),
 			getHeaderData: jest.fn(),
 			getBodyData: jest.fn(),
 			getNode: jest.fn(),

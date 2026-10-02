@@ -86,9 +86,13 @@ function normalizeIdentifierFields(key: string, value: unknown): unknown {
 /**
  * Parses MAX JSON without rounding integer literals beyond JavaScript's safe range.
  * Unsafe integers become decimal strings before parsing. Identifier fields and ID arrays
- * are normalized to strings regardless of magnitude; unrelated JSON values keep native types.
+ * are normalized to strings by default. Disable normalization for legacy responses that
+ * retain safe numeric identifiers; unrelated JSON values keep native types.
  */
-export function parseMaxJsonLosslessly(source: string): unknown {
+export function parseMaxJsonLosslessly(
+	source: string,
+	options: { normalizeIdentifiers?: boolean } = {},
+): unknown {
 	let transformed = '';
 	let cursor = 0;
 	let inString = false;
@@ -136,6 +140,6 @@ export function parseMaxJsonLosslessly(source: string): unknown {
 	}
 
 	return JSON.parse(transformed, (key, value: unknown) =>
-		normalizeIdentifierFields(key, value),
+		options.normalizeIdentifiers === false ? value : normalizeIdentifierFields(key, value),
 	) as unknown;
 }

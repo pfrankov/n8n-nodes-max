@@ -995,7 +995,7 @@ export class MaxLegacyExecution {
 									{ itemIndex: i },
 								);
 							}
-							recipientId = requireInt64(userIdStr, 'User ID');
+							recipientId = requireInt64(userId, 'User ID');
 							if (/^-?0+$/.test(recipientId)) {
 								throw new NodeOperationError(
 									this.getNode(),
@@ -1014,7 +1014,7 @@ export class MaxLegacyExecution {
 									{ itemIndex: i },
 								);
 							}
-							recipientId = requireInt64(chatIdStr, 'Chat ID');
+							recipientId = requireInt64(chatId, 'Chat ID');
 							if (/^-?0+$/.test(recipientId)) {
 								throw new NodeOperationError(
 									this.getNode(),

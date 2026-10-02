@@ -603,13 +603,15 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					user_id: 123,
 				},
 				headers: {
+					Accept: 'application/json',
 					Authorization: 'test-token',
 					'Content-Type': 'application/json',
 				},
 				body: {
 					text: 'Hello',
 				},
-				json: true,
+				encoding: 'text',
+				json: false,
 			});
 		});
 
@@ -634,6 +636,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					chat_id: 456,
 				},
 				headers: {
+					Accept: 'application/json',
 					Authorization: 'test-token',
 					'Content-Type': 'application/json',
 				},
@@ -641,7 +644,8 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					text: 'Hello chat',
 					notify: false,
 				},
-				json: true,
+				encoding: 'text',
+				json: false,
 			});
 		});
 
@@ -1082,11 +1086,13 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					message_id: '123',
 				},
 				headers: {
+					Accept: 'application/json',
 					Authorization: 'test-token',
 					'Content-Type': 'application/json',
 				},
 				body: { text: 'Updated message' },
-				json: true,
+				encoding: 'text',
+				json: false,
 			});
 		});
 
@@ -1114,11 +1120,13 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					message_id: '456',
 				},
 				headers: {
+					Accept: 'application/json',
 					Authorization: 'test-token',
 					'Content-Type': 'application/json',
 				},
 				body: { text: 'Updated <b>message</b>', format: 'html' },
-				json: true,
+				encoding: 'text',
+				json: false,
 			});
 		});
 
@@ -1347,9 +1355,11 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					message_id: '123',
 				},
 				headers: {
+					Accept: 'application/json',
 					Authorization: 'test-token',
 				},
-				json: true,
+				encoding: 'text',
+				json: false,
 			});
 		});
 
@@ -1374,9 +1384,11 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					message_id: '123',
 				},
 				headers: {
+					Accept: 'application/json',
 					Authorization: 'test-token',
 				},
-				json: true,
+				encoding: 'text',
+				json: false,
 			});
 		});
 
@@ -1401,9 +1413,11 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					message_id: '456',
 				},
 				headers: {
+					Accept: 'application/json',
 					Authorization: 'test-token',
 				},
-				json: true,
+				encoding: 'text',
+				json: false,
 			});
 		});
 
@@ -1460,6 +1474,7 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 					callback_id: 'callback_123',
 				},
 				headers: {
+					Accept: 'application/json',
 					Authorization: 'test-token',
 					'Content-Type': 'application/json',
 				},

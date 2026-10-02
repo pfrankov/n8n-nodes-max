@@ -4,7 +4,9 @@ import type {
 	INodeType,
 	INodeTypeDescription,
 	IWebhookResponseData,
+	IDataObject,
 } from 'n8n-workflow';
+import { timingSafeEqual } from 'node:crypto';
 import { MaxWebhookManager } from './MaxWebhookManager';
 import { MaxEventProcessor } from './MaxEventProcessor';
 import { MAX_TRIGGER_PROPERTIES } from './MaxTriggerConfig';
@@ -94,6 +96,23 @@ export class MaxTrigger implements INodeType {
 	 * Uses static instance to avoid context binding issues
 	 */
 	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
+		const additionalFields = this.getNodeParameter('additionalFields', {}) as IDataObject;
+		const configuredSecret = additionalFields['secret'];
+		const secret = typeof configuredSecret === 'string' ? configuredSecret.trim() : '';
+		if (secret) {
+			const headerSecret = this.getHeaderData()['x-max-bot-api-secret'];
+			const expected = Buffer.from(secret);
+			const received = typeof headerSecret === 'string' ? Buffer.from(headerSecret) : undefined;
+			if (
+				!received ||
+				expected.length !== received.length ||
+				!timingSafeEqual(expected, received)
+			) {
+				this.getResponseObject().status(403).json({ message: 'Invalid webhook secret' });
+				return { noWebhookResponse: true };
+			}
+		}
+
 		const request = this.getRequestObject?.();
 		if (request?.rawBody?.length) {
 			try {

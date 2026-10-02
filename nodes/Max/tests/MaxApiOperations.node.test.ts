@@ -189,6 +189,46 @@ describe('focused MAX API nodes', () => {
 			);
 		});
 
+		it.each(['user', 'chat'])(
+			'rejects unsafe numeric %s recipients in the published message node',
+			async (sendTo) => {
+				const { context, httpRequest } = createExecuteContext({
+					operation: 'sendMessage',
+					sendTo,
+					[sendTo === 'user' ? 'userId' : 'chatId']: Number('9007199254740993'),
+					text: 'Hello',
+					format: 'plain',
+				});
+
+				await expect(new MaxMessage().execute.call(context)).rejects.toThrow('pass it as a string');
+				expect(httpRequest).not.toHaveBeenCalled();
+			},
+		);
+
+		it.each([
+			['user', '9223372036854775807'],
+			['chat', '-9223372036854775808'],
+			['user', Number.MAX_SAFE_INTEGER],
+			['chat', -Number.MAX_SAFE_INTEGER],
+		])('preserves valid %s recipient %p in the published message node', async (sendTo, id) => {
+			const { context, httpRequest } = createExecuteContext({
+				operation: 'sendMessage',
+				sendTo,
+				[sendTo === 'user' ? 'userId' : 'chatId']: id,
+				text: 'Hello',
+				format: 'plain',
+			});
+
+			await new MaxMessage().execute.call(context);
+
+			expect(httpRequest).toHaveBeenCalledWith(
+				expect.objectContaining({
+					method: 'POST',
+					qs: { [sendTo === 'user' ? 'user_id' : 'chat_id']: String(id) },
+				}),
+			);
+		});
+
 		it('sends current message and clipboard keyboard button types', async () => {
 			const { context, httpRequest } = createExecuteContext({
 				resource: 'message',

@@ -12,6 +12,7 @@ import { tmpdir } from 'os';
 import { basename, join } from 'path';
 import { getMaxTlsOptions } from './MaxTlsOptions';
 import { normalizeMaxBaseUrl } from './MaxUrlUtils';
+import { parseMaxJsonLosslessly } from './MaxJsonUtils';
 
 const ATTACHMENT_READY_RETRY_DELAYS_MS = [700, 1500, 3000];
 
@@ -19,6 +20,27 @@ function getAuthHeaders(accessToken: string): IDataObject {
 	return {
 		Authorization: accessToken,
 	};
+}
+
+/** Preserve int64 response values without changing legacy safe-number ID types. */
+async function requestMaxJson(
+	this: IExecuteFunctions,
+	options: IHttpRequestOptions,
+): Promise<unknown> {
+	const headers = { ...options.headers };
+	if (!Object.keys(headers).some((name) => name.toLowerCase() === 'accept')) {
+		headers['Accept'] = 'application/json';
+	}
+	const response = await this.helpers.httpRequest({
+		...options,
+		headers,
+		encoding: 'text',
+		json: false,
+	});
+	const body = Buffer.isBuffer(response) ? response.toString('utf8') : response;
+	return typeof body === 'string' && body.trim().length > 0
+		? parseMaxJsonLosslessly(body, { normalizeIdentifiers: false })
+		: body;
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -79,11 +101,26 @@ function extractMaxErrorDetails(error: unknown): Partial<IMaxError> {
 		(error as { response?: { data?: unknown } })?.response?.data,
 		(error as { body?: unknown })?.body,
 		(error as { error?: unknown })?.error,
-	].filter((candidate) => candidate && typeof candidate === 'object');
+	];
 
 	const details: Partial<IMaxError> = {};
 
-	for (const candidate of nestedCandidates) {
+	for (const rawCandidate of nestedCandidates) {
+		let candidate: unknown = Buffer.isBuffer(rawCandidate)
+			? rawCandidate.toString('utf8')
+			: rawCandidate;
+		if (typeof candidate === 'string') {
+			try {
+				candidate = parseMaxJsonLosslessly(candidate, { normalizeIdentifiers: false });
+			} catch {
+				// Non-JSON error responses retain the original transport error details.
+				continue;
+			}
+		}
+		if (!candidate || typeof candidate !== 'object') {
+			continue;
+		}
+
 		const typedCandidate = candidate as {
 			error_code?: number;
 			status?: number;
@@ -405,7 +442,6 @@ export async function sendMessage(
 				'Content-Type': 'application/json',
 			},
 			body,
-			json: true,
 		};
 		const hasMediaAttachmentPayload = hasMediaAttachments(body);
 		let requestBody = body;
@@ -414,7 +450,7 @@ export async function sendMessage(
 
 		while (true) {
 			try {
-				return await this.helpers.httpRequest({
+				return await requestMaxJson.call(this, {
 					...requestOptions,
 					body: requestBody,
 				});
@@ -538,7 +574,7 @@ export async function editMessage(
 
 		const executeEditRequest = async (requestOptions: IHttpRequestOptions): Promise<any> => {
 			try {
-				return await this.helpers.httpRequest(requestOptions);
+				return await requestMaxJson.call(this, requestOptions);
 			} catch (error) {
 				if (format === 'markdown' && isUnsupportedMarkdownSyntaxError(error)) {
 					const plainText = stripMarkdownFormatting(text);
@@ -548,7 +584,7 @@ export async function editMessage(
 					};
 					delete fallbackBody['format'];
 
-					return await this.helpers.httpRequest({
+					return await requestMaxJson.call(this, {
 						...requestOptions,
 						body: fallbackBody,
 					});
@@ -572,7 +608,6 @@ export async function editMessage(
 				'Content-Type': 'application/json',
 			},
 			body: requestBody,
-			json: true,
 		};
 
 		return await executeEditRequest(requestOptions);
@@ -612,7 +647,7 @@ export async function deleteMessage(
 		const accessToken = credentials['accessToken'] as string;
 
 		// Make HTTP request to delete message endpoint
-		const result = await this.helpers.httpRequest({
+		const result = await requestMaxJson.call(this, {
 			...getMaxTlsOptions(credentials),
 			method: 'DELETE',
 			url: `${baseUrl}/messages`,
@@ -620,7 +655,6 @@ export async function deleteMessage(
 				message_id: messageId.trim(),
 			},
 			headers: getAuthHeaders(accessToken),
-			json: true,
 		});
 
 		return result || { success: true, message_id: messageId };
@@ -668,7 +702,7 @@ export async function answerCallbackQuery(
 		}
 
 		// Make HTTP request to answer callback query endpoint
-		const result = await this.helpers.httpRequest({
+		const result = await requestMaxJson.call(this, {
 			...getMaxTlsOptions(credentials),
 			method: 'POST',
 			url: `${baseUrl}/answers`,
@@ -680,7 +714,6 @@ export async function answerCallbackQuery(
 				'Content-Type': 'application/json',
 			},
 			body: requestBody,
-			json: true,
 		});
 
 		return (
@@ -1778,7 +1811,7 @@ export async function getChatInfo(
 		const accessToken = credentials['accessToken'] as string;
 
 		// Make HTTP request to get chat info endpoint
-		const result = await this.helpers.httpRequest({
+		const result = await requestMaxJson.call(this, {
 			...getMaxTlsOptions(credentials),
 			method: 'GET',
 			url: `${baseUrl}/chats/${chatId}`,
@@ -1786,7 +1819,6 @@ export async function getChatInfo(
 				...getAuthHeaders(accessToken),
 				'Content-Type': 'application/json',
 			},
-			json: true,
 		});
 
 		return result;
@@ -1825,12 +1857,11 @@ export async function leaveChat(
 		const accessToken = credentials['accessToken'] as string;
 
 		// Make HTTP request to leave chat endpoint
-		const result = await this.helpers.httpRequest({
+		const result = await requestMaxJson.call(this, {
 			...getMaxTlsOptions(credentials),
 			method: 'DELETE',
 			url: `${baseUrl}/chats/${chatId}/members/me`,
 			headers: getAuthHeaders(accessToken),
-			json: true,
 		});
 
 		return result || { success: true, chat_id: chatId, message: 'Successfully left the chat' };
