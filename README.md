@@ -9,33 +9,25 @@
 
 ### Для self-hosted n8n
 
-1. Установите пакет через npm в директории n8n:
+В `Settings → Community Nodes` нажмите `Install` и укажите `n8n-nodes-max`. Устанавливать community nodes могут владелец и администраторы экземпляра n8n.
+
+Для ручной установки выполните команды в окружении, где работает n8n, затем перезапустите n8n:
 
 ```bash
+mkdir -p ~/.n8n/nodes
+cd ~/.n8n/nodes
 npm install n8n-nodes-max
 ```
 
-2. Перезапустите n8n для загрузки новой ноды
-
 ### Для n8n Cloud
 
-1. Откройте настройки вашего workspace
-2. Перейдите в раздел "Community nodes"
-3. Нажмите "Install a community node"
-4. Введите `n8n-nodes-max` и нажмите "Install"
-
-### Альтернативный способ (переменная окружения)
-
-Добавьте пакет в переменную окружения:
-
-```bash
-export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
-```
+В n8n Cloud доступны только проверенные community nodes из каталога нод. Если `n8n-nodes-max` отсутствует в вашем каталоге, установить его по имени npm-пакета в Cloud нельзя; используйте self-hosted n8n.
 
 **Полезные ссылки:**
 
-- [Официальная документация по установке community nodes](https://docs.n8n.io/integrations/community-nodes/installation/)
-- [Руководство по self-hosted установке](https://docs.n8n.io/hosting/)
+- [Установка и управление community nodes](https://docs.n8n.io/integrations/community-nodes/installation-and-management)
+- [Ручная установка](https://docs.n8n.io/integrations/community-nodes/installation-and-management/manual-installation)
+- [Установка проверенных нод](https://docs.n8n.io/integrations/community-nodes/installation-and-management/install-verified-community-nodes)
 
 ## Для разработки
 
@@ -89,7 +81,7 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 - Payload вложения зависит от типа файла: для `image` используются поля из JSON-ответа upload-шага (`token`/`photos`/`url`), для `file` используется `token` из upload-ответа, а для `video`/`audio` нода также поддерживает токен из `POST /uploads`, если upload endpoint возвращает `retval`
 - Если у вас уже есть `payload.token` из Max API, выберите `Attachment Source = Token`: нода отправит вложение без повторного скачивания и upload
 - Автоматический ретрай отправки с медиа-вложением при временной ошибке `attachment.not.ready`
-- Явная валидация ID получателя: `0` отклоняется с подсказкой по полям из `Max Trigger`
+- Явная валидация ID получателя: `0` отклоняется с подсказкой по полям из `Max Trigger`; числовые ID за пределами безопасного диапазона JavaScript отклоняются до отправки. Передавайте такие ID строками
 - Интерактивные клавиатуры с кнопками
 
 ### Max Chat
@@ -97,7 +89,7 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
 - Получение информации о чате
 - Выход из групповых чатов
 
-Функциональные ноды сохраняют `int64`-идентификаторы строками и проверяют их signed-int64 диапазон, автоматически переводят старый официальный API host на `platform-api2.max.ru`, нормализуют IDN-домены webhook в Punycode и повторяют отправку при временной обработке медиа. При отказе MAX принять Markdown сообщение один раз повторяется как читаемый plain text.
+Ноды проверяют signed-int64 диапазон входных ID без округления, автоматически переводят старый официальный API host на `platform-api2.max.ru`, нормализуют IDN-домены webhook в Punycode и повторяют отправку при временной обработке медиа. В ответах `Send Message`, `Edit Message`, `Delete Message`, `Answer Callback Query`, `Get Chat Info` и `Leave Chat` безопасные числовые ID сохраняют прежний тип number, а целые значения вне безопасного диапазона JavaScript возвращаются точными строками. Остальные операции и `Max Trigger` нормализуют ID в строки. При отказе MAX принять Markdown сообщение один раз повторяется как читаемый plain text.
 
 `GET /chats` намеренно не представлен: с июня 2026 года метод не поддерживается. Long Polling также не вынесен в production-trigger; для постоянных workflow используется `Max Trigger` с webhook.
 
@@ -108,6 +100,12 @@ export N8N_CUSTOM_EXTENSIONS=n8n-nodes-max
   - Нажатия на кнопки
   - События чатов
 - Поддержка webhook URL с интернационализированными доменами (IDN/Punycode) для корректной TLS-валидации
+- Для `message_callback` фильтр `User IDs` и `metadata.user_context` используют пользователя, нажавшего кнопку (`callback.user`), а не автора сообщения с кнопкой
+- Разные события получают разные `event_id`; повторная доставка одного события с теми же полями и timestamp сохраняет ID. После обновления формат `event_id` меняется: учитывайте это, если храните старые ID для дедупликации
+- Ответ MAX `success: false` при создании подписки прерывает активацию; при удалении подписки возвращается признак неудачи
+- Если задан `Additional Fields → Webhook Secret`, входящий заголовок `X-Max-Bot-Api-Secret` должен точно совпадать с секретом: запросы без него, с другим значением или несколькими значениями получают HTTP 403 и не запускают workflow. Пробелы по краям настроенного секрета удаляются так же, как при регистрации подписки; значение заголовка не обрезается. Без секрета поведение прежнее.
+
+После добавления или смены `Webhook Secret` деактивируйте и снова активируйте workflow, чтобы MAX использовал тот же секрет в подписке. [MAX рекомендует проверять этот заголовок](https://dev.max.ru/docs-api/methods/POST/subscriptions).
 
 > **Изменение типа ID:** `Max Trigger` теперь возвращает числовые поля `id`, `*_id` и элементы массивов `ids`/`*_ids` строками независимо от величины. Это исключает потерю точности и делает схему стабильной, но существующие строгие сравнения с числами (`=== 123`) нужно заменить на сравнение со строкой (`=== '123'`) либо явное преобразование типа.
 

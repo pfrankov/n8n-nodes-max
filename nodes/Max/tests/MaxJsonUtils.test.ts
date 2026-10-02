@@ -46,4 +46,28 @@ describe('parseMaxJsonLosslessly', () => {
 			id: '9007199254740993',
 		});
 	});
+
+	it('can preserve legacy numeric identifiers without losing unsafe integer literals', () => {
+		const parsed = parseMaxJsonLosslessly(
+			'{"id":42,"user_id":9007199254740991,"owner_id":-9007199254740991,"chat_id":-9223372036854775808,"nested":[{"id":9223372036854775807}],"user_ids":[0,9007199254740993,null,"7"],"decimal_id":1.5,"exponent_id":1e20,"nullable_id":null,"count":12,"large_count":9007199254740993,"decimal":9007199254740992.5,"exponent":9.007199254740992e15,"active":true}',
+			{ normalizeIdentifiers: false },
+		);
+
+		expect(parsed).toEqual({
+			id: 42,
+			user_id: 9007199254740991,
+			owner_id: -9007199254740991,
+			chat_id: '-9223372036854775808',
+			nested: [{ id: '9223372036854775807' }],
+			user_ids: [0, '9007199254740993', null, '7'],
+			decimal_id: 1.5,
+			exponent_id: 1e20,
+			nullable_id: null,
+			count: 12,
+			large_count: '9007199254740993',
+			decimal: 9007199254740992.5,
+			exponent: 9.007199254740992e15,
+			active: true,
+		});
+	});
 });

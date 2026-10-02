@@ -159,7 +159,8 @@ export const MAX_TRIGGER_PROPERTIES: INodeProperties[] = [
 				type: 'string',
 				typeOptions: { password: true },
 				default: '',
-				description: 'A secret for the X-Max-Bot-Api-Secret header. Optional. 5-256 chars.',
+				description:
+					'Require this secret in the X-Max-Bot-Api-Secret header. Optional. 5-256 chars. Reactivate the workflow after changing it.',
 			},
 			{
 				displayName: 'API Version',

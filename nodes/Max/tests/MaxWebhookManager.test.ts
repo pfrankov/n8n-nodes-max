@@ -18,6 +18,47 @@ describe('MaxWebhookManager', () => {
 		};
 	});
 
+	describe('unsuccessful HTTP 200 responses', () => {
+		beforeEach(() => {
+			(mockHookFunctions.getCredentials as jest.Mock).mockResolvedValue({
+				accessToken: 'test-token',
+			});
+			(mockHookFunctions.getNodeWebhookUrl as jest.Mock).mockReturnValue(
+				'https://test.com/webhook',
+			);
+			(mockHookFunctions.getNodeParameter as jest.Mock).mockImplementation((name: string) =>
+				name === 'events' ? ['message_created'] : {},
+			);
+			mockHookFunctions.getNode = jest.fn().mockReturnValue({
+				name: 'Max Trigger',
+				type: 'maxTrigger',
+				typeVersion: 1,
+				position: [0, 0],
+				parameters: {},
+			});
+		});
+
+		it('does not activate a webhook when MAX reports a rejected subscription', async () => {
+			(mockHookFunctions.helpers!.httpRequest as jest.Mock)
+				.mockResolvedValueOnce({ subscriptions: [] })
+				.mockResolvedValueOnce({ success: false, message: 'Subscription rejected' });
+
+			await expect(webhookManager.create.call(mockHookFunctions as IHookFunctions)).rejects.toThrow(
+				'Subscription rejected',
+			);
+		});
+
+		it('returns false when MAX reports an unsuccessful deletion', async () => {
+			(mockHookFunctions.helpers!.httpRequest as jest.Mock)
+				.mockResolvedValueOnce({ subscriptions: [{ url: 'https://test.com/webhook' }] })
+				.mockResolvedValueOnce({ success: false, message: 'Deletion rejected' });
+
+			await expect(webhookManager.delete.call(mockHookFunctions as IHookFunctions)).resolves.toBe(
+				false,
+			);
+		});
+	});
+
 	describe('getWebhookConfig', () => {
 		it('should convert IDN webhook hostname to punycode', async () => {
 			const mockCredentials = {

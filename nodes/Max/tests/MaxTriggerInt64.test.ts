@@ -20,6 +20,7 @@ describe('Max Trigger int64 handling', () => {
 			},
 		};
 		const context = {
+			getNodeParameter: jest.fn().mockReturnValue({}),
 			getRequestObject: jest.fn().mockReturnValue(request),
 		} as unknown as IWebhookFunctions;
 
@@ -46,6 +47,7 @@ describe('Max Trigger int64 handling', () => {
 			body: parsedBody,
 		};
 		const context = {
+			getNodeParameter: jest.fn().mockReturnValue({}),
 			getRequestObject: jest.fn().mockReturnValue(request),
 		} as unknown as IWebhookFunctions;
 

@@ -1,4 +1,5 @@
 import type { IWebhookFunctions, IDataObject, IWebhookResponseData } from 'n8n-workflow';
+import { createHash } from 'node:crypto';
 import type { MaxWebhookEvent, MaxTriggerEvent } from './MaxTriggerConfig';
 
 /**
@@ -164,8 +165,8 @@ export class MaxEventProcessor {
 				: { chat_id: bodyData.chat_id });
 		const userInfo =
 			bodyData.user ||
-			bodyData.message?.sender ||
 			bodyData.callback?.user ||
+			bodyData.message?.sender ||
 			(bodyData.user_id !== undefined ? { user_id: bodyData.user_id } : undefined);
 
 		return { chatInfo, userInfo };
@@ -864,8 +865,8 @@ export class MaxEventProcessor {
 		// Get user ID from various possible locations
 		const userId =
 			bodyData.user?.user_id ||
-			bodyData.message?.sender?.user_id ||
 			bodyData.callback?.user?.user_id ||
+			bodyData.message?.sender?.user_id ||
 			bodyData.user_id ||
 			'unknown';
 
@@ -876,9 +877,11 @@ export class MaxEventProcessor {
 		// Get callback ID for callback events
 		const callbackId = bodyData.callback?.callback_id || '';
 
-		// Create a hash-like ID from available data
-		const dataString = `${eventType}-${timestamp}-${chatId}-${userId}-${messageId}-${callbackId}`;
-		return Buffer.from(dataString).toString('base64').substring(0, 16);
+		// Hash the full identity so every field contributes to the event ID.
+		const dataString = JSON.stringify(
+			[eventType, timestamp, chatId, userId, messageId, callbackId].map(String),
+		);
+		return createHash('sha256').update(dataString).digest('hex');
 	}
 
 	/**
@@ -899,14 +902,14 @@ export class MaxEventProcessor {
 
 		// Extract user context
 		let user = bodyData.user;
+		if (!user && bodyData.callback?.user) {
+			user = bodyData.callback.user;
+		}
 		if (!user && bodyData.message?.sender) {
 			user = bodyData.message.sender;
 		}
 		if (!user && bodyData.message?.from) {
 			user = bodyData.message.from;
-		}
-		if (!user && bodyData.callback?.user) {
-			user = bodyData.callback.user;
 		}
 
 		if (user) {

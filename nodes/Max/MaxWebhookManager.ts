@@ -1,4 +1,5 @@
 import type { IDataObject, IHookFunctions } from 'n8n-workflow';
+import { NodeApiError } from 'n8n-workflow';
 import type { MaxSubscriptionsResponse, MaxTriggerEvent } from './MaxTriggerConfig';
 import { getMaxTlsOptions } from './MaxTlsOptions';
 import { normalizeMaxBaseUrl, normalizeMaxWebhookUrl } from './MaxUrlUtils';
@@ -212,7 +213,7 @@ export class MaxWebhookManager {
 			body['version'] = version.trim();
 		}
 
-		await context.helpers.httpRequest({
+		const response = (await context.helpers.httpRequest({
 			...getMaxTlsOptions(credentials),
 			method: 'POST',
 			url: `${baseUrl}/subscriptions`,
@@ -222,7 +223,15 @@ export class MaxWebhookManager {
 			},
 			body,
 			json: true,
-		});
+		})) as IDataObject | undefined;
+		if (response?.['success'] === false) {
+			throw new NodeApiError(context.getNode(), {
+				message:
+					typeof response['message'] === 'string'
+						? response['message']
+						: 'MAX rejected the webhook subscription request',
+			});
+		}
 	}
 
 	/**
@@ -234,7 +243,7 @@ export class MaxWebhookManager {
 		webhookUrl: string,
 		credentials: any,
 	): Promise<void> {
-		await context.helpers.httpRequest({
+		const response = (await context.helpers.httpRequest({
 			...getMaxTlsOptions(credentials),
 			method: 'DELETE',
 			url: `${baseUrl}/subscriptions`,
@@ -245,6 +254,14 @@ export class MaxWebhookManager {
 				Authorization: credentials['accessToken'] as string,
 			},
 			json: true,
-		});
+		})) as IDataObject | undefined;
+		if (response?.['success'] === false) {
+			throw new NodeApiError(context.getNode(), {
+				message:
+					typeof response['message'] === 'string'
+						? response['message']
+						: 'MAX rejected the webhook subscription request',
+			});
+		}
 	}
 }

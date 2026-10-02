@@ -126,6 +126,43 @@ describe('MaxEventProcessor', () => {
 		});
 	});
 
+	describe('Callback actor', () => {
+		const callbackEvent: MaxWebhookEvent = {
+			update_type: 'message_callback',
+			timestamp: 1640995200000,
+			callback: {
+				callback_id: 'callback_1',
+				payload: 'confirm',
+				user: { user_id: 456, first_name: 'Clicker' },
+			},
+			message: {
+				sender: { user_id: 999, first_name: 'Bot', is_bot: true },
+				recipient: { chat_id: 123 },
+				body: { mid: 'message_1' },
+			},
+		};
+
+		it.each([
+			['456', 1],
+			['999', 0],
+		])('filters by the clicker, not the message author (%s)', async (userIds, expectedCount) => {
+			(mockWebhookFunctions.getBodyData as jest.Mock).mockReturnValue(callbackEvent);
+			(mockWebhookFunctions.getNodeParameter as jest.Mock)
+				.mockReturnValueOnce({ userIds })
+				.mockReturnValueOnce(['message_callback']);
+			const result = await eventProcessor.processWebhookEvent.call(
+				mockWebhookFunctions as IWebhookFunctions,
+			);
+			expect(result.workflowData).toHaveLength(expectedCount);
+		});
+
+		it('reports the clicker in user metadata and preserves the original message author', () => {
+			const result = eventProcessor.processEventSpecificData(callbackEvent, 'message_callback');
+			expect(result.metadata.user_context).toMatchObject({ user_id: 456, display_name: 'Clicker' });
+			expect(result['message']).toMatchObject({ sender: { user_id: 999 } });
+		});
+	});
+
 	describe('Chat ID Filtering', () => {
 		it('should allow events from specified chat IDs', async () => {
 			const mockBodyData: MaxWebhookEvent = {
@@ -838,7 +875,7 @@ describe('MaxEventProcessor', () => {
 			});
 		});
 
-		it('should generate unique event IDs', async () => {
+		it('should generate stable event IDs for repeated events', async () => {
 			const mockBodyData: MaxWebhookEvent = {
 				update_type: 'message_created',
 				timestamp: 1640995200,
@@ -894,6 +931,69 @@ describe('MaxEventProcessor', () => {
 			expect(eventData.metadata.processing_time_ms).toBeGreaterThanOrEqual(0);
 			expect(eventData.metadata.received_at).toBeDefined();
 			expect(eventData.metadata.source).toBe('webhook');
+		});
+	});
+
+	describe('event ID generation', () => {
+		const messageEvent: MaxWebhookEvent = {
+			update_type: 'message_created',
+			timestamp: 1640995200000,
+			message: {
+				sender: { user_id: 456 },
+				recipient: { chat_id: 123 },
+				body: { mid: 'msg_123', text: 'Hello' },
+			},
+		};
+
+		it.each<{ field: string; changes: Partial<MaxWebhookEvent> }>([
+			{
+				field: 'message ID',
+				changes: {
+					message: { ...messageEvent.message, body: { mid: 'msg_456', text: 'Hello' } },
+				},
+			},
+			{ field: 'timestamp', changes: { timestamp: 1640995200001 } },
+			{
+				field: 'chat ID',
+				changes: { message: { ...messageEvent.message, recipient: { chat_id: 789 } } },
+			},
+			{
+				field: 'user ID',
+				changes: { message: { ...messageEvent.message, sender: { user_id: 789 } } },
+			},
+		])('should distinguish message events with a different $field', ({ changes }) => {
+			const first = eventProcessor.processEventSpecificData(messageEvent, 'message_created');
+			const second = eventProcessor.processEventSpecificData(
+				{ ...messageEvent, ...changes },
+				'message_created',
+			);
+
+			expect(first.event_id).not.toBe(second.event_id);
+		});
+
+		it('preserves field boundaries when identifiers contain separators', () => {
+			const event = (mid: string, callbackId: string): MaxWebhookEvent => ({
+				...messageEvent,
+				update_type: 'message_callback',
+				message: { ...messageEvent.message, body: { mid } },
+				callback: { callback_id: callbackId },
+			});
+			const first = eventProcessor.processEventSpecificData(event('a-b', 'c'), 'message_callback');
+			const second = eventProcessor.processEventSpecificData(event('a', 'b-c'), 'message_callback');
+			expect(first.event_id).not.toBe(second.event_id);
+		});
+
+		it('should distinguish callback events with different callback IDs', () => {
+			const first = eventProcessor.processEventSpecificData(
+				{ ...messageEvent, callback: { callback_id: 'callback_123' } },
+				'message_callback',
+			);
+			const second = eventProcessor.processEventSpecificData(
+				{ ...messageEvent, callback: { callback_id: 'callback_456' } },
+				'message_callback',
+			);
+
+			expect(first.event_id).not.toBe(second.event_id);
 		});
 	});
 
