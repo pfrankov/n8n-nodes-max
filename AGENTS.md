@@ -43,6 +43,8 @@
 
 ### Key Design Decisions
 
+- MAX removed `POST /chats/{chatId}/members` on 2026-09-30 with no replacement. Do not offer Chat Member Add in new configurations. Keep saved `add` recognized and fail clearly before reading IDs or making an API call; never remap saved operations.
+
 - Default API base URL is `https://platform-api2.max.ru`; stored legacy official URLs are normalized at runtime and during credential testing.
 - Recipient validation must inspect the original parameter value before string conversion, rejecting unsafe JavaScript numbers.
 - API input identifiers are validated against the full signed-int64 range without JavaScript number coercion. Trigger and newer resource responses normalize IDs to strings. Legacy message operations and Get Chat Info/Leave Chat preserve safe numeric response IDs for compatibility, but parse unsafe integer literals as exact decimal strings; never let the HTTP client round them first.

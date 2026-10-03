@@ -314,18 +314,14 @@ async function executeMemberOperation(
 	operation: string,
 	itemIndex: number,
 ): Promise<unknown> {
+	if (operation === 'add') {
+		throw new ApplicationError(
+			'MAX removed POST /chats/{chatId}/members on 2026-09-30. Adding chat members is no longer supported; remove or replace this workflow step.',
+		);
+	}
 	const chatId = requireInt64(getParameter<unknown>(context, 'chatId', itemIndex, ''), 'Chat ID');
 	const path = `/chats/${encodePath(chatId)}/members`;
 
-	if (operation === 'add') {
-		return await request(context, 'POST', path, undefined, {
-			user_ids: parseIdList(
-				getParameter<unknown>(context, 'userIds', itemIndex, ''),
-				'User IDs',
-				100,
-			),
-		});
-	}
 	if (operation === 'remove') {
 		return await request(context, 'DELETE', path, {
 			user_id: requireInt64(getParameter<unknown>(context, 'userId', itemIndex, ''), 'User ID'),
