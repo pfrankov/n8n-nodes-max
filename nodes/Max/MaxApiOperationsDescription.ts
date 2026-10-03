@@ -304,12 +304,6 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 	]),
 	operationProperty('chatMember', [
 		{
-			name: 'Add',
-			value: 'add',
-			description: 'Add up to 100 users to a group chat',
-			action: 'Add chat members',
-		},
-		{
 			name: 'Get Many',
 			value: 'getMany',
 			description: 'Get many chat or channel members',
@@ -585,20 +579,6 @@ export const MAX_API_OPERATION_PROPERTIES: INodeProperties[] = [
 		],
 		default: 'all',
 		description: 'Whether to page through members or request specific user IDs',
-	},
-	{
-		displayName: 'User IDs',
-		name: 'userIds',
-		type: 'string',
-		default: '',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['chatMember'],
-				operation: ['add'],
-			},
-		},
-		description: 'A comma-separated list of signed int64 user IDs, up to 100',
 	},
 	{
 		displayName: 'User IDs',

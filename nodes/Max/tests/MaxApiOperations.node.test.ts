@@ -39,6 +39,45 @@ async function execute(context: IExecuteFunctions) {
 }
 
 describe('focused MAX API nodes', () => {
+	it('offers only supported member operations and defaults to Get Many', () => {
+		const operation = new MaxChatMember().description.properties.find(
+			(p) => p.name === 'operation',
+		);
+		expect(operation?.options).toEqual([
+			expect.objectContaining({ value: 'getMany' }),
+			expect.objectContaining({ value: 'remove' }),
+		]);
+		expect(operation?.default).toBe('getMany');
+	});
+
+	it.each(['-123', ''])(
+		'rejects saved Add without reading IDs or calling MAX (chatId=%s)',
+		async (chatId) => {
+			const parameters = { operation: 'add', chatId, userIds: '456' };
+			const { context, httpRequest } = createExecuteContext(parameters);
+			await expect(new MaxChatMember().execute.call(context)).rejects.toThrow(
+				'MAX removed POST /chats/{chatId}/members on 2026-09-30. Adding chat members is no longer supported; remove or replace this workflow step.',
+			);
+			expect(httpRequest).not.toHaveBeenCalled();
+			expect(context.getCredentials).not.toHaveBeenCalled();
+			expect(context.getNodeParameter).not.toHaveBeenCalledWith(
+				'chatId',
+				expect.anything(),
+				expect.anything(),
+			);
+			expect(parameters.operation).toBe('add');
+		},
+	);
+
+	it('preserves continue-on-fail for saved Add without an API call', async () => {
+		const { context, httpRequest } = createExecuteContext({ operation: 'add' });
+		jest.mocked(context.continueOnFail).mockReturnValue(true);
+		const result = await new MaxChatMember().execute.call(context);
+		expect(result[0]?.[0]?.json['error']).toContain('Adding chat members is no longer supported');
+		expect(result[0]?.[0]?.pairedItem).toEqual({ item: 0 });
+		expect(httpRequest).not.toHaveBeenCalled();
+	});
+
 	describe('description', () => {
 		it('exposes one node per supported resource without a resource selector', () => {
 			const nodes: INodeType[] = [

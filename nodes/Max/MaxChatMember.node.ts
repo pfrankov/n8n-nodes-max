@@ -6,7 +6,7 @@ export class MaxChatMember implements INodeType {
 	description = maxResourceDescription({
 		displayName: 'Max Chat Member',
 		name: 'maxChatMember',
-		description: 'List, add, remove, and block MAX chat members',
+		description: 'List, remove, and block MAX chat members',
 		properties: maxApiPropertiesFor('chatMember'),
 	});
 
