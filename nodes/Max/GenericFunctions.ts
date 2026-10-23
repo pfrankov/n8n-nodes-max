@@ -920,6 +920,9 @@ export function createUserFriendlyErrorMessage(
 			return `Invalid input: ${baseMessage}. Check your data (IDs, text length, format).`;
 
 		case MaxErrorCategory.BUSINESS_LOGIC:
+			if (/invalid\s*chat\s*id:?\s*0\b/i.test(baseMessage)) {
+				return `Operation failed: ${baseMessage}. MAX could not find a dialog between the bot and this user. When sending to a User, the User ID must belong to a person who has written to the bot. In Max Trigger data use message.sender.user_id (the author), not message.recipient.user_id (the bot itself).`;
+			}
 			if (baseMessage.toLowerCase().includes('chat not found')) {
 				return `Chat not found: ${baseMessage}. Check the Chat ID. Make sure the bot is a member.`;
 			}

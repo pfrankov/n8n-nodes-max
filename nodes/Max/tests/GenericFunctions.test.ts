@@ -317,6 +317,20 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(message).toContain('Please wait before retrying');
 		});
 
+		it('should explain Invalid chatId: 0 as a missing bot dialog with the user', () => {
+			const error = { description: 'Invalid chatId: 0' };
+			const message = createUserFriendlyErrorMessage(error, MaxErrorCategory.BUSINESS_LOGIC);
+			expect(message).toContain('Invalid chatId: 0');
+			expect(message).toContain('message.sender.user_id');
+			expect(message).toContain('not message.recipient.user_id');
+		});
+
+		it('should not treat other chat IDs as the missing dialog case', () => {
+			const error = { description: 'Invalid chatId: 0123' };
+			const message = createUserFriendlyErrorMessage(error, MaxErrorCategory.BUSINESS_LOGIC);
+			expect(message).not.toContain('message.sender.user_id');
+		});
+
 		it('should handle errors with only message field', () => {
 			const error = { message: 'Something went wrong' };
 			const message = createUserFriendlyErrorMessage(error, MaxErrorCategory.UNKNOWN);
