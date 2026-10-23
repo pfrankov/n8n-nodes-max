@@ -68,6 +68,7 @@
 - `Edit Message` exposes `Clear Attachments`; when enabled, the node sends `attachments: []` to remove all current message attachments, including inline keyboards.
 - `Send Message` allows non-text requests: `text` may be empty when at least one attachment is present or when a reply/forward link is provided.
 - Recipient ID validation rejects `0` for `sendMessage` and returns guidance for Max Trigger field mapping (`message.sender.user_id` for user, `message.recipient.chat_id` for chat).
+- MAX API `Invalid chatId: 0` (bot has no dialog with the target user, e.g. the bot's own `message.recipient.user_id` was used) is surfaced as a `NodeApiError` whose final `message` explains the missing dialog and points to `message.sender.user_id`. Pass this hint via `NodeApiError` options (`message`, `description`, `httpCode`), because `NodeApiError` replaces `errorResponse.message` with generic HTTP text (403 "Forbidden - perhaps check your credentials?"). Keep `httpCode` and `original_error`; other API errors keep the standard n8n HTTP messages.
 - Keyboard validation enforces documented limits (rows/buttons/text/payload/url and limited-type per-row constraints).
 
 ## Project Structure & Module Organization
