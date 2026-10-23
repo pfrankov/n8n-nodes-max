@@ -890,6 +890,14 @@ export function categorizeMaxError(error: IMaxError): MaxErrorCategory {
 }
 
 /**
+ * MAX answers "Invalid chatId: 0" when the bot has no dialog with the target user
+ * (for example, when the bot's own ID from message.recipient.user_id is used).
+ */
+function isMissingDialogError(text: string | undefined): boolean {
+	return /invalid\s*chat\s*id:?\s*0\b/i.test(text || '');
+}
+
+/**
  * Create user-friendly error messages with troubleshooting guidance
  *
  * Generates human-readable error messages with specific troubleshooting guidance
@@ -920,7 +928,7 @@ export function createUserFriendlyErrorMessage(
 			return `Invalid input: ${baseMessage}. Check your data (IDs, text length, format).`;
 
 		case MaxErrorCategory.BUSINESS_LOGIC:
-			if (/invalid\s*chat\s*id:?\s*0\b/i.test(baseMessage)) {
+			if (isMissingDialogError(baseMessage)) {
 				return `Operation failed: ${baseMessage}. MAX could not find a dialog between the bot and this user. When sending to a User, the User ID must belong to a person who has written to the bot. In Max Trigger data use message.sender.user_id (the author), not message.recipient.user_id (the bot itself).`;
 			}
 			if (baseMessage.toLowerCase().includes('chat not found')) {
@@ -1009,15 +1017,33 @@ export async function handleMaxApiError(
 		});
 	}
 
-	// For all other errors, throw NodeApiError with enhanced information
-	throw new NodeApiError(this.getNode(), {
+	const httpCode = maxError.status?.toString() || maxError.error_code?.toString();
+	const description = `Error during ${operation}`;
+	const errorResponse = {
 		message: userMessage,
-		description: `Error during ${operation}`,
-		httpCode: maxError.status?.toString() || maxError.error_code?.toString(),
+		description,
+		httpCode,
 		error_code: maxError.error_code,
 		category,
 		original_error: error,
-	} as JsonObject);
+	} as JsonObject;
+
+	// NodeApiError replaces errorResponse.message with the generic HTTP text
+	// (e.g. 403 "Forbidden - perhaps check your credentials?"). For the missing
+	// dialog case that text is misleading, so pass the hint as an explicit option.
+	if (
+		category === MaxErrorCategory.BUSINESS_LOGIC &&
+		isMissingDialogError(maxError.description || maxError.message)
+	) {
+		throw new NodeApiError(this.getNode(), errorResponse, {
+			message: userMessage,
+			description,
+			...(httpCode ? { httpCode } : {}),
+		});
+	}
+
+	// For all other errors, throw NodeApiError with enhanced information
+	throw new NodeApiError(this.getNode(), errorResponse);
 }
 
 /**

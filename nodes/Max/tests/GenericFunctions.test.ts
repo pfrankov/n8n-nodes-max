@@ -475,6 +475,57 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			}
 		});
 
+		it('should show the missing dialog hint in the final 403 error for Invalid chatId: 0', async () => {
+			const originalError = {
+				message: 'Request failed with status code 403',
+				status: 403,
+				response: { status: 403, data: { code: 'chat.denied', message: 'Invalid chatId: 0' } },
+			};
+
+			const error: any = await handleMaxApiError
+				.call(mockExecuteFunctions as IExecuteFunctions, originalError, 'send message to user')
+				.catch((thrown: unknown) => thrown);
+
+			expect(error).toBeInstanceOf(NodeApiError);
+			expect(error.message).toContain('Invalid chatId: 0');
+			expect(error.message).toContain('message.sender.user_id');
+			expect(error.message).toContain('not message.recipient.user_id');
+			expect(error.message).not.toContain('perhaps check your credentials');
+			expect(error.description).toBe('Error during send message to user');
+			expect(error.httpCode).toBe('403');
+			expect(error.errorResponse.original_error).toBe(originalError);
+		});
+
+		it('should show the missing dialog hint when MAX reports it via error_code and description', async () => {
+			const originalError = { error_code: 403, description: 'Invalid chatId: 0' };
+
+			const error: any = await handleMaxApiError
+				.call(mockExecuteFunctions as IExecuteFunctions, originalError, 'send message to user')
+				.catch((thrown: unknown) => thrown);
+
+			expect(error).toBeInstanceOf(NodeApiError);
+			expect(error.message).toContain('message.sender.user_id');
+			expect(error.description).toBe('Error during send message to user');
+			expect(error.httpCode).toBe('403');
+		});
+
+		it('should keep the standard HTTP message for other 403 errors', async () => {
+			const originalError = {
+				message: 'Request failed with status code 403',
+				status: 403,
+				response: { status: 403, data: { code: 'chat.denied', message: 'Invalid chatId: 0123' } },
+			};
+
+			const error: any = await handleMaxApiError
+				.call(mockExecuteFunctions as IExecuteFunctions, originalError, 'send message to user')
+				.catch((thrown: unknown) => thrown);
+
+			expect(error).toBeInstanceOf(NodeApiError);
+			expect(error.message).toBe('Forbidden - perhaps check your credentials?');
+			expect(error.httpCode).toBe('403');
+			expect(error.messages.join(' ')).not.toContain('message.sender.user_id');
+		});
+
 		it('should preserve original error details in enhanced error', async () => {
 			const originalError = ErrorFactory.createAuthError({ error_code: 401 });
 
