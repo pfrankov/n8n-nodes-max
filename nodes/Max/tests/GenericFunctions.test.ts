@@ -317,6 +317,20 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			expect(message).toContain('Please wait before retrying');
 		});
 
+		it('should explain Invalid chatId: 0 as a missing bot dialog with the user', () => {
+			const error = { description: 'Invalid chatId: 0' };
+			const message = createUserFriendlyErrorMessage(error, MaxErrorCategory.BUSINESS_LOGIC);
+			expect(message).toContain('Invalid chatId: 0');
+			expect(message).toContain('message.sender.user_id');
+			expect(message).toContain('not message.recipient.user_id');
+		});
+
+		it('should not treat other chat IDs as the missing dialog case', () => {
+			const error = { description: 'Invalid chatId: 0123' };
+			const message = createUserFriendlyErrorMessage(error, MaxErrorCategory.BUSINESS_LOGIC);
+			expect(message).not.toContain('message.sender.user_id');
+		});
+
 		it('should handle errors with only message field', () => {
 			const error = { message: 'Something went wrong' };
 			const message = createUserFriendlyErrorMessage(error, MaxErrorCategory.UNKNOWN);
@@ -459,6 +473,57 @@ describe('GenericFunctions - Comprehensive Test Suite', () => {
 			} catch (error: any) {
 				expect(error.description).toContain('Retry attempt 3/3');
 			}
+		});
+
+		it('should show the missing dialog hint in the final 403 error for Invalid chatId: 0', async () => {
+			const originalError = {
+				message: 'Request failed with status code 403',
+				status: 403,
+				response: { status: 403, data: { code: 'chat.denied', message: 'Invalid chatId: 0' } },
+			};
+
+			const error: any = await handleMaxApiError
+				.call(mockExecuteFunctions as IExecuteFunctions, originalError, 'send message to user')
+				.catch((thrown: unknown) => thrown);
+
+			expect(error).toBeInstanceOf(NodeApiError);
+			expect(error.message).toContain('Invalid chatId: 0');
+			expect(error.message).toContain('message.sender.user_id');
+			expect(error.message).toContain('not message.recipient.user_id');
+			expect(error.message).not.toContain('perhaps check your credentials');
+			expect(error.description).toBe('Error during send message to user');
+			expect(error.httpCode).toBe('403');
+			expect(error.errorResponse.original_error).toBe(originalError);
+		});
+
+		it('should show the missing dialog hint when MAX reports it via error_code and description', async () => {
+			const originalError = { error_code: 403, description: 'Invalid chatId: 0' };
+
+			const error: any = await handleMaxApiError
+				.call(mockExecuteFunctions as IExecuteFunctions, originalError, 'send message to user')
+				.catch((thrown: unknown) => thrown);
+
+			expect(error).toBeInstanceOf(NodeApiError);
+			expect(error.message).toContain('message.sender.user_id');
+			expect(error.description).toBe('Error during send message to user');
+			expect(error.httpCode).toBe('403');
+		});
+
+		it('should keep the standard HTTP message for other 403 errors', async () => {
+			const originalError = {
+				message: 'Request failed with status code 403',
+				status: 403,
+				response: { status: 403, data: { code: 'chat.denied', message: 'Invalid chatId: 0123' } },
+			};
+
+			const error: any = await handleMaxApiError
+				.call(mockExecuteFunctions as IExecuteFunctions, originalError, 'send message to user')
+				.catch((thrown: unknown) => thrown);
+
+			expect(error).toBeInstanceOf(NodeApiError);
+			expect(error.message).toBe('Forbidden - perhaps check your credentials?');
+			expect(error.httpCode).toBe('403');
+			expect(error.messages.join(' ')).not.toContain('message.sender.user_id');
 		});
 
 		it('should preserve original error details in enhanced error', async () => {
